@@ -223,11 +223,16 @@ final class WhisperServer: @unchecked Sendable {
     func warmUp() {
         guard available, process?.isRunning != true, let bin = serverBinary else { return }
         port = Int.random(in: 52_000...59_000)
-        let p = Process()
-        p.executableURL = bin
         let lang = Locale.current.language.languageCode?.identifier ?? "en"
-        p.arguments = ["-m", Whisper.modelURL.path, "--host", "127.0.0.1", "--port", "\(port)",
-                       "-t", "\(max(4, ProcessInfo.processInfo.activeProcessorCount - 2))", "-l", lang, "-nt"]
+        let args = [bin.path, "-m", Whisper.modelURL.path, "--host", "127.0.0.1", "--port", "\(port)",
+                    "-t", "\(max(4, ProcessInfo.processInfo.activeProcessorCount - 2))", "-l", lang, "-nt"]
+        // The server holds about 600 MB, so it must never outlive Bubble, even if Bubble crashes or is
+        // force quit: a small shell minder runs it and stops it as soon as Bubble is gone.
+        let quoted = args.map { "'" + $0.replacingOccurrences(of: "'", with: "'\\''") + "'" }.joined(separator: " ")
+        let p = Process()
+        p.executableURL = URL(fileURLWithPath: "/bin/sh")
+        p.arguments = ["-c", "\(quoted) & s=$!; trap 'kill $s 2>/dev/null; exit 0' TERM INT HUP; "
+                       + "while kill -0 \(getpid()) 2>/dev/null && kill -0 $s 2>/dev/null; do sleep 2; done; kill $s 2>/dev/null"]
         p.standardOutput = FileHandle.nullDevice
         p.standardError = FileHandle.nullDevice
         do { try p.run(); process = p; log("whisper: voice server starting"); scheduleIdleStop() } catch { log("whisper: server failed: \(error.localizedDescription)") }
@@ -284,6 +289,16 @@ final class WhisperServer: @unchecked Sendable {
     func stop() {
         process?.terminate()
         process = nil
+    }
+
+    /// Stops servers left behind by an earlier Bubble that didn't get to stop them (before the minder existed).
+    static func stopLeftovers() {
+        let p = Process()
+        p.executableURL = URL(fileURLWithPath: "/usr/bin/pkill")
+        p.arguments = ["-P", "1", "-f", "whisper-server -m \(Whisper.modelURL.path)"]
+        p.standardOutput = FileHandle.nullDevice
+        p.standardError = FileHandle.nullDevice
+        try? p.run()
     }
 
     private static func wav(_ pcm: Data) -> Data {

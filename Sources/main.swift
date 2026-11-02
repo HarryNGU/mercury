@@ -47,6 +47,7 @@ final class AppDelegate: NSObject, NSApplicationDelegate, NSMenuDelegate, NSWind
     private let dictation = DictationController()
     private lazy var assistant = AssistantController()
     private var controls: ControlBar!
+    private let draw = DrawController()
     private var recording = false { didSet { if oldValue != recording { buildMainMenu(); keepAwake(recording) } } }
     private var awake: IOPMAssertionID?
 
@@ -80,10 +81,13 @@ final class AppDelegate: NSObject, NSApplicationDelegate, NSMenuDelegate, NSWind
     private var recordingContext: (title: String?, app: String?) = (nil, nil)  // captured at start, for naming
     private var recordingStartedAt = Date()
     private var selftestSeconds: Double?
+    private var reelTest: ReelEditor?
+    private var drawTest: ClaudeCodeSession?
     private var selftestRestarted = false
 
     func applicationDidFinishLaunching(_ n: Notification) {
         let args = CommandLine.arguments
+        if StudioTests.run(args) { return }
         // Only one Bubble at a time: a second copy hands over to the first and quits.
         // (Test runs pass "--" options and are allowed alongside.)
         if !args.contains(where: { $0.hasPrefix("--") }),
@@ -102,6 +106,11 @@ final class AppDelegate: NSObject, NSApplicationDelegate, NSMenuDelegate, NSWind
         statusItem.menu = menu
 
         wireModel()
+        if !args.contains(where: { $0.hasPrefix("--") }) {
+            ReelBuilder.removeUnfinished(in: Settings.reelsFolder)
+            WhisperServer.stopLeftovers()
+            Connectors.refreshIfDue()
+        }
         Sounds.preload()
         controls = ControlBar(model: model)
         recorder.onMicLevel = { [weak self] level in
@@ -176,7 +185,8 @@ final class AppDelegate: NSObject, NSApplicationDelegate, NSMenuDelegate, NSWind
             selftestSeconds = secs
             DispatchQueue.main.asyncAfter(deadline: .now() + 1.5) { self.start() }
         } else {
-            if !launchedAtLogin || !Settings.onboarded { showLauncher() } else { log("started at login") }
+            if args.contains("--demo") { }  // demos show only the panel
+            else if !launchedAtLogin || !Settings.onboarded { showLauncher() } else { log("started at login") }
             // Testing: `--dicttest` dictates for 8 seconds (say something), then delivers.
             if args.contains("--dicttest") {
                 DispatchQueue.main.asyncAfter(deadline: .now() + 2) { self.dictation.toggle() }
@@ -185,14 +195,145 @@ final class AppDelegate: NSObject, NSApplicationDelegate, NSMenuDelegate, NSWind
             // Testing: `--assisttest` opens the assistant and starts listening.
             if args.contains("--assisttest") {
                 DispatchQueue.main.asyncAfter(deadline: .now() + 1) { self.assistant.show() }
-                if let i = args.firstIndex(of: "--assisttest"), i + 1 < args.count {
+                // `--assisttest --history` only opens the chat list; it never asks anything.
+                if args.contains("--history") { DispatchQueue.main.asyncAfter(deadline: .now() + 2.5) { self.assistant.model.historyRequest += 1 } }
+                if let i = args.firstIndex(of: "--assisttest"), i + 1 < args.count, !args[i + 1].hasPrefix("--") {
                     let q = args[i + 1]
                     DispatchQueue.main.asyncAfter(deadline: .now() + 2) { self.assistant.model.seeScreen = false; self.assistant.model.ask(q) }
                 }
             }
             // Testing: `--edit <file name>` opens that recording in the reel editor.
+            // Testing: `--reelchat <file name> <request>` asks the reel editor's Claude, logs the answer and quits.
+            if let i = args.firstIndex(of: "--reelchat"), i + 2 < args.count {
+                let ed = ReelEditor(url: Settings.folder.appendingPathComponent(args[i + 1]))
+                reelTest = ed
+                ed.start()
+                Task { @MainActor in
+                    while ed.analysis == nil || ed.transcribing != nil { try? await Task.sleep(nanoseconds: 300_000_000) }
+                    let before = ed.plan
+                    ed.send(args[i + 2])
+                    try? await Task.sleep(nanoseconds: 200_000_000)
+                    while ed.thinking { try? await Task.sleep(nanoseconds: 300_000_000) }
+                    log("reelchat: \(ed.chat.last?.text ?? "nothing") | edit changed: \(ed.plan != before), cuts \(ed.plan.removed.count), now \(String(format: "%.1f", ed.editedLength)) s")
+                    NSApp.terminate(nil)
+                }
+            }
+            // Testing: `--reelsave <file name> <size>` saves one reel with the recording's current edit, then quits.
+            if let i = args.firstIndex(of: "--reelsave"), i + 2 < args.count, let size = ReelSize(rawValue: args[i + 2]) {
+                let ed = ReelEditor(url: Settings.folder.appendingPathComponent(args[i + 1]))
+                reelTest = ed
+                ed.toSave = [size]
+                ed.start()
+                Task { @MainActor in
+                    while ed.analysis == nil || ed.transcribing != nil { try? await Task.sleep(nanoseconds: 300_000_000) }
+                    let t0 = Date()
+                    let pieces = ed.spans
+                    log("reelsave: \(pieces.count) pieces, shortest \(String(format: "%.2f", pieces.map(\.length).min() ?? 0)) s, \(pieces.filter { $0.length < 0.5 }.count) under 0.5 s")
+                    ed.save()
+                    try? await Task.sleep(nanoseconds: 300_000_000)
+                    while ed.exporting != nil { try? await Task.sleep(nanoseconds: 500_000_000) }
+                    log("reelsave: \(ed.saved.map(\.lastPathComponent)) in \(Int(Date().timeIntervalSince(t0))) s, error: \(ed.error ?? "none")")
+                    NSApp.terminate(nil)
+                }
+            }
+            // Testing: `--drawtest <question>` asks Ask Bubble's brain in a separate throwaway conversation,
+            // says no to anything needing approval, and logs whether a picture it drew would show in the chat.
+            if let i = args.firstIndex(of: "--drawtest"), i + 1 < args.count {
+                Settings.d.removeObject(forKey: "drawTestSessionID")
+                let s = ClaudeCodeSession(profile: .init(sessionKey: "drawTestSessionID", prompt: { ClaudeCodeSession.overlayPrompt }, isJob: false))
+                var reply = ""
+                drawTest = s
+                s.onEvent = { e in
+                    switch e {
+                    case .text(let t): reply += t
+                    case .activity(let a): log("drawtest: \(a)")
+                    case .approval(let a): log("drawtest: asked to approve \(a.tool): \(a.summary.prefix(120))"); s.answer(a, allow: false)
+                    case .done(let err):
+                        let pics = RichAnswer.blocks(reply).compactMap { b -> URL? in if case .image(let u) = b { return u } else { return nil } }
+                        for u in pics { log("drawtest: picture \(u.path) shows: \(u.isFileURL ? (LocalPicture.load(u) != nil) : true)") }
+                        log("drawtest: done (\(err ?? "ok")), \(pics.count) picture(s). Reply: \(reply.replacingOccurrences(of: "\n", with: " ").prefix(300))")
+                        s.reset(); NSApp.terminate(nil)
+                    }
+                }
+                s.ask(args[i + 1], screenshot: nil)
+            }
+            // Marketing demos: `--demo "first question||second question" [--demo-at x,top]` opens Ask Bubble in a fresh
+            // chat, types each question at a person's pace, lets Claude answer (it sees the screen), then quits.
+            // The chat's id is logged so the recording script can remove it afterwards.
+            if let i = args.firstIndex(of: "--demo"), i + 1 < args.count {
+                let questions = args[i + 1].components(separatedBy: "||")
+                let model = assistant.model
+                DispatchQueue.main.asyncAfter(deadline: .now() + 1) {
+                    self.assistant.show()
+                    model.newChat()
+                    model.seeScreen = true
+                    if let j = args.firstIndex(of: "--demo-at"), j + 1 < args.count {
+                        let xy = args[j + 1].split(separator: ",").compactMap { Double($0) }
+                        if xy.count == 2 { self.assistant.place(x: xy[0], top: xy[1]) }
+                    }
+                    log("demo: chat \(model.chat.id.uuidString)")
+                }
+                Task { @MainActor in
+                    try? await Task.sleep(for: .seconds(3.5))
+                    for q in questions {
+                        for ch in q {
+                            model.input.append(ch)
+                            try? await Task.sleep(for: .milliseconds(ch == " " ? 95 : 62))
+                        }
+                        try? await Task.sleep(for: .milliseconds(450))
+                        log("demo: asking")
+                        model.ask()
+                        try? await Task.sleep(for: .seconds(1))
+                        while model.thinking { try? await Task.sleep(for: .milliseconds(300)) }
+                        log("demo: answered")
+                        try? await Task.sleep(for: .seconds(3))
+                    }
+                    log("demo: done")
+                    try? await Task.sleep(for: .seconds(2))
+                    NSApp.terminate(nil)
+                }
+            }
+            // Testing: `--jobtest <file name> <prompt file>` runs a full reel job, logs each step, says no to
+            // anything that needs approval, and quits when it's done.
+            if let i = args.firstIndex(of: "--jobtest"), i + 2 < args.count,
+               let prompt = try? String(contentsOfFile: args[i + 2], encoding: .utf8) {
+                let job = ReelJob.shared
+                job.newJob()
+                job.send(prompt, recording: Settings.folder.appendingPathComponent(args[i + 1]))
+                var logged = 0
+                Timer.scheduledTimer(withTimeInterval: 0.5, repeats: true) { t in
+                    MainActor.assumeIsolated {
+                        if let a = job.approval { log("jobtest: asked to approve \(a.tool): \(a.summary.prefix(160))"); job.answer(allow: false) }
+                        while logged < job.entries.count {
+                            let e = job.entries[logged]; logged += 1
+                            if e.kind != .claude { log("jobtest: [\(e.kind)] \(e.text.prefix(200))") }
+                        }
+                        if !job.running, logged > 1 {
+                            for e in job.entries where e.kind == .claude { log("jobtest: [claude] \(e.text.replacingOccurrences(of: "\n", with: " ").prefix(400))") }
+                            t.invalidate(); NSApp.terminate(nil)
+                        }
+                    }
+                }
+            }
             if let i = args.firstIndex(of: "--edit"), i + 1 < args.count {
                 model.editing = Settings.folder.appendingPathComponent(args[i + 1])
+                // Testing: `--edit <file> --pastetest <text file>` pastes that text into the chat box and
+                // logs the longest moment the app was unresponsive over the next 20 seconds.
+                if let j = args.firstIndex(of: "--pastetest"), j + 1 < args.count, let text = try? String(contentsOfFile: args[j + 1], encoding: .utf8) {
+                    DispatchQueue.main.asyncAfter(deadline: .now() + 4) {
+                        func find(_ v: NSView) -> ChatTextView.Box? { (v as? ChatTextView.Box) ?? v.subviews.lazy.compactMap(find).first }
+                        guard let box = NSApp.windows.compactMap({ $0.contentView.flatMap(find) }).first else { log("pastetest: no chat box"); return }
+                        box.window?.makeFirstResponder(box)
+                        box.insertText(text, replacementRange: box.selectedRange())
+                        var worst = 0.0, last = Date()
+                        let watch = Timer.scheduledTimer(withTimeInterval: 0.05, repeats: true) { _ in worst = max(worst, Date().timeIntervalSince(last) - 0.05); last = Date() }
+                        DispatchQueue.main.asyncAfter(deadline: .now() + 20) {
+                            watch.invalidate()
+                            log("pastetest: \(text.count) characters pasted, longest stall \(Int(worst * 1000)) ms")
+                            NSApp.terminate(nil)
+                        }
+                    }
+                }
             }
         }
     }
@@ -377,6 +518,20 @@ final class AppDelegate: NSObject, NSApplicationDelegate, NSMenuDelegate, NSWind
         model.onRestart = { [weak self] in self?.restart() }
         model.onDiscard = { [weak self] in self?.stop(discard: true) }
         model.onDone = { [weak self] in self?.stop(discard: false) }
+        model.onDraw = { [weak self] in
+            guard let self, self.recording else { return }
+            // Draw on the screen being recorded (or the one you're on, for a window).
+            let r = self.recorder.recordedRect
+            let screen = r.flatMap { rr in NSScreen.screens.max { $0.frame.intersection(rr).width * $0.frame.intersection(rr).height < $1.frame.intersection(rr).width * $1.frame.intersection(rr).height } } ?? NSScreen.underMouse
+            self.draw.toggle(on: screen, below: self.controls.panel.frame)
+        }
+        model.onClearDrawings = { [weak self] in self?.draw.clear() }
+        draw.onStateChange = { [weak self] in
+            guard let self else { return }
+            if self.model.drawing != self.draw.drawing { self.model.drawing = self.draw.drawing }
+            if self.model.hasDrawings != self.draw.model.hasDrawings { self.model.hasDrawings = self.draw.model.hasDrawings }
+        }
+        draw.onLayerChange = { [weak self] in self?.syncAssistantCapture() }
         model.onDictate = { [weak self] in self?.dictation.toggle() }
         model.onAssist = { [weak self] in self?.assistant.show() }
         model.onAssistKeysChanged = { [weak self] in self?.assistant.refreshKeys() }
@@ -686,7 +841,7 @@ final class AppDelegate: NSObject, NSApplicationDelegate, NSMenuDelegate, NSWind
         // A moment's wait so a panel that just appeared is on screen for ScreenCaptureKit to find.
         DispatchQueue.main.asyncAfter(deadline: .now() + 0.2) { [weak self] in
             guard let self, self.recording else { return }
-            self.recorder.setOverlays(self.assistant.captureWindowNumbers)
+            self.recorder.setOverlays(self.assistant.captureWindowNumbers + self.draw.windowNumbers)
         }
     }
 
@@ -731,6 +886,8 @@ final class AppDelegate: NSObject, NSApplicationDelegate, NSMenuDelegate, NSWind
         controls.hide()
         setIcon()
         Task { await recorder.stop(discarding: discard) }
+        // After the last frame, so the drawings don't vanish at the very end of the video.
+        DispatchQueue.main.asyncAfter(deadline: .now() + 0.6) { [weak self] in self?.draw.reset() }
     }
 
     private func finished(_ url: URL?) {
@@ -809,6 +966,7 @@ final class AppDelegate: NSObject, NSApplicationDelegate, NSMenuDelegate, NSWind
         recording = false
         titleTimer?.invalidate()
         controls.hide()
+        draw.reset()
         setIcon()
         guard !CommandLine.arguments.contains("--selftest") else { return }
         showLauncher()
@@ -841,6 +999,15 @@ final class AppDelegate: NSObject, NSApplicationDelegate, NSMenuDelegate, NSWind
     /// However Bubble is asked to quit (menu, ⌘Q, logging out, another app), a recording in
     /// progress is finished and saved first; Bubble quits once the file is complete.
     func applicationShouldTerminate(_ sender: NSApplication) -> NSApplication.TerminateReply {
+        if !recording, ReelEditor.saving > 0 {
+            NSApp.activate(ignoringOtherApps: true)
+            let a = NSAlert()
+            a.messageText = "Bubble is still saving your reels"
+            a.informativeText = "If you quit now, the reel being saved is thrown away. It usually takes about a minute."
+            a.addButton(withTitle: "Keep Saving")
+            a.addButton(withTitle: "Quit Anyway")
+            return a.runModal() == .alertFirstButtonReturn ? .terminateCancel : .terminateNow
+        }
         guard recording else { return .terminateNow }
         log("quit requested while recording: saving first")
         quitting = true

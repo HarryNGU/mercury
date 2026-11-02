@@ -177,7 +177,17 @@ enum Keychain {
 
     /// Whether a key is saved, without reading it or ever showing a Keychain prompt (so it's
     /// safe to call at launch, even while the Mac is locked).
+    /// Asking the Keychain is a slow trip to a system service, and views ask often, so the answer is kept.
+    private static var knownHasKey: Bool?
+
     static var hasKey: Bool {
+        if let k = knownHasKey { return k }
+        let k = lookUpHasKey()
+        knownHasKey = k
+        return k
+    }
+
+    private static func lookUpHasKey() -> Bool {
         let ctx = LAContext()
         ctx.interactionNotAllowed = true
         let q: [String: Any] = [kSecClass as String: kSecClassGenericPassword, kSecAttrService as String: service,
@@ -196,6 +206,7 @@ enum Keychain {
     }
 
     static func setAPIKey(_ key: String?) {
+        knownHasKey = nil
         let base: [String: Any] = [kSecClass as String: kSecClassGenericPassword, kSecAttrService as String: service,
                                    kSecAttrAccount as String: account]
         SecItemDelete(base as CFDictionary)

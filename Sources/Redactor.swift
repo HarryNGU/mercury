@@ -132,12 +132,18 @@ final class Redactor {
     private static func re(_ p: String) -> NSRegularExpression { try! NSRegularExpression(pattern: p) }
 
     private static let email = re(#"[A-Za-z0-9._%+\-]+@[A-Za-z0-9.\-]+\.[A-Za-z]{2,}"#)
-    private static let cardLike = re(#"(?<![\d.])(?:\d[ \-]?){12,18}\d(?![\d.])"#)
-    private static let phoneLike = re(#"(?<![\w.])\+?\(?\d[\d \-().]{7,16}\d(?![\w.])"#)
+    // Cards are printed in fours (Amex 4-6-5) with the same gap throughout, or as one unbroken run.
+    private static let cardLike = re(#"(?<![\w.,/])(?:\d{4}([ \-]?)\d{4}\1\d{4}\1\d{1,7}|\d{4}([ \-]?)\d{6}\2\d{5})(?![\w.,/])"#)
+    // Candidates only; isPhone decides. Not right after letters, operators or a decimal point.
+    private static let phoneLike = re(#"(?<![\w.,/*^=×÷(])(?:\+\d{1,3}[ .\-]?)?(?:\(\d{1,4}\)[ .\-]?)?\d+(?:[ .\-]\d+)*(?![\w/*^=×÷])"#)
+    private static let phoneLabel = re(#"(?i)\b(?:phone|ph|mobile|mob|cell|tel|telephone|call|fax|whatsapp|contact|text me)\b"#)
+    /// Signs that a line is maths or code rather than contact details. Vision often reads "/" as "1",
+    /// so a fraction like 31/36 arrives as 31136 and can't be told apart by its digits alone.
+    private static let mathSigns = re(#"[=^*×÷±≈∑Σ√≤≥<>∞π]|\b(?:sum|seq|lim|log|ln|sin|cos|tan|inf|sqrt|mod|mean|var)\b|\d\s*[+x]\s*\(|\)\s*[+\-x*]"#)
     private static let ssn = re(#"\b\d{3}-\d{2}-\d{4}\b"#)
     private static let knownKeys = re(#"\b(?:(?:sk|pk|rk)-[A-Za-z0-9_\-]{16,}|gh[pousr]_[A-Za-z0-9]{20,}|xox[abpr]-[A-Za-z0-9\-]{10,}|AKIA[0-9A-Z]{16}|AIza[0-9A-Za-z_\-]{30,}|eyJ[A-Za-z0-9_\-]{10,}\.[A-Za-z0-9_\-]{10,}(?:\.[A-Za-z0-9_\-]+)?)"#)
     private static let longToken = re(#"[A-Za-z0-9_\-+/=]{28,}"#)
-    private static let labelled = re(#"(?i)\b(?:password|passwd|passcode|pin|api[ _\-]?key|secret|token|tfn|tax file (?:number|no\.?)|ssn|social security(?: number)?|account (?:number|no\.?)|bsb|cvv|cvc|security code|card number|medicare(?: number)?|one[- ]time code|verification code|recovery (?:key|code))\b\s*[:=#]?\s*(\S.*)$"#)
+    private static let labelled = re(#"(?i)\b(?:password|passwd|passcode|pin|api[ _\-]?key|secret|token|tfn|tax file (?:number|no\.?)|ssn|social security(?: number)?|account (?:number|no\.?)|bsb|cvv|cvc|security code|card number|medicare(?: number)?|one[- ]time code|verification code|recovery (?:key|code))\b(?:\s*[:=#.'’;]+\s*(\S.*)$|\s+(\d[\d \-]{2,}\d)\b)"#)
     private static let bareLabel = re(#"(?i)^\s*(?:password|passwd|passcode|pin|api[ _\-]?key|secret(?: key)?|token|tfn|tax file number|ssn|account number|bsb|cvv|cvc|security code|card number|medicare number|verification code|recovery (?:key|code))\s*[:=]?\s*$"#)
 
     static func isBareLabel(_ s: String) -> Bool { bareLabel.firstMatch(in: s, range: NSRange(s.startIndex..., in: s)) != nil }
@@ -154,13 +160,16 @@ final class Redactor {
         func add(_ r: NSRange) { if let x = Range(r, in: s) { out.append(x) } }
         func digits(_ r: NSRange) -> String { (Range(r, in: s).map { String(s[$0]) } ?? "").filter(\.isNumber) }
 
+        let labelledPhone = phoneLabel.firstMatch(in: s, range: all) != nil
+        let maths = mathSigns.firstMatch(in: s, range: all) != nil
+
         for m in email.matches(in: s, range: all) { add(m.range) }
         for m in knownKeys.matches(in: s, range: all) { add(m.range) }
         for m in ssn.matches(in: s, range: all) { add(m.range) }
-        for m in cardLike.matches(in: s, range: all) where luhn(digits(m.range)) { add(m.range) }
+        for m in cardLike.matches(in: s, range: all) where luhn(digits(m.range)) && !maths { add(m.range) }
         for m in phoneLike.matches(in: s, range: all) {
-            let d = digits(m.range)
-            if (9...15).contains(d.count), !looksLikeDateOrMath(Range(m.range, in: s).map { String(s[$0]) } ?? "") { add(m.range) }
+            guard let r = Range(m.range, in: s) else { continue }
+            if isPhone(String(s[r]), labelled: labelledPhone, maths: maths) { add(m.range) }
         }
         for m in longToken.matches(in: s, range: all) {
             let t = Range(m.range, in: s).map { String(s[$0]) } ?? ""
@@ -168,15 +177,45 @@ final class Redactor {
             if t.contains(where: \.isUppercase), t.contains(where: \.isLowercase), t.filter(\.isNumber).count >= 4,
                !t.contains("/") || t.filter({ $0 == "/" }).count < 2 { add(m.range) }
         }
-        if let m = labelled.firstMatch(in: s, range: all), m.numberOfRanges > 1, m.range(at: 1).length >= 3,
-           let v = Range(m.range(at: 1), in: s), !isHiddenAlready(String(s[v])) {
+        if let m = labelled.firstMatch(in: s, range: all),
+           let g = [1, 2].map({ m.range(at: $0) }).first(where: { $0.location != NSNotFound && $0.length >= 3 }),
+           let v = Range(g, in: s), !isHiddenAlready(String(s[v])) {
             out.append(v)
         }
         return out
     }
 
-    private static func looksLikeDateOrMath(_ t: String) -> Bool {
-        t.contains(".") && t.filter({ $0 == "." }).count == 1 && t.split(separator: ".").last.map { $0.count <= 2 } == true
+    /// Whether a run of digits is laid out like a phone number: a country code, an area code in
+    /// brackets, or a local number starting with 0 in tidy groups, or any of those after a word like
+    /// "phone". Sums, fractions, totals and IDs that only happen to have enough digits don't count.
+    static func isPhone(_ t: String, labelled: Bool, maths: Bool) -> Bool {
+        let d = t.filter(\.isNumber)
+        guard (8...15).contains(d.count) else { return false }
+        if maths && !labelled { return false }
+
+        // Split into the country code, the bracketed area code and the rest.
+        var rest = Substring(t)
+        let intl = rest.hasPrefix("+")
+        if intl { rest = rest.dropFirst().drop { $0.isNumber }.drop { " .-".contains($0) } }
+        let area = rest.hasPrefix("(")
+        if area {
+            guard let close = rest.firstIndex(of: ")") else { return false }
+            rest = rest[rest.index(after: close)...].drop { " .-".contains($0) }
+        }
+        // The rest: groups of 2 to 4 digits with one kind of gap, or one unbroken run.
+        let gaps = Set(rest.filter { !$0.isNumber })
+        guard gaps.count <= 1, !rest.contains("  ") else { return false }
+        let groups = gaps.isEmpty ? [rest] : rest.split(separator: gaps.first!)
+        let tidy = groups.count == 1 ? (6...12).contains(rest.count)
+                                     : groups.allSatisfy { (2...4).contains($0.count) } && groups.count <= 4
+        // After "phone" or similar, any number of the right length counts, however it's spaced.
+        if labelled { return true }
+        guard tidy else { return false }
+        if intl { return d.count >= 9 }
+        if area { return d.count >= 9 }
+        // Local numbers: Australian and most others start with 0 (0412 345 678); US style 415-555-0132.
+        if d.first == "0" { return ((9...11).contains(d.count) && groups.count > 1) || d.count == 10 }
+        return d.count == 10 && groups.map(\.count) == [3, 3, 4] && (gaps.first == "-" || gaps.first == ".")
     }
 
     static func luhn(_ d: String) -> Bool {

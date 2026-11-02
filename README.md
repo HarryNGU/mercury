@@ -13,12 +13,21 @@ No account, no analytics, no subscription.
 - **Recording pill**: pause, restart, discard and done. It follows you across apps, desktops, full-screen apps and displays, and never appears in the video.
 - **Private details blurred as you record**: passwords, emails, phone and card numbers, API keys and codes, read on your Mac with Apple's Vision. Password managers are left out of screen recordings. It catches most things, not everything, so still check before you share.
 - **Smart names** from the page or window you recorded, refined with what you talked about.
+- **Draw on the screen while you record**: a pen, highlighter, disappearing ink, lines, arrows, boxes and circles (wobbly ones tidy themselves), a lasso, an eraser, undo, and one button that clears it all. The drawings are in the video; the tools aren't.
 - Videos are saved in `~/Desktop/Bubble Recordings` and shown in Bubble's library.
 
 ### Make reels
 - One click on any recording turns it into **Original, 1:1, 9:16 and 16:9** videos, the shapes Instagram offers.
+- **Ask Claude to edit**: a quick edit ("cut the false starts, captions at the top"), or a **full job** that runs a whole recipe with your own scripts and tools while you watch each step. A job works on its own only inside the folders your recipe names; deleting, moving, the internet and opening apps wait for your OK, and it never posts anything.
 - **Pauses are cut automatically**, with **big captions** timed to your speech.
-- Change pauses, speed, zoom and captions with simple controls, or ask Claude in the editor ("make it under 60 seconds", "cut the part where I restart").
+- **A full video editor**, light or dark: a timeline with thumbnails and the sound wave; trim, split and delete clips, or drag across the timeline to pick any stretch; speed up or mute; undo and redo; keyboard shortcuts (Space, S, Delete, arrows, T, Z).
+- **Edit by text**: fix words in the transcript and the captions follow, or select words and press Delete to cut them. Remove every um, uh, repeated word and retake in one click.
+- **Pro sound, on your Mac**: Enhance speech with Apple's voice isolation; remove the echo of your own voice coming back through a call; polish (EQ, compression, limiter); even out loudness; hit Social, Podcast or broadcast loudness targets; your mic and the computer's sound at their own volumes.
+- **Filters and privacy blur**: film looks, and blur, pixelate or block out any part of the recording (a name, a face, a password) for as long as you need.
+- **Text, zooms, videos and pictures**: titles, labels and typewriter text with animations; zoom moments that push in like a camera; another video on top (picture in picture or full screen B-roll); logos and screenshots. Drop files straight onto the editor, drag things on the preview to place them and on the timeline to time them.
+- **Subtitles your way**: five styles (classic, karaoke, highlight, box, minimal), any colour and size, and fix any word by typing.
+- **Canvas, colour and sound**: fit, fill or a floating framed window on a blur, colour or gradient; colour looks and adjustments; fades; music that dips while you talk; a progress bar. Export at 720p, 1080p or 4K.
+- Or ask Claude in the editor ("make it under 60 seconds", "add a title that says Day 24", "zoom in when I show the code").
 - For accurate captions, Bubble uses [Whisper](https://github.com/ggml-org/whisper.cpp) on your Mac if it's installed (`brew install whisper-cpp`, then download the model from the editor). Otherwise it uses Apple's speech recognition.
 
 ### Dictate
@@ -103,10 +112,11 @@ Every shortcut can be changed by clicking it in Bubble.
 | File | What it does |
 | --- | --- |
 | `Sources/Recorder.swift` | ScreenCaptureKit capture written to MP4 with AVAssetWriter; pause, crop, audio mixdown |
-| `Sources/Picker.swift`, `Sources/Overlays.swift` | Hover-to-pick overlay, recording pill, countdown, toast |
+| `Sources/Picker.swift`, `Sources/Overlays.swift`, `Sources/Draw.swift` | Hover-to-pick overlay, recording pill, countdown, toast; drawing on the screen while recording |
 | `Sources/Camera.swift`, `Sources/Mic.swift`, `Sources/Denoiser.swift` | Camera bubble, microphone capture and noise reducer |
 | `Sources/Library.swift`, `Sources/Glyphs.swift` | The main window (library, settings) and Bubble's symbols |
-| `Sources/Reels.swift`, `Sources/Editor.swift` | Pause cutting, captions, reel layouts and export; the reel editor and its Claude chat |
+| `Sources/Reels.swift`, `Sources/Editor.swift` | Pause cutting, captions and the editor's model, page and Claude chat |
+| `Sources/Studio.swift`, `Sources/StudioTimeline.swift`, `Sources/StudioPanels.swift`, `Sources/StudioStyle.swift`, `Sources/AudioStudio.swift` | The editor's text, zooms, videos, pictures, music, canvas and colour; the compositor that draws frames and the audio mix; the timeline; the tool panels; the editor's look; the sound studio (voice isolation, echo removal, polish, loudness) |
 | `Sources/Whisper.swift` | Whisper for captions and voice, run on your Mac |
 | `Sources/Dictation.swift`, `Sources/Cleaner.swift`, `Sources/Snippets.swift` | Dictation, clean-up rules, AI polish, snippets |
 | `Sources/Assistant.swift`, `Sources/ClaudeCode.swift`, `Sources/BubbleTools.swift` | Ask Bubble: the panel, live listening, the Claude Code session and its safety rules, and Bubble's local tools |

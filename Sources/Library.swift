@@ -192,12 +192,14 @@ final class Permissions: ObservableObject {
     @Published var speech = false
     @Published var accessibility = false
 
+    /// Checked every couple of seconds; only a real change redraws the window.
     func refresh() {
-        screen = CGPreflightScreenCaptureAccess()
-        camera = AVCaptureDevice.authorizationStatus(for: .video) == .authorized
-        mic = AVCaptureDevice.authorizationStatus(for: .audio) == .authorized
-        speech = SFSpeechRecognizer.authorizationStatus() == .authorized
-        accessibility = AXIsProcessTrusted()
+        func set(_ v: inout Bool, _ new: Bool) { if v != new { v = new } }
+        set(&screen, CGPreflightScreenCaptureAccess())
+        set(&camera, AVCaptureDevice.authorizationStatus(for: .video) == .authorized)
+        set(&mic, AVCaptureDevice.authorizationStatus(for: .audio) == .authorized)
+        set(&speech, SFSpeechRecognizer.authorizationStatus() == .authorized)
+        set(&accessibility, AXIsProcessTrusted())
     }
 
     var allGood: Bool { screen && camera && mic && speech && accessibility }
@@ -263,6 +265,11 @@ struct MainView: View {
                 .frame(minWidth: 860, minHeight: 560)
                 .ignoresSafeArea()
                 .onReceive(tick) { _ in permissions.refresh() }
+        } else if let url = model.editing {
+            // The editor takes the whole window, like a video app.
+            EditorPage(url: url, onClose: { model.editing = nil; model.refreshRecents() }).id(url)
+                .frame(minWidth: 1040, minHeight: 640)
+                .ignoresSafeArea()
         } else {
             library
         }
@@ -273,10 +280,7 @@ struct MainView: View {
             sidebar
             ScrollView {
                 Group {
-                    if let url = model.editing {
-                        EditorPage(url: url, onClose: { model.editing = nil; model.refreshRecents() }).id(url)
-                    } else {
-                        switch page {
+                    switch page {
                         case .home: HomePage(model: model, dictation: dictation, permissions: permissions, page: $page)
                         case .recordings: RecordingsPage(model: model)
                         case .recorder: RecorderPage(model: model)
@@ -285,7 +289,6 @@ struct MainView: View {
                         case .snippets: SnippetsPage()
                         case .style: StylePage(dictation: dictation)
                         case .settings: SettingsPage(model: model, permissions: permissions)
-                        }
                     }
                 }
                 // Galleries and the editor use the whole width in full screen; settings pages stay readable.
@@ -852,6 +855,9 @@ struct AssistantPage: View {
     @ObservedObject var model: UIModel
     @AppStorage("assistantDarkness") private var darkness = 0.62
     @AppStorage(Settings.showInCapturesKey) private var inCaptures = true
+    @State private var connectorsKnown = Connectors.known
+    @State private var connectorsChosen = Connectors.chosen
+    @State private var checkingConnectors = false
     @AppStorage("chatMyColor") private var myColor = ChatStyle.defaultMine
     @AppStorage("chatTheirColor") private var theirColor = ChatStyle.defaultTheirs
     @AppStorage("chatTextSize") private var textSize = 14.0
@@ -918,6 +924,46 @@ struct AssistantPage: View {
                             }
                             .disabled(apiKey.trimmingCharacters(in: .whitespaces).isEmpty)
                         }
+                    }
+                }
+            }
+            if brain == .claudeCode {
+                SettingsGroup(title: "Connected apps", footer: "These are the apps connected to your Claude account that Ask Bubble can use. Each one adds to every chat, so fewer means quicker answers and less of your Claude plan used. The rest still work in Claude itself.") {
+                    let chosenList = connectorsKnown.filter { connectorsChosen.contains($0) }.sorted { Connectors.label($0) < Connectors.label($1) }
+                    let others = connectorsKnown.filter { !connectorsChosen.contains($0) }.sorted { Connectors.label($0) < Connectors.label($1) }
+                    if connectorsKnown.isEmpty {
+                        SettingRow(title: checkingConnectors ? "Checking your Claude account…" : "No connected apps found", subtitle: "Connect apps in Claude (Settings → Connectors), then check again.") {
+                            if checkingConnectors { ProgressView().controlSize(.small) }
+                        }
+                    }
+                    ForEach(chosenList, id: \.self) { raw in
+                        SwitchRow(title: Connectors.label(raw), isOn: Binding(get: { connectorsChosen.contains(raw) }, set: { on in
+                            if on { connectorsChosen.insert(raw) } else { connectorsChosen.remove(raw) }
+                            Connectors.chosen = connectorsChosen
+                        }))
+                    }
+                    SettingRow(title: "\(connectorsChosen.count) of \(connectorsKnown.count) in use", divider: false) {
+                        HStack(spacing: 8) {
+                            if !others.isEmpty {
+                                Menu("Add an app") {
+                                    ForEach(others, id: \.self) { raw in
+                                        Button(Connectors.label(raw)) { connectorsChosen.insert(raw); Connectors.chosen = connectorsChosen }
+                                    }
+                                }
+                                .fixedSize()
+                            }
+                            Button(checkingConnectors ? "Checking…" : "Check again") {
+                                checkingConnectors = true
+                                Connectors.refresh { connectorsKnown = Connectors.known; connectorsChosen = Connectors.chosen; checkingConnectors = false }
+                            }
+                            .disabled(checkingConnectors)
+                        }
+                    }
+                }
+                .onAppear {
+                    if connectorsKnown.isEmpty, !checkingConnectors {
+                        checkingConnectors = true
+                        Connectors.refresh { connectorsKnown = Connectors.known; connectorsChosen = Connectors.chosen; checkingConnectors = false }
                     }
                 }
             }

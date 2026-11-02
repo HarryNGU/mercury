@@ -476,6 +476,8 @@ final class AssistantModel: ObservableObject {
     @Published var seeScreen = true
     @Published var cardOpen = true
     @Published var focusRequest = 0
+    /// Opens the chat list (used by tests to take screenshots).
+    @Published var historyRequest = 0
     @Published var approval: ClaudeCodeSession.Approval?
     @Published var talking = false
     /// The chat on screen, saved to disk as it goes.
@@ -547,6 +549,20 @@ final class AssistantModel: ObservableObject {
         error = nil
         load(c)
         focusRequest += 1
+    }
+
+    /// Gives a chat your own name (blank goes back to the first question). Its place in the list doesn't change.
+    func renameChat(_ c: ChatRecord, to name: String) {
+        let n = name.trimmingCharacters(in: .whitespacesAndNewlines)
+        if c.id == chat.id {
+            chat.name = n.isEmpty ? nil : n
+            if !chat.turns.isEmpty { ChatStore.save(chat) }
+        } else {
+            var r = c
+            r.name = n.isEmpty ? nil : n
+            ChatStore.save(r)
+        }
+        log("assistant: chat renamed")
     }
 
     func deleteChat(_ c: ChatRecord) {
@@ -777,6 +793,16 @@ final class AssistantModel: ObservableObject {
     }
 }
 
+extension View {
+    /// Popovers from the see-through panel: a solid dark card with white text, readable over anything.
+    func solidPopover() -> some View {
+        presentationBackground(Color(red: 0.11, green: 0.11, blue: 0.12)).environment(\.colorScheme, .dark)
+    }
+}
+
+/// Where the chat is scrolled to, to tell your scrolling apart from new content arriving.
+struct ScrollSpot: Equatable { var offset: CGFloat; var content: CGFloat; var visible: CGFloat }
+
 /// Dragging here moves the window. Used for the panel's bar, so the chat below stays free for selecting text.
 struct WindowDragHandle: NSViewRepresentable {
     final class Handle: NSView {
@@ -873,9 +899,15 @@ final class AssistantController: NSObject, NSWindowDelegate {
                 v.layoutSubtreeIfNeeded()
                 p.setContentSize(v.fittingSize)
             }
-            let f = NSScreen.underMouse.visibleFrame
-            top = f.maxY - 10
-            p.setFrameOrigin(NSPoint(x: f.midX - p.frame.width / 2, y: top - p.frame.height))
+            if let spot = savedSpot(width: p.frame.width) {
+                // Back where you left it.
+                top = spot.y
+                p.setFrameOrigin(NSPoint(x: spot.x, y: top - p.frame.height))
+            } else {
+                let f = NSScreen.underMouse.visibleFrame
+                top = f.maxY - 10
+                p.setFrameOrigin(NSPoint(x: f.midX - p.frame.width / 2, y: top - p.frame.height))
+            }
         }
         p.orderFrontRegardless()
         p.makeKey()
@@ -924,17 +956,37 @@ final class AssistantController: NSObject, NSWindowDelegate {
         let m = Settings.assistantMoveMods
         let ask = ShortcutCenter.shared[.assistAsk]
         ShortcutCenter.shared.holdTemporary([
-            (20, kVK_LeftArrow, m, { [weak self] in self?.nudge(dx: -1, dy: 0) }),
-            (21, kVK_RightArrow, m, { [weak self] in self?.nudge(dx: 1, dy: 0) }),
-            (22, kVK_UpArrow, m, { [weak self] in self?.nudge(dx: 0, dy: 1) }),
-            (23, kVK_DownArrow, m, { [weak self] in self?.nudge(dx: 0, dy: -1) }),
+            (20, kVK_LeftArrow, m, { [weak self] in self?.move(dx: -1, dy: 0, key: kVK_LeftArrow) }),
+            (21, kVK_RightArrow, m, { [weak self] in self?.move(dx: 1, dy: 0, key: kVK_RightArrow) }),
+            (22, kVK_UpArrow, m, { [weak self] in self?.move(dx: 0, dy: 1, key: kVK_UpArrow) }),
+            (23, kVK_DownArrow, m, { [weak self] in self?.move(dx: 0, dy: -1, key: kVK_DownArrow) }),
             (24, Int(ask.keyCode), Int(ask.mods), { [weak self] in self?.quickAsk() }),
         ])
     }
 
-    private func nudge(dx: CGFloat, dy: CGFloat) {
+    private var glide: Timer?
+
+    /// A press moves the panel one step; holding the keys keeps it gliding until you let go.
+    /// (Global shortcuts only report the press, so Bubble watches the arrow key itself.)
+    private func move(dx: CGFloat, dy: CGFloat, key: Int) {
+        nudge(dx: dx, dy: dy)
+        glide?.invalidate()
+        let pressed = Date()
+        glide = Timer.scheduledTimer(withTimeInterval: 1.0 / 60, repeats: true) { [weak self] t in
+            guard let self, self.isShown, CGEventSource.keyState(.combinedSessionState, key: CGKeyCode(key)) else { t.invalidate(); return }
+            if Date().timeIntervalSince(pressed) > 0.3 { self.nudge(dx: dx, dy: dy, step: 14) }
+        }
+    }
+
+    /// Puts the panel at a spot (left edge, top edge), for recording demos.
+    func place(x: CGFloat, top newTop: CGFloat) {
         guard let p = panel else { return }
-        let step: CGFloat = 80
+        top = newTop
+        p.setFrameOrigin(NSPoint(x: x, y: newTop - p.frame.height))
+    }
+
+    private func nudge(dx: CGFloat, dy: CGFloat, step: CGFloat = 80) {
+        guard let p = panel else { return }
         let screen = p.screen ?? NSScreen.underMouse
         let f = screen.visibleFrame
         var o = p.frame.origin
@@ -960,6 +1012,15 @@ final class AssistantController: NSObject, NSWindowDelegate {
     func windowDidMove(_ n: Notification) {
         guard let p = panel, p.isVisible, top > 0 else { return }
         top = p.frame.maxY
+        Settings.d.set([p.frame.minX, top], forKey: "assistantSpot")  // reopen right here next time
+    }
+
+    /// Where you last left the panel (left edge, top edge), if that spot is still on a screen.
+    private func savedSpot(width: CGFloat) -> NSPoint? {
+        guard let v = Settings.d.array(forKey: "assistantSpot") as? [Double], v.count == 2 else { return nil }
+        let spot = NSPoint(x: v[0], y: v[1])
+        let probe = NSPoint(x: spot.x + width / 2, y: spot.y - 20)
+        return NSScreen.screens.contains { $0.visibleFrame.insetBy(dx: -2, dy: -2).contains(probe) } ? spot : nil
     }
 
     private func makePanel() -> AssistantPanel {
@@ -1030,11 +1091,15 @@ struct AssistantView: View {
     @AppStorage("chatTextSize") private var textSize = 14.0
     @AppStorage("chatName") private var name = "Bubble"
     @AppStorage("chatAvatar") private var avatar = ""
-    @FocusState private var focused: Bool
+    @State private var inputHeight: CGFloat = 18
     @State private var showTranscript = false
     @State private var showLook = false
     @State private var showBuddy = false
     @State private var showHistory = false
+    @State private var renaming: UUID?
+    @State private var newName = ""
+    @State private var hoveredChat: UUID?
+    @FocusState private var nameFocused: Bool
     @State private var listenInfo = false
     @State private var eyeInfo = false
     @State private var eyeHover: DispatchWorkItem?
@@ -1061,7 +1126,7 @@ struct AssistantView: View {
         .padding(.bottom, 4)
         .environment(\.colorScheme, .dark)
         .animation(.easeOut(duration: 0.15), value: model.cardOpen)
-        .onChange(of: model.focusRequest) { focused = true }
+
     }
 
     // MARK: Bar
@@ -1203,9 +1268,10 @@ struct AssistantView: View {
         let chats = ChatStore.all()
         return VStack(alignment: .leading, spacing: 0) {
             HStack {
-                Text("Chats").font(.system(size: 13, weight: .semibold))
+                Text("Chats").font(.system(size: 14, weight: .semibold)).foregroundStyle(.white)
                 Spacer()
-                Button("New chat") { showHistory = false; model.newChat() }.buttonStyle(.link).font(.system(size: 12))
+                Button("New chat") { showHistory = false; model.newChat() }.buttonStyle(.plain)
+                    .font(.system(size: 12.5, weight: .medium)).foregroundStyle(Theme.accent)
             }
             .padding(.horizontal, 14).padding(.top, 12).padding(.bottom, 8)
             if chats.isEmpty {
@@ -1216,37 +1282,67 @@ struct AssistantView: View {
                 ScrollView {
                     VStack(alignment: .leading, spacing: 2) {
                         ForEach(chats.prefix(40)) { c in
-                            Button { showHistory = false; model.open(c) } label: {
-                                VStack(alignment: .leading, spacing: 2) {
-                                    Text(c.title).font(.system(size: 12.5, weight: c.id == model.chat.id ? .semibold : .regular)).lineLimit(1)
-                                    Text(c.updated.formatted(.relative(presentation: .named)) + " · \(c.turns.count) message\(c.turns.count == 1 ? "" : "s")")
-                                        .font(.system(size: 11)).foregroundStyle(.secondary)
+                            if renaming == c.id {
+                                TextField("Chat name", text: $newName)
+                                    .textFieldStyle(.plain).font(.system(size: 12.5, weight: .medium)).foregroundStyle(.white)
+                                    .focused($nameFocused)
+                                    .padding(.horizontal, 10).padding(.vertical, 8)
+                                    .background(RoundedRectangle(cornerRadius: 8).fill(.white.opacity(0.12)))
+                                    .overlay(RoundedRectangle(cornerRadius: 8).stroke(Theme.accent, lineWidth: 1.5))
+                                    .onSubmit { model.renameChat(c, to: newName); renaming = nil }
+                                    .onExitCommand { renaming = nil }
+                                    .onAppear { DispatchQueue.main.async { nameFocused = true } }
+                            } else {
+                                Button { showHistory = false; model.open(c) } label: {
+                                    HStack(spacing: 8) {
+                                        VStack(alignment: .leading, spacing: 3) {
+                                            Text(c.id == model.chat.id ? model.chat.title : c.title)
+                                                .font(.system(size: 13, weight: c.id == model.chat.id ? .semibold : .medium))
+                                                .foregroundStyle(.white).lineLimit(1)
+                                            Text(c.updated.formatted(.relative(presentation: .named)) + " · \(c.turns.count) message\(c.turns.count == 1 ? "" : "s")")
+                                                .font(.system(size: 11.5)).foregroundStyle(.white.opacity(0.6))
+                                        }
+                                        Spacer(minLength: 4)
+                                        if hoveredChat == c.id {
+                                            Button { newName = c.name ?? c.title; renaming = c.id } label: {
+                                                Image(systemName: "pencil").font(.system(size: 11, weight: .semibold)).foregroundStyle(.white.opacity(0.8))
+                                                    .frame(width: 24, height: 24).background(Circle().fill(.white.opacity(0.12)))
+                                            }
+                                            .buttonStyle(.plain).help("Rename").accessibilityLabel("Rename chat")
+                                        }
+                                    }
+                                    .frame(maxWidth: .infinity, alignment: .leading)
+                                    .padding(.horizontal, 10).padding(.vertical, 8)
+                                    .background(RoundedRectangle(cornerRadius: 8).fill(c.id == model.chat.id ? Theme.accent.opacity(0.35)
+                                                                                         : hoveredChat == c.id ? .white.opacity(0.08) : .clear))
+                                    .contentShape(Rectangle())
                                 }
-                                .frame(maxWidth: .infinity, alignment: .leading)
-                                .padding(.horizontal, 10).padding(.vertical, 7)
-                                .background(RoundedRectangle(cornerRadius: 8).fill(c.id == model.chat.id ? Color.accentColor.opacity(0.15) : .clear))
-                                .contentShape(Rectangle())
+                                .buttonStyle(.plain)
+                                .onHover { hoveredChat = $0 ? c.id : (hoveredChat == c.id ? nil : hoveredChat) }
+                                .contextMenu {
+                                    Button("Rename…") { newName = c.name ?? c.title; renaming = c.id }
+                                    Button("Delete Chat", role: .destructive) { model.deleteChat(c) }
+                                }
                             }
-                            .buttonStyle(.plain)
-                            .contextMenu { Button("Delete Chat", role: .destructive) { model.deleteChat(c) } }
                         }
                     }
                     .padding(.horizontal, 6)
                 }
                 .frame(maxHeight: 320)
             }
-            Divider()
-            Text(keepLabel).font(.system(size: 11)).foregroundStyle(.secondary).padding(12)
+            Rectangle().fill(.white.opacity(0.12)).frame(height: 1)
+            Text(keepLabel).font(.system(size: 11.5)).foregroundStyle(.white.opacity(0.6)).padding(12)
                 .fixedSize(horizontal: false, vertical: true)
         }
-        .frame(width: 300)
+        .frame(width: 320)
+        .solidPopover()
     }
 
     private var keepLabel: String {
         switch Settings.chatKeepDays {
         case 0: return "Chats aren't kept after you close them."
         case -1: return "Chats stay on this Mac until you delete them."
-        default: return "Chats stay on this Mac for \(Settings.chatKeepDays) days. Right-click one to delete it."
+        default: return "Chats stay on this Mac for \(Settings.chatKeepDays) days. Hover a chat to rename it; right-click to delete it."
         }
     }
 
@@ -1271,8 +1367,7 @@ struct AssistantView: View {
         }
         .padding(16)
         .frame(width: 310, alignment: .leading)
-        .presentationBackground(Color(red: 0.11, green: 0.11, blue: 0.12))
-        .environment(\.colorScheme, .dark)
+        .solidPopover()
     }
 
     private func infoRow(_ icon: String, _ t: String, _ d: String) -> some View {
@@ -1371,7 +1466,7 @@ struct AssistantView: View {
                     }
             }
             .buttonStyle(.plain).help("Change \(name.isEmpty ? "Bubble" : name)'s picture and name")
-            .popover(isPresented: $showBuddy, arrowEdge: .bottom) { buddyPicker }
+            .popover(isPresented: $showBuddy, arrowEdge: .bottom) { buddyPicker.solidPopover() }
             VStack(alignment: .leading, spacing: 1) {
                 Text(name.isEmpty ? "Bubble" : name).font(.system(size: 13, weight: .semibold))
                 HStack(spacing: 4) {
@@ -1382,6 +1477,7 @@ struct AssistantView: View {
             Spacer()
             headerButton("clock.arrow.circlepath", label: "Chat history", lit: showHistory) { showHistory.toggle() }
                 .popover(isPresented: $showHistory, arrowEdge: .bottom) { historyList }
+                .onChange(of: model.historyRequest) { showHistory = true }
             headerButton("square.and.pencil", label: "New chat (⌘N)", lit: false) { model.newChat() }
                 .keyboardShortcut("n", modifiers: .command)
                 .disabled(model.exchanges.isEmpty)
@@ -1390,7 +1486,7 @@ struct AssistantView: View {
                     .frame(width: 28, height: 28).background(Circle().fill(.white.opacity(showLook ? 0.18 : 0.08)))
             }
             .buttonStyle(.plain).help("Change the chat's look").accessibilityLabel("Change the chat's look")
-            .popover(isPresented: $showLook, arrowEdge: .bottom) { lookPicker }
+            .popover(isPresented: $showLook, arrowEdge: .bottom) { lookPicker.solidPopover() }
         }
         .padding(.horizontal, 14).padding(.vertical, 10)
         .overlay(alignment: .bottom) { Rectangle().fill(.white.opacity(0.08)).frame(height: 1) }
@@ -1416,10 +1512,16 @@ struct AssistantView: View {
                     }
                     .frame(maxHeight: 460)
                     .fixedSize(horizontal: false, vertical: true)
-                    .onScrollGeometryChange(for: Bool.self) { g in
-                        g.contentOffset.y + g.containerSize.height < g.contentSize.height - 60
-                    } action: { _, away in awayFromEnd = away }
-                    // Follow a new answer as it arrives, unless you've scrolled up to read something.
+                    // Follow new content as it arrives (text, or a picture that finishes loading), unless you
+                    // scrolled up yourself to read something; then offer Jump to present instead.
+                    .onScrollGeometryChange(for: ScrollSpot.self) { g in
+                        ScrollSpot(offset: g.contentOffset.y, content: g.contentSize.height, visible: g.containerSize.height)
+                    } action: { old, new in
+                        let atEnd = new.offset + new.visible >= new.content - 60
+                        if atEnd { awayFromEnd = false }
+                        else if new.offset < old.offset - 2 { awayFromEnd = true }        // you scrolled up
+                        else if new.content > old.content + 1, !awayFromEnd { proxy.scrollTo("end", anchor: .bottom) }  // it grew
+                    }
                     .onChange(of: model.exchanges.last?.answer) { if !awayFromEnd { proxy.scrollTo("end", anchor: .bottom) } }
                     .onChange(of: model.exchanges.count) { proxy.scrollTo("end", anchor: .bottom) }
                     .overlay(alignment: .bottom) {
@@ -1614,11 +1716,11 @@ struct AssistantView: View {
             if model.talking {
                 Image(systemName: "mic.fill").foregroundStyle(.red).symbolEffect(.pulse)
             }
-            TextField(model.talking ? "Listening… say what you want" : (model.approval != nil ? "Say or type yes / no…" : "Ask, or press \(keys.label(.assistVoice)) and say it…"),
-                      text: $model.input, axis: .vertical)
-                .textFieldStyle(.plain).font(.system(size: 13.5)).lineLimit(1...6)
-                .focused($focused)
-                .onSubmit { model.ask() }
+            ChatTextView(text: $model.input,
+                         placeholder: model.talking ? "Listening… say what you want" : (model.approval != nil ? "Say or type yes / no…" : "Ask, or press \(keys.label(.assistVoice)) and say it…"),
+                         font: .systemFont(ofSize: 13.5), textColor: .white, placeholderColor: NSColor.white.withAlphaComponent(0.45),
+                         maxLines: 6, focusRequest: model.focusRequest, height: $inputHeight, onSubmit: { model.ask() })
+                .frame(height: inputHeight)
             if model.thinking {
                 Button(action: model.stopAnswer) {
                     Image(systemName: "stop.fill").font(.system(size: 10, weight: .bold)).foregroundStyle(.black)
@@ -1914,6 +2016,13 @@ struct LinkedPicture: View {
         }
         .task(id: url) {
             img = url.isFileURL ? LocalPicture.load(url) : await PictureFetch.image(url)
+            // Claude sometimes mentions a picture a moment before it has finished saving it: keep looking.
+            var tries = 0
+            while img == nil, url.isFileURL, tries < 40, !Task.isCancelled {
+                try? await Task.sleep(for: .milliseconds(500))
+                img = LocalPicture.load(url)
+                tries += 1
+            }
             failed = img == nil
         }
     }
@@ -1929,6 +2038,24 @@ struct LinkedPicture: View {
 /// so a saved chat still shows its pictures after a temporary file is cleaned up.
 enum LocalPicture {
     static let kinds: Set<String> = ["png", "jpg", "jpeg", "gif", "heic", "heif", "webp", "tif", "tiff", "bmp", "svg", "pdf"]
+
+    /// Where Ask Bubble saves pictures it draws for you (diagrams, shapes, charts). Writing a picture
+    /// here doesn't need your OK; it's only ever shown in the chat.
+    static var drawings: URL {
+        let d = FileManager.default.urls(for: .applicationSupportDirectory, in: .userDomainMask)[0]
+            .appendingPathComponent("Bubble/Drawings", isDirectory: true)
+        if !FileManager.default.fileExists(atPath: d.path) {
+            try? FileManager.default.createDirectory(at: d, withIntermediateDirectories: true, attributes: [.posixPermissions: 0o700])
+        }
+        return d
+    }
+
+    /// A drawing being saved into the drawings folder.
+    static func isDrawing(_ tool: String, _ input: [String: Any]) -> Bool {
+        guard tool == "Write", let p = input["file_path"] as? String else { return false }
+        let full = ((p as NSString).expandingTildeInPath as NSString).standardizingPath
+        return full.hasPrefix(drawings.path + "/") && kinds.contains((full as NSString).pathExtension.lowercased())
+    }
 
     static var dir: URL {
         let d = FileManager.default.urls(for: .applicationSupportDirectory, in: .userDomainMask)[0]

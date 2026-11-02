@@ -69,6 +69,44 @@ struct EditPlan: Codable, Equatable {
     var focusX: Double = 0.5         // 0 left … 1 right
     var focusY: Double = 0.5         // 0 top … 1 bottom
     var title: String
+    // The studio (see Studio.swift). Times are seconds in the original.
+    var splits: [Double] = []
+    var clipSpeeds: [Ranged] = []
+    var clipVolumes: [Ranged] = []
+    /// A clip's own mix of the two sound tracks: your microphone, and the computer's sound.
+    var clipMic: [Ranged] = []
+    var clipSys: [Ranged] = []
+    var texts: [TextItem] = []
+    var zooms: [ZoomItem] = []
+    var images: [ImageItem] = []
+    var videos: [VideoItem] = []
+    var blurs: [BlurItem] = []
+    var music: MusicTrack?
+    /// The captions' words once you've corrected them; nil = as transcribed.
+    var words: [Word]?
+    var captionStyle = CaptionStyle()
+    var canvas = CanvasStyle()
+    var look = Look()
+    var audio = AudioSettings()
+    var progressBar: ProgressBar?
+}
+
+// Every field falls back to its default, so edits saved by an older Bubble still open.
+extension EditPlan {
+    init(from d: Decoder) throws {
+        let c = try d.container(keyedBy: CodingKeys.self)
+        self.init(title: c.v(.title, "Reel"))
+        let z = self
+        maxPause = c.v(.maxPause, z.maxPause); removed = c.v(.removed, z.removed); kept = c.v(.kept, z.kept)
+        speed = c.v(.speed, z.speed); captions = c.v(.captions, z.captions); captionPosition = c.v(.captionPosition, z.captionPosition)
+        zoom = c.v(.zoom, z.zoom); focusX = c.v(.focusX, z.focusX); focusY = c.v(.focusY, z.focusY)
+        splits = c.v(.splits, z.splits); clipSpeeds = c.v(.clipSpeeds, z.clipSpeeds); clipVolumes = c.v(.clipVolumes, z.clipVolumes)
+        clipMic = c.v(.clipMic, z.clipMic); clipSys = c.v(.clipSys, z.clipSys)
+        texts = c.v(.texts, z.texts); zooms = c.v(.zooms, z.zooms); images = c.v(.images, z.images); videos = c.v(.videos, z.videos); blurs = c.v(.blurs, z.blurs); music = c.v(.music, z.music)
+        words = c.v(.words, z.words); captionStyle = c.v(.captionStyle, z.captionStyle); canvas = c.v(.canvas, z.canvas)
+        look = c.v(.look, z.look); audio = c.v(.audio, z.audio); progressBar = c.v(.progressBar, z.progressBar)
+    }
+
 }
 
 struct Word: Codable, Equatable {
@@ -92,7 +130,8 @@ enum Cutter {
     /// The parts of the original to keep, in order.
     static func spans(_ a: Analysis, _ p: EditPlan) -> [TimeSpan] {
         var keep: [TimeSpan]
-        if let maxPause = p.maxPause, !a.levels.isEmpty {
+        // 0 (or none) keeps every pause. Saved as 0, since an empty value reads back as the default.
+        if let maxPause = p.maxPause, maxPause > 0, !a.levels.isEmpty {
             keep = voiced(a).map { TimeSpan(start: $0.start - maxPause / 2, end: $0.end + maxPause / 2) }
             keep = merge(keep + p.kept)
             if keep.isEmpty { keep = [TimeSpan(start: 0, end: a.duration)] }
@@ -135,7 +174,7 @@ enum Cutter {
         return out
     }
 
-    private static func subtract(_ r: TimeSpan, from s: TimeSpan) -> [TimeSpan] {
+    static func subtract(_ r: TimeSpan, from s: TimeSpan) -> [TimeSpan] {
         guard r.end > s.start, r.start < s.end else { return [s] }
         var out: [TimeSpan] = []
         if r.start > s.start { out.append(TimeSpan(start: s.start, end: r.start)) }
@@ -335,28 +374,38 @@ private final class Once: @unchecked Sendable {
 
 // MARK: - Captions
 
-struct Cue {
+struct CueWord: Equatable {
     var text: String
     var start: Double   // output seconds
     var end: Double
 }
 
+struct Cue: Equatable {
+    var text: String
+    var start: Double   // output seconds
+    var end: Double
+    var words: [CueWord]
+    var range: Range<Int>   // which of the transcript's words
+}
+
 enum Captions {
-    /// Short bursts of up to three words, timed to the edit.
-    static func cues(_ words: [Word], spans: [TimeSpan], speed: Double) -> [Cue] {
+    /// Short bursts of a few words, timed to the edit.
+    static func cues(_ words: [Word], timeline: EditTimeline, perCue: Int) -> [Cue] {
         var cues: [Cue] = []
-        var group: [(Word, Double, Double)] = []
+        var group: [(Int, CueWord)] = []
+        let per = max(1, min(8, perCue))
         func flush() {
             guard let first = group.first, let last = group.last else { return }
-            cues.append(Cue(text: group.map { $0.0.text }.joined(separator: " "), start: first.1, end: last.2))
+            cues.append(Cue(text: group.map { $0.1.text }.joined(separator: " "), start: first.1.start, end: last.1.end,
+                            words: group.map(\.1), range: first.0..<(last.0 + 1)))
             group = []
         }
-        for w in words {
-            guard let s = Cutter.outputTime(w.start, spans: spans, speed: speed) else { flush(); continue }
-            let e = Cutter.outputTime(w.end, spans: spans, speed: speed) ?? s + (w.end - w.start) / speed
-            if let last = group.last, s - last.2 > 0.6 { flush() }
-            group.append((w, s, e))
-            if group.count == 3 || w.text.last.map({ ".,!?".contains($0) }) == true { flush() }
+        for (i, w) in words.enumerated() {
+            guard let s = timeline.output(at: w.start) else { flush(); continue }
+            let e = timeline.output(at: w.end) ?? s + 0.25
+            if let last = group.last, s - last.1.end > 0.6 { flush() }
+            group.append((i, CueWord(text: w.text, start: s, end: max(e, s + 0.05))))
+            if group.count >= per || w.text.last.map({ ".,!?".contains($0) }) == true { flush() }
         }
         flush()
         // Hold each caption until the next one starts (no flicker in short gaps).
@@ -364,156 +413,58 @@ enum Captions {
         return cues
     }
 
-    /// Bold white text with a dark outline and shadow, drawn once per caption.
-    static func image(_ text: String, frame: CGSize) -> CIImage? {
+    static let presets: [(String, String)] = [("classic", "Classic"), ("karaoke", "Karaoke"), ("highlight", "Highlight"), ("box", "Box"), ("minimal", "Minimal")]
+
+    /// A caption as a picture. `active` is the word being said, for the karaoke and highlight styles.
+    static func image(_ cue: Cue, active: Int?, style: CaptionStyle, frame: CGSize) -> CIImage? {
         let short = min(frame.width, frame.height)
-        let size = short * 0.068
+        let size = short * 0.068 * style.size * (style.preset == "minimal" ? 0.8 : 1)
         let para = NSMutableParagraphStyle()
         para.alignment = .center
         para.lineBreakMode = .byWordWrapping
-        let font = NSFont.systemFont(ofSize: size, weight: .heavy)
+        let weight = style.preset == "minimal" ? "bold" : "heavy"
+        let font = StudioType.font(style.font, size: size, weight: weight)
+        let color = NSColor(hex: style.color), accent = NSColor(hex: style.accent)
+        let words = cue.words.map { style.uppercase ? $0.text.uppercased() : $0.text }
+        let text = words.joined(separator: " ")
+        // Where each word sits in the text, to colour or mark the one being said.
+        var ranges: [NSRange] = []
+        var at = 0
+        for w in words { ranges.append(NSRange(location: at, length: (w as NSString).length)); at += (w as NSString).length + 1 }
+
         let shadow = NSShadow()
-        shadow.shadowColor = NSColor.black.withAlphaComponent(0.55)
+        shadow.shadowColor = NSColor.black.withAlphaComponent(style.preset == "minimal" ? 0.7 : 0.55)
         shadow.shadowBlurRadius = size * 0.25
-        shadow.shadowOffset = NSSize(width: 0, height: -size * 0.06)
-        let fill = NSAttributedString(string: text, attributes: [.font: font, .foregroundColor: NSColor.white, .paragraphStyle: para, .shadow: shadow])
-        let stroke = NSAttributedString(string: text, attributes: [.font: font, .foregroundColor: NSColor.clear, .paragraphStyle: para,
-                                                                    .strokeColor: NSColor.black, .strokeWidth: 9])
+        shadow.shadowOffset = NSSize(width: 0, height: size * 0.06)
+        let fill = NSMutableAttributedString(string: text, attributes: [.font: font, .foregroundColor: color, .paragraphStyle: para])
+        if style.preset != "box" { fill.addAttribute(.shadow, value: shadow, range: NSRange(location: 0, length: fill.length)) }
+        if style.preset == "karaoke", let a = active, a < ranges.count { fill.addAttribute(.foregroundColor, value: accent, range: ranges[a]) }
+        if style.preset == "highlight", let a = active, a < ranges.count {
+            fill.addAttribute(.foregroundColor, value: accent.brightnessComponent > 0.6 ? NSColor.black : NSColor.white, range: ranges[a])
+        }
+
         let maxW = min(frame.width * 0.86, short * 1.15)
-        let bounds = fill.boundingRect(with: NSSize(width: maxW, height: 1000), options: [.usesLineFragmentOrigin])
-        let w = Int(maxW), h = Int(ceil(bounds.height + size * 0.8))
-        guard let ctx = CGContext(data: nil, width: w, height: h, bitsPerComponent: 8, bytesPerRow: 0,
-                                  space: CGColorSpace(name: CGColorSpace.sRGB)!, bitmapInfo: CGImageAlphaInfo.premultipliedLast.rawValue) else { return nil }
-        NSGraphicsContext.saveGraphicsState()
-        NSGraphicsContext.current = NSGraphicsContext(cgContext: ctx, flipped: false)
-        let rect = NSRect(x: 0, y: size * 0.4, width: CGFloat(w), height: bounds.height)
-        stroke.draw(with: rect, options: [.usesLineFragmentOrigin])
-        fill.draw(with: rect, options: [.usesLineFragmentOrigin])
-        NSGraphicsContext.restoreGraphicsState()
-        return ctx.makeImage().map { CIImage(cgImage: $0) }
-    }
-}
-
-// MARK: - Building the reel
-
-/// Draws each frame: the recording laid out for the reel size over a blurred copy of itself,
-/// plus the caption. Shared with AVFoundation's render threads, so its state is fixed or locked.
-final class ReelRenderer: @unchecked Sendable {
-    let size: CGSize
-    let plan: EditPlan
-    let cues: [Cue]
-    private var cache: [Int: CIImage] = [:]
-    private let lock = NSLock()
-
-    init(size: CGSize, plan: EditPlan, cues: [Cue]) { self.size = size; self.plan = plan; self.cues = cues }
-
-    func frame(_ src: CIImage, at t: Double) -> CIImage {
-        let W = size.width, H = size.height
-        let e = src.extent
-        let out = CGRect(origin: .zero, size: size)
-        let fit = min(W / e.width, H / e.height), fill = max(W / e.width, H / e.height)
-
-        // Background: the same frame, filling, blurred and dimmed.
-        let small = fill * 0.25
-        let bg = src.transformed(by: CGAffineTransform(translationX: -e.minX, y: -e.minY).scaledBy(x: small, y: small))
-            .clampedToExtent()
-            .applyingGaussianBlur(sigma: 14)
-            .transformed(by: CGAffineTransform(scaleX: 4, y: 4))
-            .transformed(by: CGAffineTransform(translationX: (W - e.width * fill) / 2, y: (H - e.height * fill) / 2))
-            .applyingFilter("CIColorControls", parameters: [kCIInputBrightnessKey: 0.04, kCIInputSaturationKey: 1.25])
-            .cropped(to: out)
-
-        // Foreground: fits at zoom 1, crops in towards the focus point above that.
-        let s = fit * max(1, plan.zoom)
-        let sw = e.width * s, sh = e.height * s
-        let x = sw > W ? -(sw - W) * plan.focusX : (W - sw) / 2
-        let y = sh > H ? -(sh - H) * (1 - plan.focusY) : (H - sh) / 2
-        let fg = src.transformed(by: CGAffineTransform(translationX: -e.minX, y: -e.minY))
-            .transformed(by: CGAffineTransform(scaleX: s, y: s))
-            .transformed(by: CGAffineTransform(translationX: x, y: y))
-            .cropped(to: out)
-        var img = fg.composited(over: bg)
-
-        if plan.captions, let (i, cue) = cues.enumerated().first(where: { t >= $0.element.start && t < $0.element.end }),
-           let cap = caption(i, cue.text) {
-            let cy: CGFloat
-            switch plan.captionPosition {
-            case "top": cy = H * 0.80
-            case "middle": cy = H * 0.5
-            default: cy = H * (H > W * 1.2 ? 0.2 : 0.12)
+        let block = StudioType.Block(fill, width: maxW)
+        let pad = size * (style.preset == "box" ? 0.5 : 0.4)
+        let w = Int(maxW + pad * 2), h = Int(ceil(block.used.height + pad * 2))
+        let origin = CGPoint(x: pad, y: pad)
+        return StudioType.picture(width: w, height: h) {
+            if style.preset == "box" {
+                let r = block.used.offsetBy(dx: pad, dy: pad).insetBy(dx: -size * 0.4, dy: -size * 0.22)
+                NSColor.black.withAlphaComponent(0.72).setFill()
+                NSBezierPath(roundedRect: r, xRadius: size * 0.25, yRadius: size * 0.25).fill()
             }
-            img = cap.transformed(by: CGAffineTransform(translationX: (W - cap.extent.width) / 2, y: cy - cap.extent.height / 2))
-                .composited(over: img)
-        }
-        return img.cropped(to: out)
-    }
-
-    private func caption(_ i: Int, _ text: String) -> CIImage? {
-        lock.lock(); defer { lock.unlock() }
-        if let c = cache[i] { return c }
-        if cache.count > 24 { cache.removeAll() }
-        let c = Captions.image(text, frame: size)
-        cache[i] = c
-        return c
-    }
-}
-
-enum ReelBuilder {
-    struct Built {
-        let composition: AVComposition
-        let video: AVVideoComposition
-        let duration: Double
-        let renderSize: CGSize
-    }
-
-    static func build(url: URL, spans: [TimeSpan], plan: EditPlan, size: ReelSize, words: [Word]?) async throws -> Built {
-        let asset = AVURLAsset(url: url)
-        let comp = AVMutableComposition()
-        guard let vSrc = try await asset.loadTracks(withMediaType: .video).first,
-              let v = comp.addMutableTrack(withMediaType: .video, preferredTrackID: kCMPersistentTrackID_Invalid) else {
-            throw NSError(domain: "Bubble", code: 1, userInfo: [NSLocalizedDescriptionKey: "This recording has no video."])
-        }
-        let aSrcs = try await asset.loadTracks(withMediaType: .audio)
-        let aDsts = aSrcs.compactMap { _ in comp.addMutableTrack(withMediaType: .audio, preferredTrackID: kCMPersistentTrackID_Invalid) }
-        var cursor = CMTime.zero
-        for s in spans {
-            let r = CMTimeRange(start: CMTime(seconds: s.start, preferredTimescale: 600), end: CMTime(seconds: s.end, preferredTimescale: 600))
-            try v.insertTimeRange(r, of: vSrc, at: cursor)
-            for (src, dst) in zip(aSrcs, aDsts) { try? dst.insertTimeRange(r, of: src, at: cursor) }
-            cursor = cursor + r.duration
-        }
-        if plan.speed != 1, cursor.seconds > 0 {
-            comp.scaleTimeRange(CMTimeRange(start: .zero, duration: cursor),
-                                toDuration: CMTime(seconds: cursor.seconds / plan.speed, preferredTimescale: 600))
-        }
-        let cues = words.map { Captions.cues($0, spans: spans, speed: plan.speed) } ?? []
-        let natural = try await vSrc.load(.naturalSize)
-        let render = size.render(source: natural)
-        // The original shape shows the whole recording, never cropped.
-        var p = plan
-        if size == .original { p.zoom = 1 }
-        let renderer = ReelRenderer(size: render, plan: p, cues: cues)
-        let vc = try await AVMutableVideoComposition.videoComposition(with: comp) { req in
-            req.finish(with: renderer.frame(req.sourceImage, at: req.compositionTime.seconds), context: nil)
-        }
-        vc.renderSize = render
-        vc.frameDuration = CMTime(value: 1, timescale: 30)
-        return Built(composition: comp, video: vc, duration: comp.duration.seconds, renderSize: render)
-    }
-
-    static func export(_ b: Built, to url: URL, progress: @escaping @Sendable (Double) -> Void) async throws {
-        try? FileManager.default.removeItem(at: url)
-        guard let session = AVAssetExportSession(asset: b.composition, presetName: AVAssetExportPresetHighestQuality) else {
-            throw NSError(domain: "Bubble", code: 2, userInfo: [NSLocalizedDescriptionKey: "Couldn't start the export."])
-        }
-        session.videoComposition = b.video
-        session.audioTimePitchAlgorithm = .spectral
-        let watcher = Task {
-            for await state in session.states(updateInterval: 0.25) {
-                if case .exporting(let p) = state { progress(p.fractionCompleted) }
+            if style.preset == "highlight", let a = active, a < ranges.count {
+                let r = block.rect(of: ranges[a]).offsetBy(dx: origin.x, dy: origin.y).insetBy(dx: -size * 0.16, dy: -size * 0.04)
+                accent.setFill()
+                NSBezierPath(roundedRect: r, xRadius: size * 0.18, yRadius: size * 0.18).fill()
             }
+            if style.preset == "classic" || style.preset == "karaoke" {
+                let stroke = StudioType.Block(NSAttributedString(string: text, attributes: [.font: font, .foregroundColor: NSColor.clear, .paragraphStyle: para,
+                                                                                            .strokeColor: NSColor.black, .strokeWidth: 9]), width: maxW)
+                stroke.draw(at: origin)
+            }
+            block.draw(at: origin)
         }
-        defer { watcher.cancel() }
-        try await session.export(to: url, as: .mp4)
     }
 }

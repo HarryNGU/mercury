@@ -24,8 +24,11 @@ struct ChatRecord: Codable, Identifiable, Equatable {
     /// The Claude Code conversation this chat continues, so Bubble remembers it too.
     var claudeSession: String?
     var turns: [Turn] = []
+    /// A name you gave the chat; otherwise it's named after your first question.
+    var name: String?
 
     var title: String {
+        if let n = name?.trimmingCharacters(in: .whitespacesAndNewlines), !n.isEmpty { return n }
         let q = turns.first?.question.trimmingCharacters(in: .whitespacesAndNewlines) ?? ""
         return q.isEmpty ? "New chat" : String(q.prefix(60))
     }

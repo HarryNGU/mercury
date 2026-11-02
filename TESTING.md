@@ -62,8 +62,19 @@ Tick these off and note anything odd, slow, confusing or ugly.
 **Recording**
 - [ ] Record a window, a Chrome tab, an area and the whole screen. Try pause, restart and discard.
 - [ ] While recording, switch to other apps and desktops. The pill should come with you, and never show in the video.
+- [ ] While recording, click the pen on the pill and draw: pen, highlighter, disappearing ink, an arrow, and a wobbly circle (it should tidy itself). Try the lasso, the eraser, undo and Clear. Click Done and use your apps; the drawings stay. Are the drawings in the video, and the toolbar not?
 - [ ] Record a page showing an email address, a phone number or an API key (made-up ones are fine). They should be blurred in the video, from the very first frame. Tell me about anything private it missed, or anything it blurred that it shouldn't have.
 - [ ] On a recording in the library, click **Make reels**. Are the captions accurate and in time?
+- [ ] In the editor, click a clip on the timeline, drag its ends to trim it, press S to split, and try 2× on one clip. Does the preview follow straight away? Do undo and redo work?
+- [ ] Press and drag across the video on the timeline to pick a stretch, adjust its ends, then try Cut it, Keep only and 2×.
+- [ ] In **Transcript**, fix a wrong word in **Fix words**. Do the captions change straight away? In **Cut video**, select words and press Delete; click a crossed out word to bring it back.
+- [ ] Space plays and pauses, ← and → jump 5 seconds, and the bar under the preview can be dragged. Try the light and dark looks (sun or moon at the top).
+- [ ] In **Audio**, turn on Enhance speech, Remove echo (on a call recording) and Polish voice. After the progress finishes, is the background noise gone and the echo of your voice removed? Try the Social loudness target and the two track volumes.
+- [ ] Add a blur box in **Media**, drag it over something on the frame, and try Blur, Pixelate and Block out. Try a filter in **Colour**.
+- [ ] Add a title (T) and a zoom (Z). Drag the title on the preview, and drag both on the timeline. Try the animations and caption styles.
+- [ ] Drop a video, a picture and a song onto the editor. Does the video play on top (try picture in picture and full screen)? Does the music go quieter while you talk?
+- [ ] In the editor, ask Claude for a change in **Quick edit** ("make it under 60 seconds", "add a title"), then Export. Do the videos play, and look like the preview?
+- [ ] Switch to **Full job** and paste a longer recipe. Can you follow the steps? Does it ask before anything risky?
 
 **Things that should never happen** (tell me straight away if they do)
 - Bubble sends, deletes or changes anything without you allowing it.

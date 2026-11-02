@@ -32,11 +32,30 @@ final class ClaudeCodeSession: @unchecked Sendable {
             .map { URL(fileURLWithPath: $0) }
     }
 
+    /// Ask Bubble's chat, or a reel editor job: each keeps its own conversation, instructions and rules.
+    struct Profile {
+        let sessionKey: String
+        let prompt: () -> String
+        /// A job works through a list of steps on its own: no connected apps, and its own idea of what's safe.
+        let isJob: Bool
+        static let assistant = Profile(sessionKey: "assistantSessionID", prompt: { ClaudeCodeSession.overlayPrompt }, isJob: false)
+    }
+
+    let profile: Profile
+    /// Extra things this session may do without asking (a job's working folders), checked after `isSafe`.
+    var autoAllow: ((String, [String: Any]) -> Bool)?
+
+    init(profile: Profile = .assistant) {
+        self.profile = profile
+        sessionID = Settings.d.string(forKey: profile.sessionKey)
+        if !profile.isJob { autoAllow = LocalPicture.isDrawing }
+    }
+
     var onEvent: ((Event) -> Void)?
     private var process: Process?
     private var stdin: FileHandle?
     private var buffer = Data()
-    private var sessionID: String? = Settings.d.string(forKey: "assistantSessionID")
+    private var sessionID: String?
     private var busy = false
     private let lock = NSLock()
 
@@ -48,7 +67,7 @@ final class ClaudeCodeSession: @unchecked Sendable {
 
     var isRunning: Bool { process?.isRunning == true }
 
-    private static var overlayPrompt: String { overlayText + "\n\n" + pictureRules + "\n\n" + actionRules }
+    static var overlayPrompt: String { overlayText + "\n\n" + pictureRules + "\n\n" + actionRules }
 
     private static let actionRules = """
     Doing things: when the user asks you to do something ("email Alex this", "find me…", "book…"), do it with \
@@ -57,6 +76,12 @@ final class ClaudeCodeSession: @unchecked Sendable {
     question like "Send it?". Only send after they say yes; Bubble also shows them an approval card. If they ask \
     to attach or upload what's on their screen, use the screenshot file path given in their message. On a Mac \
     you can use AppleScript (osascript) for Mail, Calendar, Reminders, Notes and opening apps or links.
+
+    Drawing: when a picture you make would help (a diagram, a 3D shape, a graph, a chart), draw it as an SVG \
+    file with the Write tool, saved in \(LocalPicture.drawings.path)/ with a short name, then show it in your \
+    reply with ![short description](full path) on its own line. Saving there never needs the user's OK, and \
+    Bubble shows it right in the chat. Never open it in a browser or Preview, and don't say Bubble can't show \
+    your pictures: if an earlier message in this chat said so, that has since been fixed.
 
     Messaging: for email use the Gmail connector (write a draft, show it, send only after they say yes). For \
     Messenger, Instagram, WhatsApp or Apple Messages use Bubble's prepare_message tool: it opens the chat and \
@@ -89,8 +114,15 @@ final class ClaudeCodeSession: @unchecked Sendable {
     /// Starts the background session if it isn't running (the first answer then comes quicker).
     func warmUp() { _ = try? ensureRunning() }
 
+    /// The connectors the running session was started without, so a change in Settings restarts it.
+    private var startedWithout: [String] = []
+
     private func ensureRunning() throws {
-        if isRunning { return }
+        if isRunning {
+            if profile.isJob || startedWithout == Connectors.leftOut { return }
+            process?.terminate()  // your connector choice changed: start again (the conversation carries on)
+            process = nil
+        }
         guard let bin = Self.binary else {
             throw Failure("Claude Code isn't installed. Install it from claude.com/claude-code, then sign in.")
         }
@@ -100,10 +132,19 @@ final class ClaudeCodeSession: @unchecked Sendable {
                     "--include-partial-messages", "--permission-prompt-tool", "stdio",
                     "--model", Settings.assistantModel.alias,
                     // Things that need Claude Code's own window, or would run on after the panel closes.
-                    "--disallowedTools", "AskUserQuestion,EnterPlanMode,ExitPlanMode,EnterWorktree,ExitWorktree,CronCreate,CronDelete,ScheduleWakeup,Monitor,RemoteTrigger",
-                    "--append-system-prompt", Self.overlayPrompt]
+                    "--disallowedTools", (["AskUserQuestion", "EnterPlanMode", "ExitPlanMode", "EnterWorktree", "ExitWorktree", "CronCreate",
+                                           "CronDelete", "ScheduleWakeup", "Monitor", "RemoteTrigger"] + (profile.isJob ? [] : Connectors.leftOut)).joined(separator: ","),
+                    "--append-system-prompt", profile.prompt(),
+                    // Bubble's instructions change between versions; send the current ones with every
+                    // message instead of the copy saved when a long conversation began.
+                    "--system-prompt-snapshot", "off"]
         if let id = sessionID { args += ["--resume", id] }
-        if let cfg = BubbleToolServer.shared.mcpConfig { args += ["--mcp-config", cfg] }  // Bubble's own tools
+        if profile.isJob {
+            args += ["--strict-mcp-config"]  // a video job needs no connected apps, which keeps it lean
+        } else {
+            startedWithout = Connectors.leftOut
+            if let cfg = BubbleToolServer.shared.mcpConfig { args += ["--mcp-config", cfg] }  // Bubble's own tools
+        }
         p.arguments = args
         p.currentDirectoryURL = FileManager.default.homeDirectoryForCurrentUser  // where your memory lives
         var env = ProcessInfo.processInfo.environment
@@ -164,7 +205,7 @@ final class ClaudeCodeSession: @unchecked Sendable {
         process?.terminate()
         process = nil
         sessionID = id
-        if let id { Settings.d.set(id, forKey: "assistantSessionID") } else { Settings.d.removeObject(forKey: "assistantSessionID") }
+        if let id { Settings.d.set(id, forKey: profile.sessionKey) } else { Settings.d.removeObject(forKey: profile.sessionKey) }
     }
 
     /// Forget this conversation and start a new one next time.
@@ -172,7 +213,7 @@ final class ClaudeCodeSession: @unchecked Sendable {
         process?.terminate()
         process = nil
         sessionID = nil
-        Settings.d.removeObject(forKey: "assistantSessionID")
+        Settings.d.removeObject(forKey: profile.sessionKey)
     }
 
     func answer(_ a: Approval, allow: Bool, always: Bool = false) {
@@ -211,7 +252,7 @@ final class ClaudeCodeSession: @unchecked Sendable {
         case "system":
             if m["subtype"] as? String == "init", let id = m["session_id"] as? String {
                 sessionID = id
-                Settings.d.set(id, forKey: "assistantSessionID")
+                Settings.d.set(id, forKey: profile.sessionKey)
             }
         case "stream_event":
             if let ev = m["event"] as? [String: Any], ev["type"] as? String == "content_block_delta",
@@ -221,32 +262,37 @@ final class ClaudeCodeSession: @unchecked Sendable {
         case "assistant":
             let blocks = (m["message"] as? [String: Any])?["content"] as? [[String: Any]] ?? []
             for b in blocks where b["type"] as? String == "tool_use" {
-                emit(.activity(Self.activity(b["name"] as? String ?? "", b["input"] as? [String: Any] ?? [:])))
+                let tool = b["name"] as? String ?? "", input = b["input"] as? [String: Any] ?? [:]
+                emit(.activity(profile.isJob ? Self.jobActivity(tool, input) : Self.activity(tool, input)))
             }
         case "control_request":
             guard let id = m["request_id"] as? String, let req = m["request"] as? [String: Any],
                   req["subtype"] as? String == "can_use_tool", let tool = req["tool_name"] as? String else { return }
             let input = req["input"] as? [String: Any] ?? [:]
             let a = Approval(id: id, tool: tool, input: input)
-            if Self.isSafe(tool, input) && (Self.isReadOnly(tool) || alwaysAllowed.contains(tool)) {
+            if Self.isSafe(tool, input) && (Self.isReadOnly(tool) || (!profile.isJob && alwaysAllowed.contains(tool)) || autoAllow?(tool, input) == true) {
                 answer(a, allow: true)
             } else {
                 emit(.approval(a))
             }
         case "result":
             lock.lock(); busy = false; lock.unlock()
+            if let u = m["usage"] as? [String: Any] {
+                let read = ["input_tokens", "cache_creation_input_tokens", "cache_read_input_tokens"].compactMap { (u[$0] as? NSNumber)?.intValue }.reduce(0, +)
+                log("claude code: answer used \(read) tokens in, \((u["output_tokens"] as? NSNumber)?.intValue ?? 0) out")
+            }
             let isError = m["is_error"] as? Bool ?? false
             let text = m["result"] as? String ?? ""
             if isError, text.localizedCaseInsensitiveContains("no conversation found") {
                 // The saved conversation is gone: start a new one next time.
                 sessionID = nil
-                Settings.d.removeObject(forKey: "assistantSessionID")
+                Settings.d.removeObject(forKey: profile.sessionKey)
                 process?.terminate()
                 emit(.done(error: "Started a fresh conversation. Ask again."))
             } else if isError, text.contains("Not logged in") || text.contains("/login") {
                 // Nothing was said yet, so don't try to resume this session later.
                 sessionID = nil
-                Settings.d.removeObject(forKey: "assistantSessionID")
+                Settings.d.removeObject(forKey: profile.sessionKey)
                 emit(.done(error: "Claude Code isn't signed in on this Mac yet. Open Terminal, run `claude`, type /login and sign in with your Claude account, then ask again."))
             } else {
                 emit(.done(error: isError ? (text.isEmpty ? "Claude Code hit an error." : text) : nil))
@@ -321,6 +367,24 @@ final class ClaudeCodeSession: @unchecked Sendable {
         return pairs.joined(separator: "\n")
     }
 
+    /// Progress lines for a job, where you want to see what's actually happening.
+    static func jobActivity(_ tool: String, _ input: [String: Any]) -> String {
+        func short(_ s: String) -> String { s.replacingOccurrences(of: NSHomeDirectory(), with: "~") }
+        func file(_ key: String = "file_path") -> String { ((input[key] as? String) ?? "a file").split(separator: "/").last.map(String.init) ?? "a file" }
+        switch tool {
+        case "Bash":
+            let cmd = short((input["command"] as? String ?? "").replacingOccurrences(of: "\n", with: " "))
+            return "Running " + (cmd.count > 110 ? String(cmd.prefix(110)) + "…" : cmd)
+        case "Write": return "Writing \(file())"
+        case "Edit", "MultiEdit": return "Editing \(file())"
+        case "Read": return "Reading \(file())"
+        case "Glob", "Grep": return "Looking through files"
+        case "TodoWrite": return "Planning the steps"
+        case "Task", "Agent": return "Handing part of it to a helper"
+        default: return activity(tool, input)
+        }
+    }
+
     static func activity(_ tool: String, _ input: [String: Any]) -> String {
         switch tool {
         case "WebSearch": return "Searching the web…"
@@ -340,4 +404,82 @@ final class ClaudeCodeSession: @unchecked Sendable {
 extension AssistantModelChoice {
     /// Claude Code's model names.
     var alias: String { switch self { case .fast: "haiku"; case .balanced: "sonnet"; case .smart: "opus" } }
+}
+
+// MARK: - Connectors
+
+/// The apps connected to your Claude account, and Claude Code plugins with tools. Every one Ask Bubble
+/// loads is described to Claude in each chat, so loading all of them (fifty or so) used hundreds of
+/// thousands of tokens of your plan per chat. Bubble loads the everyday ones, plus any you add in Settings.
+enum Connectors {
+    /// On unless you turn them off.
+    static let everyday: Set<String> = ["Gmail", "Google Calendar", "Google Drive", "Google Docs", "Google Sheets", "Notion",
+                                        "Todoist", "Microsoft 365", "Outlook", "Superhuman Mail", "Slack", "Calendly", "Goodnotes"]
+
+    /// Every connector Claude Code reported last time Bubble checked, as Claude Code names them
+    /// ("claude.ai Gmail", "plugin:bio-research:pubmed").
+    static var known: [String] { Settings.d.stringArray(forKey: "connectorsKnown") ?? [] }
+
+    static var chosen: Set<String> {
+        get { Settings.d.stringArray(forKey: "connectorsChosen").map(Set.init) ?? Set(known.filter { everyday.contains(label($0)) }) }
+        set { Settings.d.set(Array(newValue).sorted(), forKey: "connectorsChosen") }
+    }
+
+    /// Tool names to leave out of Ask Bubble's Claude Code session.
+    static var leftOut: [String] { known.filter { !chosen.contains($0) }.map(toolPrefix).sorted() }
+
+    static func label(_ raw: String) -> String {
+        if raw.hasPrefix("claude.ai ") { return String(raw.dropFirst("claude.ai ".count)) }
+        let parts = raw.split(separator: ":")
+        return parts.count == 3 ? "\(parts[2]) (\(parts[1]) plugin)" : raw
+    }
+
+    /// How Claude Code names a server's tools: mcp__claude_ai_Google_Calendar__…, mcp__plugin_bio-research_pubmed__…
+    static func toolPrefix(_ raw: String) -> String {
+        func clean(_ s: Substring) -> String { String(s).replacingOccurrences(of: #"[^A-Za-z0-9_-]"#, with: "_", options: .regularExpression) }
+        if raw.hasPrefix("claude.ai ") { return "mcp__claude_ai_" + clean(raw.dropFirst("claude.ai ".count)) }
+        let parts = raw.split(separator: ":")
+        if parts.count == 3, parts[0] == "plugin" { return "mcp__plugin_\(clean(parts[1]))_\(clean(parts[2]))" }
+        return "mcp__" + clean(Substring(raw))
+    }
+
+    /// Asks Claude Code which connectors you have (takes a few seconds; it checks each one).
+    static func refresh(done: (() -> Void)? = nil) {
+        guard let bin = ClaudeCodeSession.binary else { done?(); return }
+        DispatchQueue.global(qos: .utility).async {
+            let p = Process()
+            p.executableURL = bin
+            p.arguments = ["mcp", "list"]
+            p.currentDirectoryURL = FileManager.default.homeDirectoryForCurrentUser
+            var env = ProcessInfo.processInfo.environment
+            env["PATH"] = [bin.deletingLastPathComponent().path, "/opt/homebrew/bin", "/usr/local/bin", "/usr/bin", "/bin", env["PATH"] ?? ""].joined(separator: ":")
+            p.environment = env
+            let out = Pipe()
+            p.standardOutput = out
+            p.standardError = FileHandle.nullDevice
+            guard (try? p.run()) != nil else { DispatchQueue.main.async { done?() }; return }
+            let text = String(decoding: out.fileHandleForReading.readDataToEndOfFile(), as: UTF8.self)
+            p.waitUntilExit()
+            let names = text.split(separator: "\n").compactMap { line -> String? in
+                let l = String(line)
+                guard l.hasPrefix("claude.ai ") || l.hasPrefix("plugin:"),
+                      let r = l.range(of: l.hasPrefix("plugin:") ? #"^plugin:[^:]+:[^:]+"# : #"^claude\.ai [^:]+"#, options: .regularExpression) else { return nil }
+                return String(l[r])
+            }
+            DispatchQueue.main.async {
+                if !names.isEmpty {
+                    Settings.d.set(names, forKey: "connectorsKnown")
+                    Settings.d.set(Date(), forKey: "connectorsChecked")
+                    log("connectors: \(names.count) found, Ask Bubble loads \(chosen.count)")
+                }
+                done?()
+            }
+        }
+    }
+
+    /// Once a day at most.
+    static func refreshIfDue() {
+        if let last = Settings.d.object(forKey: "connectorsChecked") as? Date, Date().timeIntervalSince(last) < 86_400 { return }
+        refresh()
+    }
 }

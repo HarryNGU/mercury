@@ -32,6 +32,10 @@ final class UIModel: ObservableObject {
     @Published var paused = false
     @Published var elapsed: TimeInterval = 0
     @Published var saving = false
+    @Published var drawing = false          // drawing on the screen
+    @Published var hasDrawings = false
+    var onDraw: (() -> Void)?
+    var onClearDrawings: (() -> Void)?
 
     var onCamera: ((Bool) -> Void)?
     var onBackground: ((CameraBackground) -> Void)?
@@ -272,6 +276,11 @@ struct RecordingPill: View {
 
             Rectangle().fill(.white.opacity(0.14)).frame(width: 1, height: 22)
 
+            PillIcon(icon: "pencil.tip.crop.circle", tip: model.drawing ? "Stop drawing (Esc)" : "Draw on the screen (it's recorded)", on: model.drawing) { model.onDraw?() }
+            PillIcon(icon: "eraser.line.dashed", tip: "Clear all drawings") { model.onClearDrawings?() }
+                .opacity(model.hasDrawings ? 1 : 0.35)
+                .disabled(!model.hasDrawings)
+            Rectangle().fill(.white.opacity(0.14)).frame(width: 1, height: 22)
             PillIcon(icon: model.paused ? "play.fill" : "pause.fill", tip: model.paused ? "Resume" : "Pause") { model.onPause?() }
             PillIcon(icon: "arrow.counterclockwise", tip: "Restart (discard and start again)") { model.onRestart?() }
             PillIcon(icon: "trash", tip: "Discard recording") { model.onDiscard?() }
@@ -337,6 +346,7 @@ struct MicMeter: View {
 struct PillIcon: View {
     let icon: String
     let tip: String
+    var on = false
     let action: () -> Void
     @State private var hover = false
 
@@ -344,12 +354,119 @@ struct PillIcon: View {
         Button(action: action) {
             Image(systemName: icon)
                 .font(.system(size: 13, weight: .semibold))
-                .foregroundStyle(.white.opacity(hover ? 1 : 0.85))
+                .foregroundStyle(.white.opacity(hover || on ? 1 : 0.85))
                 .frame(width: 32, height: 32)
-                .background(Circle().fill(.white.opacity(hover ? 0.16 : 0)))
+                .background(Circle().fill(on ? AnyShapeStyle(Theme.brand) : AnyShapeStyle(.white.opacity(hover ? 0.16 : 0))))
         }
         .buttonStyle(.plain)
         .onHover { h in withAnimation(.easeOut(duration: 0.12)) { hover = h } }
         .help(tip)
+    }
+}
+
+// MARK: - Chat box
+
+/// The box you type into in Ask Bubble and the reel editor. It's a real Mac text view rather than
+/// SwiftUI's growing text field, which re-measures every line on each redraw and slowed the whole app
+/// to a crawl with a long pasted prompt. Return sends; Shift+Return or Option+Return starts a new line.
+/// It grows up to `maxLines`, then scrolls.
+struct ChatTextView: NSViewRepresentable {
+    @Binding var text: String
+    var placeholder: String
+    var font: NSFont = .systemFont(ofSize: 13)
+    var textColor: NSColor = .labelColor
+    var placeholderColor: NSColor = .placeholderTextColor
+    var maxLines = 6
+    /// Change it to put the cursor in the box.
+    var focusRequest = 0
+    @Binding var height: CGFloat
+    var onSubmit: () -> Void
+
+    final class Box: NSTextView {
+        var placeholder = "" { didSet { needsDisplay = true } }
+        var placeholderColor: NSColor = .placeholderTextColor
+        override func draw(_ rect: NSRect) {
+            super.draw(rect)
+            guard string.isEmpty, !placeholder.isEmpty else { return }
+            (placeholder as NSString).draw(at: NSPoint(x: textContainerInset.width, y: textContainerInset.height),
+                                           withAttributes: [.font: font ?? .systemFont(ofSize: 13), .foregroundColor: placeholderColor])
+        }
+        override func becomeFirstResponder() -> Bool { needsDisplay = true; return super.becomeFirstResponder() }
+    }
+
+    final class Coordinator: NSObject, NSTextViewDelegate {
+        var parent: ChatTextView
+        var lastFocus = 0
+        init(_ p: ChatTextView) { parent = p }
+
+        func textDidChange(_ n: Notification) {
+            guard let tv = n.object as? NSTextView else { return }
+            parent.text = tv.string
+            report(tv)
+        }
+
+        func textView(_ tv: NSTextView, doCommandBy selector: Selector) -> Bool {
+            guard selector == #selector(NSResponder.insertNewline(_:)) else { return false }
+            let mods = NSApp.currentEvent?.modifierFlags ?? []
+            if mods.contains(.shift) || mods.contains(.option) { tv.insertNewlineIgnoringFieldEditor(nil); return true }
+            parent.onSubmit()
+            return true
+        }
+
+        func report(_ tv: NSTextView) {
+            guard let lm = tv.layoutManager, let tc = tv.textContainer else { return }
+            lm.ensureLayout(for: tc)
+            let line = lm.defaultLineHeight(for: tv.font ?? .systemFont(ofSize: 13))
+            let h = min(max(line, lm.usedRect(for: tc).height), line * CGFloat(parent.maxLines)).rounded(.up)
+            if abs(parent.height - h) > 0.5 { DispatchQueue.main.async { self.parent.height = h } }
+        }
+    }
+
+    func makeCoordinator() -> Coordinator { Coordinator(self) }
+
+    func makeNSView(context: Context) -> NSScrollView {
+        let scroll = NSScrollView()
+        scroll.drawsBackground = false
+        scroll.hasVerticalScroller = true
+        scroll.autohidesScrollers = true
+        scroll.borderType = .noBorder
+        let tv = Box(frame: .zero)
+        tv.delegate = context.coordinator
+        tv.isRichText = false
+        tv.importsGraphics = false
+        tv.allowsUndo = true
+        tv.drawsBackground = false
+        tv.font = font
+        tv.textColor = textColor
+        tv.insertionPointColor = textColor
+        tv.textContainerInset = .zero
+        tv.textContainer?.lineFragmentPadding = 0
+        tv.textContainer?.widthTracksTextView = true
+        tv.isVerticallyResizable = true
+        tv.isHorizontallyResizable = false
+        tv.autoresizingMask = [.width]
+        tv.isAutomaticQuoteSubstitutionEnabled = false
+        tv.isAutomaticDashSubstitutionEnabled = false
+        tv.placeholder = placeholder
+        tv.placeholderColor = placeholderColor
+        tv.string = text
+        scroll.documentView = tv
+        DispatchQueue.main.async { context.coordinator.report(tv) }
+        return scroll
+    }
+
+    func updateNSView(_ scroll: NSScrollView, context: Context) {
+        context.coordinator.parent = self
+        guard let tv = scroll.documentView as? Box else { return }
+        if tv.string != text {
+            tv.string = text
+            tv.setSelectedRange(NSRange(location: (text as NSString).length, length: 0))
+            context.coordinator.report(tv)
+        }
+        if tv.placeholder != placeholder { tv.placeholder = placeholder }
+        if focusRequest != context.coordinator.lastFocus {
+            context.coordinator.lastFocus = focusRequest
+            DispatchQueue.main.async { tv.window?.makeFirstResponder(tv) }
+        }
     }
 }
