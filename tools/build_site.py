@@ -9,7 +9,7 @@ from pathlib import Path
 DOCS = Path(__file__).resolve().parent.parent / "docs"
 REPO = "https://github.com/HarryNGU/bubble"
 SITE = "https://harryngu.github.io/bubble/"
-UPDATED = "22 October 2026"
+UPDATED = "3 November 2026"
 
 GLYPH = {
     "record": '<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.9" stroke-linecap="round"><rect x="3" y="3.5" width="18" height="13.5" rx="3.5" stroke="var(--accent)"/><circle cx="7" cy="16.5" r="5.8" fill="var(--bg)" stroke="none"/><circle cx="7" cy="16.5" r="4.5" fill="var(--accent)" stroke="none"/><circle cx="7" cy="16.5" r="1.4" fill="#fff" stroke="none"/><circle cx="17" cy="8.2" r="1.6" fill="var(--accent)" stroke="none"/></svg>',
@@ -56,7 +56,7 @@ def page(name, title, desc, body, dark_top=False):
 <meta property="og:image" content="{SITE}assets/og.png?v=2">
 <meta property="og:image:width" content="1200">
 <meta property="og:image:height" content="630">
-<meta property="og:image:alt" content="Bubble, your ultimate personal assistant living on your Mac, answering a question in a floating chat">
+<meta property="og:image:alt" content="Bubble, the ultimate personal assistant for your Mac, answering a question in a floating chat">
 <meta name="twitter:card" content="summary_large_image">
 <meta name="twitter:title" content="{title}">
 <meta name="twitter:description" content="{desc}">
@@ -79,11 +79,11 @@ def page(name, title, desc, body, dark_top=False):
 {body}
 </main>
 <footer class="site"><div class="wrap"><div class="cols">
-<div><a class="brand" href="index.html"><span class="logo"></span>Bubble</a><p style="max-width:300px">Your ultimate personal assistant, living on your Mac. Free and open source. No account, no tracking, no ads.</p></div>
+<div><a class="brand" href="index.html"><span class="logo"></span>Bubble</a><p style="max-width:300px">The ultimate personal assistant for your Mac. It's free and open source, with no account, no tracking and no ads.</p></div>
 <div><h4>Product</h4><ul><li><a href="index.html#download">Download</a></li><li><a href="index.html#features">Features</a></li><li><a href="get-started.html">Get started</a></li><li><a href="faq.html">FAQ</a></li><li><a href="{REPO}">Source code</a></li></ul></div>
-<div><h4>Trust</h4><ul><li><a href="security.html">Safety and security</a></li><li><a href="privacy.html">Privacy policy</a></li><li><a href="terms.html">Terms of use</a></li><li><a href="notices.html">Open-source notices</a></li></ul></div>
+<div><h4>Trust</h4><ul><li><a href="security.html">Safety and security</a></li><li><a href="privacy.html">Privacy policy</a></li><li><a href="terms.html">Terms of use</a></li><li><a href="notices.html">Open source notices</a></li></ul></div>
 <div><h4>Help</h4><ul><li><a href="{REPO}/issues">Report a problem</a></li><li><a href="{REPO}/security/advisories/new">Report a security issue</a></li><li><a href="get-started.html#uninstall">Uninstall</a></li></ul></div>
-</div><p style="margin-top:34px;font-size:14px">This site sets no cookies and uses no analytics. Hosted by GitHub Pages.</p></div></footer>
+</div><p style="margin-top:34px;font-size:14px">This site doesn't use cookies or analytics. It's hosted on GitHub Pages.</p></div></footer>
 <script src="assets/site.js?v={V}"></script>
 </body>
 </html>
@@ -110,32 +110,32 @@ def story(n, kicker, title, text, ticks, img, alt, keys="", flip=False):
 
 # ─────────────────────────────── Home ───────────────────────────────
 STORIES = "".join([
-    story(1, "Ask", "Ask about anything on your screen", "Stuck on a question in your Notion notes, a chart in Excel or a paragraph in a PDF? Press ⌥\\ and ask. Bubble looks at your screen and answers like a friend texting back, with pictures, videos and links when they help.",
-          ["Looks at your screen only when you ask", "Diagrams, molecules and YouTube videos right in the chat", "Works over every app, nothing to copy and paste"],
-          "feat-ask.jpg", "Bubble's chat over a Notion page of chemistry notes, showing caffeine's structure", "<kbd>⌥</kbd><kbd>\\</kbd> to open"),
-    story(2, "Knows you", "Not a stranger", "Bubble picks up where your AI already is. Connect Claude and it knows your notes, your calendar and your inbox. Use ChatGPT? Bring over what it remembers about you in one paste.",
-          ["Uses your Claude memory and connected apps", "Imports what ChatGPT knows about you", "Kept on your Mac, and you can delete it any time"],
+    story(1, "Ask", "Ask about anything on your screen", "If you're stuck on something in your Notion notes, a chart in Excel or a paragraph in a PDF, press ⌥\\ and ask. Bubble looks at your screen and answers the way a friend would over text, with pictures, videos and links when they help.",
+          ["It only looks at your screen when you ask", "Diagrams, molecules and YouTube videos show up in the chat", "It works over any app, so there's nothing to copy and paste"],
+          "feat-ask.jpg", "Bubble's chat over a Notion page of chemistry notes, showing caffeine's structure", "<kbd>⌥</kbd><kbd>\\</kbd> to open it"),
+    story(2, "Knows you", "It already knows you", "Bubble works with the AI you already use. Connect Claude and it knows your notes, your calendar and your inbox. If you use ChatGPT, you can bring over what it remembers about you with one paste.",
+          ["Uses your Claude memory and connected apps", "Brings in what ChatGPT knows about you", "Kept on your Mac, and you can delete it any time"],
           "feat-knows.jpg", "Bubble planning a revision week around the user's exam and shifts", flip=True),
-    story(3, "Do", "Done in Gmail, sent by you", "“Reply to Sam and say I'll be there at 6.” Bubble writes the reply in Gmail or Outlook, shows it to you, and waits. It only sends when you tap Allow, or say “yes”.",
-          ["Drafts in Gmail, Outlook, Messages, Instagram and Messenger", "An Allow or Deny card before anything is sent", "Messages are typed in for you to send yourself"],
+    story(3, "Do", "It writes, you send", "Say “reply to Sam and tell him I'll be there at 6” and Bubble writes the reply in Gmail or Outlook, shows it to you, and waits. It only sends once you tap Allow or say “yes”.",
+          ["Drafts in Gmail, Outlook, Messages, Instagram and Messenger", "Shows an Allow or Deny card before anything is sent", "Chat messages are typed in for you to send yourself"],
           "feat-do.jpg", "Bubble writing a reply in Gmail and waiting for approval to send"),
-    story(4, "Dictate", "Talk instead of typing", "Double-tap Option in iMessage, Slack, Word or anywhere else, and just speak. Bubble types a tidy version where your cursor is, and finishes on its own when you pause.",
-          ["Works in every text box on your Mac", "No ums, and your corrections applied", "Speech is turned into text on your Mac"],
-          "feat-dictate.jpg", "Bubble typing a dictated message into iMessage", "<kbd>⌥</kbd><kbd>⌥</kbd> double-tap", flip=True),
-    story(5, "Listen", "A second brain on Zoom", "Turn on Listen in a Zoom or Google Meet call, a lecture or a YouTube video. Bubble hears your Mac's sound (never your microphone) and tells you what to say, or sums up what you missed.",
-          ["“What should I say?” in one tap", "Summaries and to-dos from long calls", "A red dot shows whenever it's listening"],
+    story(4, "Dictate", "Talk instead of typing", "Double tap Option in iMessage, Slack, Word or anywhere else and start talking. Bubble types a tidy version where your cursor is, and stops on its own when you pause.",
+          ["Works in any text box on your Mac", "Takes out the ums and applies your corrections", "Your speech is turned into text on your Mac"],
+          "feat-dictate.jpg", "Bubble typing a dictated message into iMessage", "<kbd>⌥</kbd><kbd>⌥</kbd> double tap", flip=True),
+    story(5, "Listen", "Help during calls", "Turn on Listen during a Zoom or Google Meet call, a lecture or a YouTube video. Bubble hears your Mac's sound (never your microphone) and can suggest what to say, or sum up what you missed.",
+          ["Ask “what should I say?” with one tap", "Summaries and to do lists from long calls", "A red dot shows whenever it's listening"],
           "feat-listen.jpg", "Bubble listening to a Zoom call and suggesting a reply"),
-    story(6, "Record", "Record once, post everywhere", "Hover any window and click. Your face sits in a round bubble, and the noise is gone. One more click makes captioned versions for Reels, TikTok, Shorts and YouTube.",
-          ["Pauses cut out automatically", "Big captions timed to your words", "9:16, 1:1 and 16:9, ready to post"],
+    story(6, "Record", "Record once, post anywhere", "Hover over any window and click to record. Your face sits in a round bubble and the background noise is gone. Then edit it properly in Bubble, or make captioned versions for Reels, TikTok, Shorts and YouTube in one click.",
+          ["Pauses are cut out for you", "Big captions timed to what you say", "A full editor with sound clean up, text, zooms and music"],
           "feat-record.jpg", "Three captioned videos made from one recording", "<kbd>⌘</kbd><kbd>\\</kbd> to record", flip=True),
 ])
 
 DAY = [
-    ("8:30", "Gmail", "#ea4335", "Replying before class", "Reply to Ms Lee: I'll hand the lab report in on Friday.", "Written in Gmail. You read it and press Send."),
-    ("10:00", "Zoom", "#2d8cff", "Lost in a lecture", "What did she mean by activation energy?", "A plain answer with a diagram, while the lecture keeps going."),
-    ("13:15", "Notion", "#111214", "Writing up notes", "Double-tap ⌥ and talk through what you learned.", "Tidy notes, typed where your cursor is."),
-    ("17:40", "Instagram", "#d62976", "Running late", "Tell Mia I'm 10 minutes away.", "Typed into her chat. You press send."),
-    ("21:00", "GoodNotes", "#4e8cf6", "Checking homework", "Is my working for question 4 right?", "Spots the slip in step 2 and explains why."),
+    ("8:30", "Gmail", "#ea4335", "Replying before class", "Reply to Ms Lee: I'll hand the lab report in on Friday.", "Written in Gmail. You read it and press Send yourself."),
+    ("10:00", "Zoom", "#2d8cff", "Lost in a lecture", "What did she mean by activation energy?", "A plain answer with a diagram while the lecture keeps going."),
+    ("13:15", "Notion", "#111214", "Writing up notes", "Double tap ⌥ and talk through what you learned.", "Tidy notes, typed where your cursor is."),
+    ("17:40", "Instagram", "#d62976", "Running late", "Tell Mia I'm 10 minutes away.", "Typed into her chat, and you press send."),
+    ("21:00", "GoodNotes", "#4e8cf6", "Checking homework", "Is my working for question 4 right?", "Spots the mistake in step 2 and explains it."),
 ]
 DAY_HTML = "".join(
     f'''<div class="moment reveal" style="--d:{i * 0.07:.2f}s"><div class="when">{t}<span class="app"><i style="background:{c}"></i>{app}</span></div>
@@ -144,12 +144,12 @@ DAY_HTML = "".join(
 )
 
 CONTROL = [
-    ("Looks at your screen", "Only when you ask a question, one screenshot each time.", '<span class="tag">👁 You can turn it off</span>'),
+    ("Looks at your screen", "Only when you ask a question, and only one screenshot each time.", '<span class="tag">👁 You can turn it off</span>'),
     ("Hears your Mac's sound", "Only while you've turned Listen on.", '<span class="tag"><span class="dot"></span>Red dot while on</span>'),
     ("Hears your voice", "Only while you're dictating or talking to it.", '<span class="tag">You start it</span>'),
     ("Sends an email or message", "Only after you tap Allow or say “yes”. Chat messages are typed in for you to send.", '<span class="tag">Your OK first</span>'),
     ("Changes files or apps", "Only after you see exactly what it will do, and allow it.", '<span class="tag">Your OK first</span>'),
-    ("Works in the background", "Never. Nothing happens unless you asked for it.", '<span class="tag never">Never</span>'),
+    ("Works in the background", "Never. Nothing happens unless you ask for it.", '<span class="tag never">Never</span>'),
     ("Collects or sells your data", "Never. No account, no tracking, no analytics.", '<span class="tag never">Never</span>'),
 ]
 CONTROL_HTML = "".join(f'<div class="row"><b>{a}</b><span>{b}</span>{c}</div>' for a, b, c in CONTROL)
@@ -157,8 +157,8 @@ CONTROL_HTML = "".join(f'<div class="row"><b>{a}</b><span>{b}</span>{c}</div>' f
 HOME = f"""
 <section class="hero">
 <div class="wrap">
-<h1 class="rise">Your ultimate<br>personal assistant,<br><span class="quiet">living on your Mac.</span></h1>
-<p class="lede rise" style="--d:.08s">Bubble floats over whatever you're doing, in Gmail, Notion, Zoom or anywhere else, and helps right there. It already knows you, and it only acts when you say so.</p>
+<h1 class="rise">The ultimate<br>personal assistant<br><span class="quiet">for your Mac.</span></h1>
+<p class="lede rise" style="--d:.08s">Bubble floats over whatever you're doing, whether that's Gmail, Notion, Zoom or anything else, and helps you right there. It already knows you, and it only does things when you say so.</p>
 <div class="actions rise" style="--d:.14s">
 <a class="btn primary" href="#download">{ICON['apple']}Download for Mac</a>
 <a class="btn ghost" href="#demo">{ICON['play']}Watch the demo</a>
@@ -172,20 +172,20 @@ HOME = f"""
 </section>
 
 <section class="block"><div class="wrap">
-<div class="head reveal"><span class="kicker">A day with Bubble</span><h2>Same apps. Less effort.</h2><p>Nothing new to learn. Bubble shows up inside the apps you already use, whenever you need a hand.</p></div>
+<div class="head reveal"><span class="kicker">A day with Bubble</span><h2>The apps you already use, with help.</h2><p>There's nothing new to learn. Bubble shows up over the apps you already use whenever you need a hand.</p></div>
 <div class="day">{DAY_HTML}</div>
 </div></section>
 
 <section class="block" id="features"><div class="wrap">
-<div class="head reveal"><span class="kicker">What it does</span><h2>One assistant for everything on your Mac.</h2></div>
+<div class="head reveal"><span class="kicker">What it does</span><h2>One assistant for everything you do on your Mac.</h2></div>
 {STORIES}
 </div></section>
 
 <section class="block" id="control" style="padding-top:10px"><div class="wrap">
-<div class="head reveal"><span class="kicker">You're in control</span><h2>Nothing happens without you.</h2><p>Bubble can see, hear and act on your Mac, so here is exactly when it does, in plain words.</p></div>
+<div class="head reveal"><span class="kicker">You're in control</span><h2>Nothing happens without you.</h2><p>Bubble can see, hear and do things on your Mac, so this is when it does each of them.</p></div>
 <div class="control">
 <div class="reveal"><div class="ledger">{CONTROL_HTML}</div>
-<p class="ledger-foot">Bubble is open source, so anyone can check that it does what this page says. <a href="security.html">Read the full safety details →</a></p></div>
+<p class="ledger-foot">Bubble is open source, so anyone can check it does what this page says. <a href="security.html">Read the full safety details →</a></p></div>
 <div class="approval reveal" style="--d:.12s">
 <div class="who"><span class="logo"></span>Bubble</div>
 <div class="msg"><small>To: Sam Lee · Re: Study group</small>Hi Sam, I'll be there at 6. See you then!</div>
@@ -196,20 +196,20 @@ HOME = f"""
 </div></section>
 
 <section class="block"><div class="wrap">
-<div class="head reveal"><span class="kicker">Getting started</span><h2>Up and running in two minutes.</h2><p>Bubble introduces itself and asks before every step. You can skip anything.</p></div>
+<div class="head reveal"><span class="kicker">Getting started</span><h2>Set up in about two minutes.</h2><p>Bubble introduces itself and asks before each step, and you can skip anything you like.</p></div>
 <div class="steps3">
-<div class="step reveal"><b class="n">01</b><h3>Download</h3><p>One small download for any Mac on macOS 15 or later. Drag it into Applications.</p><div class="big-keys"><div class="logo" style="width:64px;height:64px"></div></div></div>
-<div class="step reveal" style="--d:.1s"><b class="n">02</b><h3>Say hello</h3><p>A short, friendly chat sets things up and explains each permission before macOS asks.</p><div class="pic"><img src="assets/onboard-hello.jpg" alt="Bubble's welcome chat" width="1200" height="776" loading="lazy"></div></div>
-<div class="step reveal" style="--d:.2s"><b class="n">03</b><h3>Press and ask</h3><p>From any app, press the shortcut and ask your first question.</p><div class="big-keys"><kbd>⌥</kbd><kbd>\\</kbd></div></div>
+<div class="step reveal"><b class="n">01</b><h3>Download</h3><p>It's a small download for any Mac on macOS 15 or later. Drag it into Applications.</p><div class="big-keys"><div class="logo" style="width:64px;height:64px"></div></div></div>
+<div class="step reveal" style="--d:.1s"><b class="n">02</b><h3>Say hello</h3><p>A short chat sets things up and explains each permission before macOS asks for it.</p><div class="pic"><img src="assets/onboard-hello.jpg" alt="Bubble's welcome chat" width="1200" height="776" loading="lazy"></div></div>
+<div class="step reveal" style="--d:.2s"><b class="n">03</b><h3>Press and ask</h3><p>In any app, press the shortcut and ask your first question.</p><div class="big-keys"><kbd>⌥</kbd><kbd>\\</kbd></div></div>
 </div>
 </div></section>
 
 <section class="block"><div class="wrap narrow">
-<div class="head reveal"><span class="kicker">Questions</span><h2>Good to know.</h2></div>
+<div class="head reveal"><span class="kicker">Questions</span><h2>Common questions</h2></div>
 <div class="faq reveal">
-<details><summary>Is Bubble really free?</summary><p>Yes. It's open source with no paid tier and no ads. The assistant uses an AI you bring yourself (your Claude plan or your own API key).</p></details>
-<details><summary>Can Bubble do anything without me knowing?</summary><p>No. It only looks, listens or acts when you ask, shows a red dot while it's listening, and anything that sends or changes something waits for your Allow.</p></details>
-<details><summary>I use ChatGPT. Does Bubble know what it knows about me?</summary><p>You can bring it over: Bubble gives you a short prompt to paste into ChatGPT, and you paste the answer back. It's saved on your Mac and you can delete it any time. The answers themselves come from Claude.</p></details>
+<details><summary>Is Bubble really free?</summary><p>Yes. It's open source, with no paid version and no ads. The assistant uses an AI you bring yourself (your Claude plan or your own API key).</p></details>
+<details><summary>Can Bubble do anything without me knowing?</summary><p>No. It only looks, listens or does something when you ask. A red dot shows while it's listening, and anything that sends or changes something waits for you to press Allow.</p></details>
+<details><summary>I use ChatGPT. Does Bubble know what it knows about me?</summary><p>You can bring it over. Bubble gives you a short prompt to paste into ChatGPT, and you paste the answer back. It's saved on your Mac and you can delete it any time. Bubble's answers themselves come from Claude.</p></details>
 <details><summary>Which Macs does it work on?</summary><p>Any Mac on macOS 15 Sequoia or later, with Apple silicon or Intel. There's no Windows or phone version yet.</p></details>
 </div>
 <p class="center" style="margin-top:30px"><a href="faq.html">All questions →</a></p>
@@ -218,17 +218,17 @@ HOME = f"""
 <section id="download"><div class="wrap">
 <div class="cta reveal">
 <div class="logo"></div>
-<h2>Meet Bubble.</h2>
-<div data-available="false"><p>Bubble is in a small private beta right now. The public download is coming soon.</p>
+<h2>Get Bubble</h2>
+<div data-available="false"><p>Bubble is in a small private beta at the moment. The public download is coming soon.</p>
 <a class="btn primary" href="{REPO}">Follow on GitHub</a>
-<p class="fine">On GitHub, choose Watch → Custom → Releases to hear the moment it's out.</p></div>
+<p class="fine">On GitHub, choose Watch → Custom → Releases and you'll hear as soon as it's out.</p></div>
 <div data-os="mac" data-available="true" hidden>
 <p>Free, for any Mac on macOS 15 or later.</p>
 <a class="btn primary" data-release="url" href="{REPO}/releases/latest">{ICON['apple']}Download for Mac</a>
 <p class="fine">Version <span data-release="version">1.1.0</span> · <span data-release="size">3.3 MB</span> · Apple silicon and Intel · <a href="get-started.html">Install guide</a></p>
 </div>
 <div data-os="ios android" class="elsewhere" hidden><p>Bubble is a Mac app. Open this page on your Mac to download it.</p></div>
-<div data-os="windows linux chromeos other" class="elsewhere" hidden><p>Bubble is made for Mac and relies on macOS features that Windows, Linux and ChromeOS don't have. Follow it on <a href="{REPO}" style="color:#fff;text-decoration:underline">GitHub</a> to hear if that changes.</p></div>
+<div data-os="windows linux chromeos other" class="elsewhere" hidden><p>Bubble is made for the Mac and relies on macOS features that Windows, Linux and ChromeOS don't have. Follow it on <a href="{REPO}" style="color:#fff;text-decoration:underline">GitHub</a> to hear if that changes.</p></div>
 </div>
 </div></section>
 """
@@ -252,20 +252,20 @@ STARTED = f"""
 <p style="margin-top:8px"><button class="btn ghost small" data-copy="#sha">Copy fingerprint</button></p></details>
 
 <h2 id="welcome">2. The welcome tour</h2>
-<p>The first time Bubble opens, it introduces itself in a short chat. It asks what to call you (optional, and kept on your Mac), lets you pick what you'd like help with, then asks for each permission one at a time, saying why before macOS shows its own prompt. Skip any you like; Bubble asks again only when you use that feature.</p>
+<p>The first time you open Bubble, it introduces itself in a short chat. It asks what to call you (that's optional, and stays on your Mac), lets you pick what you'd like help with, then asks for each permission one at a time, explaining why before macOS shows its own prompt. You can skip any of them. Bubble only asks again when you use that feature.</p>
 <table>
 <tr><th>Permission</th><th>Why Bubble asks</th><th>Needed for</th></tr>
 <tr><td>Screen Recording</td><td>To record your screen, to take a screenshot when you ask Bubble about it, and to hear your Mac's sound when you turn on Listen.</td><td>Record, Ask, Listen</td></tr>
 <tr><td>Camera</td><td>For the round camera bubble in recordings. Never used otherwise.</td><td>Record (optional)</td></tr>
-<tr><td>Microphone</td><td>Your voice in recordings, dictation and when you talk to Bubble.</td><td>Record, Dictate, Talk</td></tr>
-<tr><td>Speech Recognition</td><td>Turning speech into text on your Mac.</td><td>Dictate, Ask Bubble, captions</td></tr>
-<tr><td>Accessibility</td><td>To notice the ⌥⌥ double-tap in other apps and type text where your cursor is.</td><td>Dictate, Ask Bubble messages</td></tr>
+<tr><td>Microphone</td><td>For your voice in recordings, dictation and when you talk to Bubble.</td><td>Record, Dictate, Talk</td></tr>
+<tr><td>Speech Recognition</td><td>To turn speech into text on your Mac.</td><td>Dictate, Ask Bubble, captions</td></tr>
+<tr><td>Accessibility</td><td>To notice the ⌥⌥ double tap in other apps and type text where your cursor is.</td><td>Dictate, Ask Bubble messages</td></tr>
 <tr><td>Automation</td><td>Asked only if you have Ask Bubble use an app such as Mail or Messages for you.</td><td>Ask Bubble actions</td></tr>
 </table>
 <p class="note">After allowing Screen Recording, macOS may ask you to quit and reopen Bubble. Your choices are saved. You can review or remove any permission later in System Settings → Privacy &amp; Security.</p>
 
 <h2 id="connect">3. Connect your AI (optional)</h2>
-<p>Ask Bubble needs an AI to answer. The tour asks which you'd like, or you can skip it:</p>
+<p>Ask Bubble needs an AI to answer your questions. The tour asks which one you'd like to use, or you can skip it:</p>
 <ul>
 <li><strong>Claude Code on your Mac (recommended).</strong> If you already use <a href="https://claude.com/claude-code">Claude Code</a>, Ask Bubble uses it with your own Claude plan. It brings your memory notes and your connected apps (like Gmail and Calendar). Sign in once by opening Terminal, running <code>claude</code> and typing <code>/login</code>.</li>
 <li><strong>An Anthropic API key.</strong> Create one at console.anthropic.com and paste it into Bubble. It's stored in your Mac's Keychain and billed to your Anthropic account.</li>
@@ -275,14 +275,14 @@ STARTED = f"""
 <p>Before Ask Bubble can see or hear anything, it shows you its ground rules and asks you to agree. You can read them on the <a href="security.html#rules">safety page</a>.</p>
 
 <h2 id="whisper">4. Sharper voice and captions (optional)</h2>
-<p>Whisper is a free speech model that runs on your Mac and is much more accurate than the built-in one. To use it, install <a href="https://brew.sh">Homebrew</a>, run <code>brew install whisper-cpp</code> in Terminal, then download the model from Bubble's welcome tour or reel editor (574 MB, once). Nothing is uploaded.</p>
+<p>Whisper is a free speech model that runs on your Mac and is much more accurate than the one built into macOS. To use it, install <a href="https://brew.sh">Homebrew</a>, run <code>brew install whisper-cpp</code> in Terminal, then download the model from Bubble's welcome tour or reel editor (574 MB, once). Nothing is uploaded.</p>
 
 <h2 id="shortcuts">5. Shortcuts</h2>
 <table>
 <tr><th>Keys</th><th>What it does</th></tr>
 <tr><td><kbd>⌥</kbd><kbd>⇧</kbd><kbd>R</kbd></td><td>Start a recording (pick what to record), or finish one</td></tr>
 <tr><td><kbd>⌥</kbd><kbd>⇧</kbd><kbd>A</kbd></td><td>Draw an area, then record it</td></tr>
-<tr><td><kbd>⌥</kbd> <kbd>⌥</kbd></td><td>Double-tap to dictate; it finishes when you pause (or tap ⌥ once)</td></tr>
+<tr><td><kbd>⌥</kbd> <kbd>⌥</kbd></td><td>Double tap to dictate. It finishes when you pause (or tap ⌥ once)</td></tr>
 <tr><td><kbd>⌥</kbd><kbd>\\</kbd></td><td>Show or hide Ask Bubble</td></tr>
 <tr><td><kbd>⌥</kbd><kbd>⇧</kbd><kbd>\\</kbd></td><td>Talk to Ask Bubble</td></tr>
 <tr><td><kbd>Esc</kbd></td><td>Cancel picking, the countdown, dictation, or hide Ask Bubble</td></tr>
@@ -290,7 +290,7 @@ STARTED = f"""
 <p>Click any shortcut inside Bubble to change it.</p>
 
 <h2 id="uninstall">Uninstall</h2>
-<p>Bubble keeps nothing outside your Mac, so removing it is complete:</p>
+<p>Bubble doesn't keep anything outside your Mac, so this removes it completely:</p>
 <ol>
 <li>Quit Bubble and drag it from Applications to the Bin.</li>
 <li>Optional: delete its data folder, <code>~/Library/Application Support/Bubble</code>, and its log, <code>~/Library/Logs/Bubble.log</code>. Your recordings in <code>~/Desktop/Bubble Recordings</code> are yours to keep or delete.</li>
@@ -304,14 +304,14 @@ STARTED = f"""
 def q(question, answer):
     return f"<details><summary>{question}</summary>{answer}</details>"
 
-FAQ = head("FAQ", "Questions people ask", "Can't find yours? Ask on GitHub and we'll help.") + '<div class="wrap narrow doc faq">' + "".join([
-    q("Is Bubble really free?", "<p>Yes. It's open source under the MIT licence. There's no paid tier and no ads. Ask Bubble uses an AI you bring yourself (your Claude plan or your own API key), and that provider may charge you for it.</p>"),
+FAQ = head("FAQ", "Questions people ask", "If yours isn't here, ask on GitHub and I'll help.") + '<div class="wrap narrow doc faq">' + "".join([
+    q("Is Bubble really free?", "<p>Yes. It's open source under the MIT licence, with no paid version and no ads. Ask Bubble uses an AI you bring yourself (your Claude plan or your own API key), and that provider may charge you for it.</p>"),
     q("Which devices does it work on?", "<p>Macs running macOS 15 Sequoia or later, with Apple silicon or Intel. There's no Windows, Linux, iPhone or Android version.</p>"),
-    q("Is it safe to download?", "<p>Bubble is open source, so anyone can read exactly what it does, and every release lists a SHA-256 fingerprint so you can confirm the file hasn't been changed (see the <a href=\"get-started.html#install\">install guide</a>). Only download Bubble from this site or its GitHub page.</p>"),
+    q("Is it safe to download?", "<p>Bubble is open source, so anyone can read exactly what it does, and every release lists a SHA256 fingerprint so you can confirm the file hasn't been changed (see the <a href=\"get-started.html#install\">install guide</a>). Only download Bubble from this site or its GitHub page.</p>"),
     q("What does Bubble collect about me?", "<p>Nothing. There's no account, no analytics and no tracking. The only time anything leaves your Mac is when you use a feature that needs the internet, like asking Ask Bubble a question, and the <a href=\"privacy.html\">privacy policy</a> lists exactly what is sent and to whom.</p>"),
     q("Does Bubble record me all the time?", "<p>No. It records only when you start a recording, hears your voice only while you dictate or talk to it, hears your Mac's sound only while Listen is on (a red dot shows), and takes a screenshot only when you ask it something.</p>"),
     q("What does Listen hear?", "<p>Only the sound playing on your Mac: the other people on a call or meeting, or a video you're watching. It doesn't use your microphone. To talk to Bubble yourself, use Talk (⌥⇧\\) or dictation.</p>"),
-    q("Can Ask Bubble send messages or emails for me?", "<p>It can prepare them, but it never sends on its own. Emails need you to approve them. For Messenger, Instagram, WhatsApp and Messages it opens the chat and types the message, and you press Enter.</p>"),
+    q("Can Ask Bubble send messages or emails for me?", "<p>It can prepare them, but it never sends anything on its own. Emails need you to approve them. For Messenger, Instagram, WhatsApp and Messages it opens the chat and types the message, and you press Enter.</p>"),
     q("Can I use it with ChatGPT or another AI?", "<p>Not yet. Ask Bubble works with Claude, either through Claude Code on your Mac or with an Anthropic API key. Recording and dictation don't need any AI.</p>"),
     q("Does it know my previous Claude chats?", "<p>Through Claude Code it knows your Claude Code memory notes and connected apps. It can't read your chat history from the Claude app or website, because Claude doesn't let other apps do that.</p>"),
     q("Can people tell I'm using Ask Bubble on a call?", "<p>By default, yes: if you share your screen, Bubble's chat shows up in the share and in recordings like any other window. If your chat is private, one switch hides it from every recording and screen share, Bubble's own and Zoom, Meet or Teams alike. Please don't use that to cheat in exams or interviews, and don't record people without telling them.</p>"),
@@ -323,18 +323,18 @@ FAQ = head("FAQ", "Questions people ask", "Can't find yours? Ask on GitHub and w
 
 # ─────────────────────────────── Privacy ───────────────────────────────
 PRIVACY = f"""
-<p>Bubble is a free, open-source Mac app. This policy explains what happens to your information when you use the app and this website. The short version: we don't collect anything, and Bubble only sends information to other services when you use a feature that needs them.</p>
+<p>Bubble is a free, open source Mac app that I make. This policy explains what happens to your information when you use the app and this website. In short, I don't collect anything, and Bubble only sends information to other services when you use a feature that needs them.</p>
 
-<h2>Who we are</h2>
-<p>Bubble is an independent open-source project published at <a href="{REPO}">github.com/HarryNGU/bubble</a>. There's no company account system and no servers run by Bubble. Contact us through <a href="{REPO}/issues">GitHub issues</a>.</p>
+<h2>Who makes Bubble</h2>
+<p>Bubble is an independent open source project published at <a href="{REPO}">github.com/HarryNGU/bubble</a>. There are no Bubble accounts and no Bubble servers. You can reach me through <a href="{REPO}/issues">GitHub issues</a>.</p>
 
-<h2>What we collect</h2>
-<p>Nothing. Bubble has no accounts, no analytics, no crash reporting, no advertising and no tracking. We don't receive your recordings, voice, screenshots, messages, contacts or settings, and we couldn't see them if we wanted to.</p>
+<h2>What I collect</h2>
+<p>Nothing. Bubble has no accounts, analytics, crash reporting, advertising or tracking. I don't receive your recordings, voice, screenshots, messages, contacts or settings, and I couldn't see them even if I wanted to.</p>
 
 <h2>What stays on your Mac</h2>
 <ul>
 <li>Recordings and reels (<code>~/Desktop/Bubble Recordings</code>).</li>
-<li>Voice: dictation, captions and Ask Bubble's listening are transcribed on your Mac. Audio is never uploaded.</li>
+<li>Your voice. Dictation, captions and Ask Bubble's listening are transcribed on your Mac, and audio is never uploaded.</li>
 <li>The name you asked Bubble to call you, if you gave one. It is only shown to you.</li>
 <li>Your chats with Bubble (in <code>~/Library/Application Support/Bubble/Chats</code>, readable only by your user account), so it picks up where you left off. Screenshots are never saved. They're kept for 30 days unless you choose otherwise in Settings, and you can delete any chat, or all of them, at any time.</li>
 <li>What you brought over from another assistant about yourself, if you did (in <code>~/Library/Application Support/Bubble/about-me.md</code>, readable only by your user account). You can delete it in Bubble's settings.</li>
@@ -354,22 +354,22 @@ PRIVACY = f"""
 <tr><td>Download the Whisper speech model</td><td>A normal download request</td><td>Hugging Face</td></tr>
 <tr><td>Bubble checks for updates (once a day, if that's on)</td><td>A normal request for one small public file. Nothing about you is included.</td><td>GitHub Pages (this website)</td></tr>
 </table>
-<p>Those services handle the information under their own privacy policies, including <a href="https://www.anthropic.com/legal/privacy">Anthropic's</a>. Bubble doesn't sell or share your information with anyone else, ever.</p>
+<p>Those services handle the information under their own privacy policies, including <a href="https://www.anthropic.com/legal/privacy">Anthropic's</a>. Bubble never sells your information or shares it with anyone else.</p>
 
 <h2>Other people's information</h2>
 <p>If you turn on Listen during a call, what other people say is transcribed on your Mac and may be included when you ask a question. Tell people before you do this. In some places the law requires their consent.</p>
 
 <h2>This website</h2>
-<p>This site sets no cookies and runs no analytics or third-party scripts. It's hosted by GitHub Pages, which, like any web host, may log your IP address for security; see <a href="https://docs.github.com/en/site-policy/privacy-policies/github-general-privacy-statement">GitHub's privacy statement</a>. Downloads come from GitHub.</p>
+<p>This site doesn't use cookies, analytics or outside scripts. It's hosted on GitHub Pages, which, like any web host, may log your IP address for security reasons (see <a href="https://docs.github.com/en/site-policy/privacy-policies/github-general-privacy-statement">GitHub's privacy statement</a>). Downloads come from GitHub.</p>
 
 <h2>Children</h2>
 <p>Bubble isn't meant for children under 13. Features that use Anthropic require you to meet Anthropic's age requirements, which are 18 or older.</p>
 
 <h2>Your choices and rights</h2>
-<p>Because we don't hold any of your information, there's nothing for us to access, correct or delete. You control everything on your Mac: you can delete recordings, clear Bubble's data folder, remove your API key and revoke permissions in System Settings at any time (see <a href="get-started.html#uninstall">Uninstall</a>). For information you sent to Anthropic or another service, use that service's privacy tools.</p>
+<p>Because I don't hold any of your information, there's nothing for me to access, correct or delete. You control everything on your Mac: you can delete recordings, clear Bubble's data folder, remove your API key and revoke permissions in System Settings at any time (see <a href="get-started.html#uninstall">Uninstall</a>). For information you sent to Anthropic or another service, use that service's privacy tools.</p>
 
 <h2>Changes</h2>
-<p>If this policy changes, we'll update this page and the date above, and note the change in the release notes. Bubble's code is public, so any change in what it does is visible.</p>
+<p>If this policy changes, I'll update this page and the date above, and mention the change in the release notes. Bubble's code is public, so any change in what it does is visible.</p>
 """
 
 # ─────────────────────────────── Terms ───────────────────────────────
@@ -377,7 +377,7 @@ TERMS = f"""
 <p>These terms apply when you download or use Bubble or this website. By using Bubble you agree to them. If you don't agree, please don't use it.</p>
 
 <h2>The licence</h2>
-<p>Bubble is open-source software under the <a href="{REPO}/blob/main/LICENSE">MIT licence</a>. You can use, copy, change and share it, including commercially, as long as you keep the licence notice. These terms add rules about how you use it; they don't take away rights the licence gives you.</p>
+<p>Bubble is open source software under the <a href="{REPO}/blob/main/LICENSE">MIT licence</a>. You can use, copy, change and share it, including commercially, as long as you keep the licence notice. These terms add rules about how you use it; they don't take away rights the licence gives you.</p>
 
 <h2>Who can use Bubble</h2>
 <p>You must be at least 13, or older if the law where you live requires it. Ask Bubble's AI features use Anthropic's services, and you must meet <a href="https://www.anthropic.com/legal">Anthropic's terms</a> (including their age requirement) to use them.</p>
@@ -395,17 +395,17 @@ TERMS = f"""
 <h2>Things it does for you</h2>
 <p>Ask Bubble can prepare emails and messages and take actions in apps when you ask and approve it. AI can make mistakes: check what it prepares before you send or approve anything. You're responsible for messages you send and actions you approve.</p>
 
-<h2>Third-party services</h2>
+<h2>Other services</h2>
 <p>Some features connect to services Bubble doesn't control: Anthropic (Claude), Claude Code, apps you connect through your Claude account, Wikimedia Commons, PubChem, YouTube and Hugging Face. Your use of them is governed by their own terms and policies, and you're responsible for any costs they charge, such as API usage.</p>
 
 <h2>No warranty</h2>
-<p>Bubble is provided "as is", without warranties of any kind, as the MIT licence says. We don't promise it will be error-free, always available, or right for your purpose. Keep backups of recordings that matter.</p>
+<p>Bubble is provided "as is", without warranties of any kind, as the MIT licence says. I can't promise it will be free of errors, always available, or right for your purpose. Keep backups of recordings that matter.</p>
 
 <h2>Limits of liability</h2>
-<p>To the extent the law allows, the people who make Bubble aren't liable for any loss or damage from using or not being able to use it, including lost recordings, messages sent or actions approved, or costs from third-party services. Nothing in these terms limits rights you have under consumer law that can't be excluded, including the Australian Consumer Law.</p>
+<p>To the extent the law allows, the people who make Bubble aren't liable for any loss or damage from using or not being able to use it, including lost recordings, messages sent or actions approved, or costs from other services. Nothing in these terms limits rights you have under consumer law that can't be excluded, including the Australian Consumer Law.</p>
 
 <h2>Changes</h2>
-<p>We may update these terms. Changes take effect when they're posted here, and the date above will change. If you keep using Bubble after that, you accept the new terms.</p>
+<p>I may update these terms. Changes take effect when they're posted here, and the date above will change. If you keep using Bubble after that, you accept the new terms.</p>
 
 <h2>Law</h2>
 <p>These terms are governed by the laws of Victoria, Australia.</p>
@@ -416,7 +416,7 @@ TERMS = f"""
 
 # ─────────────────────────────── Security ───────────────────────────────
 SECURITY = f"""
-<p>Bubble can see your screen, hear your voice and act in your apps, so it's built to be careful by default. Here's exactly how.</p>
+<p>Bubble can see your screen, hear your voice and do things in your apps, so I've built it to be careful by default. This page explains how.</p>
 
 <h2 id="rules">The ground rules</h2>
 <p>Before Ask Bubble can see or hear anything, Bubble shows you these rules and asks you to agree:</p>
@@ -442,7 +442,7 @@ SECURITY = f"""
 <h2>Your accounts and keys</h2>
 <ul>
 <li>Bubble never asks for or stores your passwords. It works with the apps and browser you're already signed into.</li>
-<li>Claude Code keeps its own sign-in in your Keychain; Bubble never sees it.</li>
+<li>Claude Code keeps its own sign in details in your Keychain, and Bubble never sees them.</li>
 <li>An API key you add is stored in the macOS Keychain, never in a file.</li>
 </ul>
 
@@ -454,19 +454,19 @@ SECURITY = f"""
 </ul>
 
 <h2 id="verify">Check your download</h2>
-<p>Every release publishes a SHA-256 fingerprint on the <a href="index.html#download">download page</a> and on GitHub. In Terminal, run <code>shasum -a 256 ~/Downloads/Bubble-*.dmg</code> and compare. If they don't match, don't open the file. Only download Bubble from this site or <a href="{REPO}/releases">its GitHub releases</a>.</p>
-<p class="note" data-notarized="false">Early versions are signed but not yet notarised by Apple, so macOS warns the first time you open them. Notarisation (Apple's malware check) is planned. Until then, the fingerprint and the public source code are how you can check the download.</p>
+<p>Every release publishes a SHA256 fingerprint on the <a href="index.html#download">download page</a> and on GitHub. In Terminal, run <code>shasum -a 256 ~/Downloads/Bubble-*.dmg</code> and compare. If they don't match, don't open the file. Only download Bubble from this site or <a href="{REPO}/releases">its GitHub releases</a>.</p>
+<p class="note" data-notarized="false">Early versions are signed but not yet notarised by Apple, so macOS warns the first time you open them. Notarisation (Apple's malware check) is on the way. Until then, the fingerprint and the public source code are how you can check the download.</p>
 
 <h2 id="report">Report a security problem</h2>
-<p>Please report it privately through <a href="{REPO}/security/advisories/new">GitHub's private vulnerability reporting</a>, not in a public issue. Include what you found and how to reproduce it. We'll reply as soon as we can and credit you if you'd like.</p>
+<p>Please report it privately through <a href="{REPO}/security/advisories/new">GitHub's private vulnerability reporting</a>, not in a public issue. Include what you found and how to reproduce it. I'll reply as soon as I can and credit you if you'd like.</p>
 """
 
 # ─────────────────────────────── Notices ───────────────────────────────
 NOTICES = f"""
-<p>Bubble is MIT-licensed. It works with these projects and services, which keep their own licences and terms:</p>
+<p>Bubble is under the MIT licence. It works with these projects and services, which have their own licences and terms:</p>
 <table>
 <tr><th>Project or service</th><th>Used for</th><th>Licence or terms</th></tr>
-<tr><td><a href="https://github.com/ggml-org/whisper.cpp">whisper.cpp</a></td><td>On-device transcription (installed separately)</td><td>MIT</td></tr>
+<tr><td><a href="https://github.com/ggml-org/whisper.cpp">whisper.cpp</a></td><td>Transcription on your Mac (installed separately)</td><td>MIT</td></tr>
 <tr><td><a href="https://github.com/openai/whisper">Whisper models</a> (large-v3-turbo)</td><td>Speech model (downloaded separately)</td><td>MIT</td></tr>
 <tr><td><a href="https://claude.com/claude-code">Claude Code</a> and the <a href="https://www.anthropic.com/api">Anthropic API</a></td><td>Ask Bubble, AI polish, reel editor chat</td><td><a href="https://www.anthropic.com/legal">Anthropic's terms</a></td></tr>
 <tr><td><a href="https://commons.wikimedia.org">Wikimedia Commons</a></td><td>Pictures in answers</td><td>Each image has its own licence, shown on its page</td></tr>
@@ -481,14 +481,14 @@ NOT_FOUND = head("404", "Page not found", "That page doesn't exist.") + '<div cl
 
 if __name__ == "__main__":
     DOCS.mkdir(exist_ok=True)
-    page("index.html", "Bubble · Your ultimate personal assistant on your Mac", "Ask about anything on your screen, get emails and tasks done, talk instead of typing and record in a click. Free, private and open source, for Mac.", HOME)
+    page("index.html", "Bubble · The ultimate personal assistant for your Mac", "Ask about anything on your screen, get emails and tasks done, talk instead of typing, and record and edit videos. Free, private and open source, for the Mac.", HOME)
     page("get-started.html", "Get started · Bubble", "Install Bubble, set up permissions, connect your AI and learn the shortcuts.",
-         head("Get started", "Set up Bubble in two minutes", "Install it, say hello, and Bubble walks you through the rest. Everything after installing is optional.") + STARTED)
+         head("Get started", "Set up Bubble in about two minutes", "Install it, say hello, and Bubble walks you through the rest. Everything after installing is optional.") + STARTED)
     page("faq.html", "FAQ · Bubble", "Answers to common questions about Bubble.", FAQ)
     doc("privacy.html", "Privacy policy", "What Bubble does with your information: nothing is collected.", PRIVACY)
     doc("terms.html", "Terms of use", "The terms for using Bubble, including acceptable use.", TERMS)
     doc("security.html", "Safety and security", "How Bubble keeps you safe: approvals, protections and how to check your download.", SECURITY)
-    doc("notices.html", "Open-source notices", "Third-party projects and services Bubble works with.", NOTICES)
+    doc("notices.html", "Open source notices", "The projects and services Bubble works with.", NOTICES)
     page("404.html", "Not found · Bubble", "Page not found.", NOT_FOUND)
     (DOCS / ".nojekyll").write_text("")
     print("Built", len(list(DOCS.glob("*.html"))), "pages in", DOCS)
