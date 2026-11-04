@@ -261,10 +261,10 @@ HOME = f"""
 <p class="ledger-foot reveal">Mercury is open source, so anyone can check it does what this page says. <a href="security.html">Read the full safety details</a></p></div>
 </div>
 <div class="film reveal">
-<video src="assets/mercury-film.mp4?v=4" poster="assets/film-poster.jpg?v=5" preload="none" playsinline width="1600" height="900" aria-label="A short film: six people around the world on a Monday morning, and Mercury helping each of them get something done"></video>
+<video src="assets/mercury-film.mp4?v=5" poster="assets/film-poster.jpg?v=6" preload="none" playsinline width="1600" height="900" aria-label="A short film: six people around the world on a Monday morning, and Mercury helping each of them get something done"></video>
 <button class="play" type="button" aria-label="Play the film with sound">{ICON['play']}<span>Play the film</span></button>
 </div>
-<p class="film-cap reveal">46 seconds, best with sound on.</p>
+<p class="film-cap reveal">54 seconds, best with sound on.</p>
 </div></section>
 
 <section class="steps-sec" data-tone="light"><div class="wrap">
