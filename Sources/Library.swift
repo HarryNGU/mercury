@@ -1,4 +1,4 @@
-// Bubble's main window: a resizable, full-screen-capable library with a sidebar, in a calm,
+// Mercury's main window: a resizable, full-screen-capable library with a sidebar, in a calm,
 // neutral style (white canvas, warm sidebar, hairline borders, black primary buttons). The
 // theme colour is used only as an accent.
 
@@ -226,7 +226,7 @@ enum Page: String, CaseIterable, Identifiable {
         case .settings: return "Settings"
         }
     }
-    /// Bubble's own symbol for its main features.
+    /// Mercury's own symbol for its main features.
     var glyph: BubbleGlyph.Kind? {
         switch self {
         case .recorder: return .record
@@ -320,11 +320,8 @@ struct MainView: View {
     private var sidebar: some View {
         VStack(alignment: .leading, spacing: 2) {
             HStack(spacing: 9) {
-                ZStack {
-                    Circle().fill(Theme.accent).frame(width: 22, height: 22)
-                    Circle().fill(.white).frame(width: 8, height: 8)
-                }
-                Text("Bubble").font(.system(size: 19, weight: .bold))
+                Avatar(emoji: "", size: 24)
+                Text("Mercury").font(.system(size: 19, weight: .bold))
             }
             .padding(.leading, 10).padding(.top, 52).padding(.bottom, 22)
 
@@ -395,9 +392,9 @@ struct HomePage: View {
             HStack(alignment: .top, spacing: 16) {
                 ActionCard(glyph: .record, title: "Record your screen", detail: "Hover a tab, window or screen, or drag an area.",
                            shortcut: .record, button: "Start recording") { model.onStart?() }
-                ActionCard(glyph: .dictate, title: "Dictate", detail: "Talk anywhere. Bubble types a tidy version where your cursor is.",
+                ActionCard(glyph: .dictate, title: "Dictate", detail: "Talk anywhere. Mercury types a tidy version where your cursor is.",
                            shortcut: .dictate, button: dictation.phase == .listening ? "Finish" : "Start dictating") { model.onDictate?() }
-                ActionCard(glyph: .assist, title: "Ask Bubble", detail: "Claude sees your screen and hears your call, and helps in real time.",
+                ActionCard(glyph: .assist, title: "Ask Mercury", detail: "Claude sees your screen and hears your call, and helps in real time.",
                            shortcut: .assist, button: "Open") { model.onAssist?() }
             }
             if !permissions.allGood {
@@ -597,6 +594,8 @@ struct RecorderPage: View {
                     }
                 }
                 .disabled(!model.camera).opacity(model.camera ? 1 : 0.5)
+                SwitchRow(title: "Show things I hold up", subtitle: "Off shows just you. On also shows anything you hold up to the camera. Double click the bubble to switch.", isOn: $model.showThings)
+                    .disabled(!model.camera || model.background == .off).opacity(model.camera && model.background != .off ? 1 : 0.5)
                 SettingRow(title: "Size", divider: false) {
                     SwiftUI.Picker("", selection: $model.bubbleSize) {
                         Text("Small").tag(CGFloat(140)); Text("Medium").tag(CGFloat(200)); Text("Large").tag(CGFloat(280))
@@ -658,11 +657,11 @@ struct DictationPage: View {
                 PrimaryButton(title: dictation.phase == .listening ? "Finish" : "Start dictating", icon: "mic") { model.onDictate?() }
             }
             if !(permissions.accessibility && permissions.speech && permissions.mic) {
-                SettingsGroup(title: "Before you start", footer: "Accessibility lets Bubble notice your shortcut in other apps and type for you. Until it's on, dictations are copied for you to paste.") {
+                SettingsGroup(title: "Before you start", footer: "Accessibility lets Mercury notice your shortcut in other apps and type for you. Until it's on, dictations are copied for you to paste.") {
                     PermissionRows(permissions: permissions, onlyMissing: true, kinds: [.mic, .speech, .accessibility])
                 }
             }
-            SettingsGroup(title: "Sound", footer: "Plays when Bubble starts and stops listening. Turn all sounds off in Settings.") {
+            SettingsGroup(title: "Sound", footer: "Plays when Mercury starts and stops listening. Turn all sounds off in Settings.") {
                 SettingRow(title: "Start and stop sound", divider: false) {
                     HStack(spacing: 8) {
                         SwiftUI.Picker("", selection: Binding(get: { Sounds.voiceStyle }, set: { Sounds.voiceStyle = $0; Sounds.listen() })) {
@@ -678,8 +677,8 @@ struct DictationPage: View {
             }
             SettingsGroup(title: "How it works") {
                 SettingRow(title: "Shortcut", subtitle: finishHint + " Esc cancels. Click to change.") { ShortcutField(.dictate) }
-                SwitchRow(title: "Finish when I stop talking", subtitle: "Bubble types it after a short pause. You can still finish early yourself.", isOn: $dictation.autoStop)
-                SettingRow(title: "In a text box", subtitle: "Bubble types a tidy version where your cursor is.") { Image(systemName: "text.cursor").foregroundStyle(Palette.subtle) }
+                SwitchRow(title: "Finish when I stop talking", subtitle: "Mercury types it after a short pause. You can still finish early yourself.", isOn: $dictation.autoStop)
+                SettingRow(title: "In a text box", subtitle: "Mercury types a tidy version where your cursor is.") { Image(systemName: "text.cursor").foregroundStyle(Palette.subtle) }
                 SettingRow(title: "Anywhere else", subtitle: "It lands in the Scratchpad below and on your clipboard.", divider: false) { Image(systemName: "doc.on.clipboard").foregroundStyle(Palette.subtle) }
             }
             VStack(alignment: .leading, spacing: 8) {
@@ -730,7 +729,7 @@ struct SnippetsPage: View {
 
     var body: some View {
         VStack(alignment: .leading, spacing: 24) {
-            PageHeader(title: "Snippets", subtitle: "Say a phrase, and Bubble types the text you saved. Stored only on this Mac.") {
+            PageHeader(title: "Snippets", subtitle: "Say a phrase, and Mercury types the text you saved. Stored only on this Mac.") {
                 PrimaryButton(title: "Add new", icon: "plus") { adding = true }
             }
             if adding { editor(title: "New snippet", trigger: $trigger, text: $text, save: {
@@ -815,17 +814,17 @@ struct StylePage: View {
 
     var body: some View {
         VStack(alignment: .leading, spacing: 28) {
-            PageHeader(title: "Style", subtitle: "How Bubble tidies what you say.")
+            PageHeader(title: "Style", subtitle: "How Mercury tidies what you say.")
             SettingsGroup(title: "Clean-up", footer: "Punctuation, capitals, stutters (\"I I think\") and \"new line\" / \"new paragraph\" are always handled.") {
                 SwitchRow(title: "Remove filler words", subtitle: "um, uh, ah, \"you know,\"", isOn: $dictation.removeFillers)
                 SwitchRow(title: "Fix self-corrections", subtitle: "\"at 5, no wait, 6\" becomes \"at 6\". \"Scratch that\" deletes the last sentence.",
                           isOn: $dictation.fixCorrections, divider: false)
             }
-            SettingsGroup(title: "AI polish", footer: "Off by default. When on, the dictated text (never audio, never snippet values) is sent to Anthropic's API with your key. If anything fails, Bubble uses its on-device clean-up instead.") {
+            SettingsGroup(title: "AI polish", footer: "Off by default. When on, the dictated text (never audio, never snippet values) is sent to Anthropic's API with your key. If anything fails, Mercury uses its on-device clean-up instead.") {
                 SwitchRow(title: "Polish with Claude", subtitle: "Smarter rewrites of very messy speech.", isOn: $dictation.aiPolish, divider: false)
                     .disabled(!dictation.hasAPIKey).opacity(dictation.hasAPIKey ? 1 : 0.5)
             }
-            SettingsGroup(title: "Claude API key", footer: "One key for everything in Bubble: AI polish here and the chat in the reel editor. It stays in your Mac's Keychain.") {
+            SettingsGroup(title: "Claude API key", footer: "One key for everything in Mercury: AI polish here and the chat in the reel editor. It stays in your Mac's Keychain.") {
                 if dictation.hasAPIKey {
                     SettingRow(title: "API key", subtitle: "Saved in your Keychain.", divider: false) {
                         SecondaryButton(title: "Remove") { Keychain.setAPIKey(nil); dictation.hasAPIKey = false; dictation.aiPolish = false }
@@ -861,7 +860,7 @@ struct AssistantPage: View {
     @AppStorage("chatMyColor") private var myColor = ChatStyle.defaultMine
     @AppStorage("chatTheirColor") private var theirColor = ChatStyle.defaultTheirs
     @AppStorage("chatTextSize") private var textSize = 14.0
-    @AppStorage("chatName") private var chatName = "Bubble"
+    @AppStorage("chatName") private var chatName = "Mercury"
     @AppStorage("chatAvatar") private var chatAvatar = ""
     @State private var brain = Settings.assistantBrain
     @State private var move = Settings.assistantMove
@@ -875,7 +874,7 @@ struct AssistantPage: View {
 
     var body: some View {
         VStack(alignment: .leading, spacing: 28) {
-            PageHeader(title: "Assistant", subtitle: "Press \(keys.label(.assist)) anywhere. Bubble sees your screen, can hear your call, and Claude helps as it happens.") {
+            PageHeader(title: "Assistant", subtitle: "Press \(keys.label(.assist)) anywhere. Mercury sees your screen, can hear your call, and Claude helps as it happens.") {
                 PrimaryButton(title: "Open", icon: "sparkles") { model.onAssist?() }
             }
             SettingsGroup(title: "Brain", footer: brain == .claudeCode
@@ -892,7 +891,7 @@ struct AssistantPage: View {
                             SecondaryButton(title: "Open", icon: "arrow.up.right") { NSWorkspace.shared.open(URL(string: "https://claude.com/claude-code")!) }
                         }
                     } else {
-                        SettingRow(title: "Sign in once", subtitle: "In Terminal run claude, type /login and sign in with your Claude account. Bubble then uses that sign-in.", divider: false) {
+                        SettingRow(title: "Sign in once", subtitle: "In Terminal run claude, type /login and sign in with your Claude account. Mercury then uses that sign-in.", divider: false) {
                             HStack(spacing: 8) {
                                 SecondaryButton(title: "Copy command", icon: "doc.on.doc") { copy("claude") }
                                 SecondaryButton(title: "Terminal", icon: "terminal") {
@@ -903,7 +902,7 @@ struct AssistantPage: View {
                     }
                 }
             }
-            SettingsGroup(title: "Claude", footer: brain == .claudeCode ? "The API key is only needed for the reel editor chat, AI polish, and the API-key-only brain." : "One API key for everything in Bubble (assistant, reel editor, AI polish). It stays in your Mac's Keychain. Usage is billed to your Anthropic account, separately from a Claude.ai subscription.") {
+            SettingsGroup(title: "Claude", footer: brain == .claudeCode ? "The API key is only needed for the reel editor chat, AI polish, and the API-key-only brain." : "One API key for everything in Mercury (assistant, reel editor, AI polish). It stays in your Mac's Keychain. Usage is billed to your Anthropic account, separately from a Claude.ai subscription.") {
                 SettingRow(title: "Model", subtitle: choice.detail + (choice == .fast ? ", quickest replies" : choice == .smart ? ", best for hard problems" : ", quick and capable")) {
                     SwiftUI.Picker("", selection: $choice) { ForEach(AssistantModelChoice.allCases) { Text($0.title).tag($0) } }
                         .pickerStyle(.segmented).labelsHidden().frame(width: 260)
@@ -928,7 +927,7 @@ struct AssistantPage: View {
                 }
             }
             if brain == .claudeCode {
-                SettingsGroup(title: "Connected apps", footer: "These are the apps connected to your Claude account that Ask Bubble can use. Each one adds to every chat, so fewer means quicker answers and less of your Claude plan used. The rest still work in Claude itself.") {
+                SettingsGroup(title: "Connected apps", footer: "These are the apps connected to your Claude account that Ask Mercury can use. Each one adds to every chat, so fewer means quicker answers and less of your Claude plan used. The rest still work in Claude itself.") {
                     let chosenList = connectorsKnown.filter { connectorsChosen.contains($0) }.sorted { Connectors.label($0) < Connectors.label($1) }
                     let others = connectorsKnown.filter { !connectorsChosen.contains($0) }.sorted { Connectors.label($0) < Connectors.label($1) }
                     if connectorsKnown.isEmpty {
@@ -981,10 +980,10 @@ struct AssistantPage: View {
                 }
             }
             SettingsGroup(title: "Chat look", footer: "Like texting a friend: your messages on the right, theirs on the left.") {
-                SettingRow(title: "Their name and picture", subtitle: "Leave the picture empty for Bubble's logo, or type an emoji.") {
+                SettingRow(title: "Their name and picture", subtitle: "Leave the picture empty for Mercury's logo, or type an emoji.") {
                     HStack(spacing: 8) {
                         TextField("", text: $chatAvatar).textFieldStyle(.roundedBorder).frame(width: 44).multilineTextAlignment(.center)
-                        TextField("Bubble", text: $chatName).textFieldStyle(.roundedBorder).frame(width: 150)
+                        TextField("Mercury", text: $chatName).textFieldStyle(.roundedBorder).frame(width: 150)
                     }
                 }
                 SettingRow(title: "Your bubbles") {
@@ -1018,7 +1017,7 @@ struct AssistantPage: View {
                 .environment(\.colorScheme, .dark)
                 .padding(.horizontal, 16).padding(.bottom, 14)
             }
-            SettingsGroup(title: "Chat history", footer: "Chats are saved only on this Mac, readable by your account alone, so Bubble picks up where you left off. Screenshots are never saved. After six hours away, Bubble starts a fresh chat and offers to continue the last one.") {
+            SettingsGroup(title: "Chat history", footer: "Chats are saved only on this Mac, readable by your account alone, so Mercury picks up where you left off. Screenshots are never saved. After six hours away, Mercury starts a fresh chat and offers to continue the last one.") {
                 SettingRow(title: "Keep chats") {
                     SwiftUI.Picker("", selection: $keepDays) {
                         Text("Forever").tag(-1); Text("30 days").tag(30); Text("7 days").tag(7); Text("Don't keep").tag(0)
@@ -1029,7 +1028,7 @@ struct AssistantPage: View {
                 SettingRow(title: "Delete all chats", subtitle: "Removes every saved chat from this Mac. Can't be undone.", divider: false) {
                     SecondaryButton(title: "Delete…") {
                         let a = NSAlert()
-                        a.messageText = "Delete all your Bubble chats?"
+                        a.messageText = "Delete all your Mercury chats?"
                         a.informativeText = "They're removed from this Mac and can't be brought back."
                         a.addButton(withTitle: "Delete All").hasDestructiveAction = true
                         a.addButton(withTitle: "Cancel")
@@ -1037,7 +1036,7 @@ struct AssistantPage: View {
                     }
                 }
             }
-            SettingsGroup(title: "What Bubble knows about you", footer: "Using ChatGPT or another assistant? Copy the prompt, paste it there, then paste its answer here. It's saved only on this Mac (readable by your account alone) and sent with your questions so Bubble already knows you. With Claude Code, Bubble also uses your Claude memory.") {
+            SettingsGroup(title: "What Mercury knows about you", footer: "Using ChatGPT or another assistant? Copy the prompt, paste it there, then paste its answer here. It's saved only on this Mac (readable by your account alone) and sent with your questions so Mercury already knows you. With Claude Code, Mercury also uses your Claude memory.") {
                 SettingRow(title: "1. Ask your other assistant", subtitle: "Copies a short prompt to paste into ChatGPT, Gemini or similar.") {
                     SecondaryButton(title: "Copy prompt", icon: "doc.on.doc") { copy(AboutMe.exportPrompt) }
                 }
@@ -1065,13 +1064,13 @@ struct AssistantPage: View {
             }
             SettingsGroup(title: "Listening", footer: "Only when you turn on Listen in the panel, and a red dot shows while it's on. Sound is transcribed on this Mac and never uploaded; only the recent text goes to Claude when you ask.") {
                 SettingRow(title: "Listen hears your Mac's sound", subtitle: "The other people on a call or meeting, or a video you're watching. Not your microphone.") { Image(systemName: "speaker.wave.2").foregroundStyle(Palette.subtle) }
-                SettingRow(title: "To talk to Bubble yourself", subtitle: "Use Talk (\(ShortcutCenter.shared.label(.assistVoice))) in the panel.", divider: false) { Image(systemName: "mic").foregroundStyle(Palette.subtle) }
+                SettingRow(title: "To talk to Mercury yourself", subtitle: "Use Talk (\(ShortcutCenter.shared.label(.assistVoice))) in the panel.", divider: false) { Image(systemName: "mic").foregroundStyle(Palette.subtle) }
             }
-            SettingsGroup(title: "Seeing your screen", footer: "Each time you ask, Bubble sends one screenshot of the display you're on (without its own panel). Turn it off with the eye button in the panel.") {
+            SettingsGroup(title: "Seeing your screen", footer: "Each time you ask, Mercury sends one screenshot of the display you're on (without its own panel). Turn it off with the eye button in the panel.") {
                 SettingRow(title: "Screenshot when you ask", subtitle: "On by default.", divider: false) { Image(systemName: "eye").foregroundStyle(Palette.subtle) }
             }
-            SettingsGroup(title: "Recordings and screen shares", footer: "This covers Bubble's own recordings and screen sharing in Zoom, Google Meet, Teams, FaceTime and other apps, as well as screenshots. Hide it when your chat is private, not to cheat in exams or interviews. You can also switch it with Visibility on the panel's bar.") {
-                SwitchRow(title: "Show Ask Bubble in recordings and screen shares",
+            SettingsGroup(title: "Recordings and screen shares", footer: "This covers Mercury's own recordings and screen sharing in Zoom, Google Meet, Teams, FaceTime and other apps, as well as screenshots. Hide it when your chat is private, not to cheat in exams or interviews. You can also switch it with Visibility on the panel's bar.") {
+                SwitchRow(title: "Show Ask Mercury in recordings and screen shares",
                           subtitle: inCaptures ? "Everyone watching sees the panel, as you do." : "Only you can see the panel. It's left out of every recording and screen share.",
                           isOn: $inCaptures)
             }
@@ -1097,12 +1096,12 @@ struct SettingsPage: View {
     var body: some View {
         VStack(alignment: .leading, spacing: 28) {
             PageHeader(title: "Settings")
-            SettingsGroup(title: "General", footer: LoginItem.needsApproval ? "macOS needs your OK: open System Settings → General → Login Items and turn Bubble on." : "Bubble's shortcuts only work while it's running, so opening it at login keeps them ready. Update checks read one small file from Bubble's website, once a day.") {
-                SwitchRow(title: "Open Bubble when you log in", subtitle: "It starts quietly in the menu bar.", isOn: $atLogin)
+            SettingsGroup(title: "General", footer: LoginItem.needsApproval ? "macOS needs your OK: open System Settings → General → Login Items and turn Mercury on." : "Mercury's shortcuts only work while it's running, so opening it at login keeps them ready. Update checks read one small file from Mercury's website, once a day.") {
+                SwitchRow(title: "Open Mercury when you log in", subtitle: "It starts quietly in the menu bar.", isOn: $atLogin)
                     .onChange(of: atLogin) { LoginItem.set(atLogin) }
-                SwitchRow(title: "Check for updates automatically", subtitle: "Tells you when a newer Bubble is out. Installing is up to you.", isOn: $checkUpdates)
+                SwitchRow(title: "Check for updates automatically", subtitle: "Tells you when a newer Mercury is out. Installing is up to you.", isOn: $checkUpdates)
                     .onChange(of: checkUpdates) { Settings.checkUpdates = checkUpdates }
-                SettingRow(title: "Version", subtitle: "Bubble \(version)", divider: false) {
+                SettingRow(title: "Version", subtitle: "Mercury \(version)", divider: false) {
                     SecondaryButton(title: "Check now") { Updates.check(manual: true) {} }
                 }
             }
@@ -1126,7 +1125,7 @@ struct SettingsPage: View {
                     SettingRow(title: a.title, divider: i < ShortcutAction.allCases.count - 1) { ShortcutField(a) }
                 }
             }
-            SettingsGroup(title: "Permissions", footer: "Bubble only uses these on your Mac. After allowing Screen Recording, quit and reopen Bubble.") {
+            SettingsGroup(title: "Permissions", footer: "Mercury only uses these on your Mac. After allowing Screen Recording, quit and reopen Mercury.") {
                 PermissionRows(permissions: permissions, onlyMissing: false)
             }
             SettingsGroup(title: "Storage") {
@@ -1141,10 +1140,10 @@ struct SettingsPage: View {
                 }
             }
             SettingsGroup(title: "About") {
-                SettingRow(title: "Welcome tour", subtitle: "Meet Bubble again: permissions, connecting your AI and its promises.") {
+                SettingRow(title: "Welcome tour", subtitle: "Meet Mercury again: permissions, connecting your AI and its promises.") {
                     SecondaryButton(title: "Show again") { Settings.onboardScene = 0; Settings.onboarded = false }
                 }
-                SettingRow(title: "Bubble", subtitle: "Free and open source. No account, no tracking.", divider: false) {
+                SettingRow(title: "Mercury", subtitle: "Free and open source. No account, no tracking.", divider: false) {
                     SecondaryButton(title: "GitHub", icon: "arrow.up.right") { NSWorkspace.shared.open(URL(string: "https://github.com/HarryNGU/bubble")!) }
                 }
             }

@@ -1,4 +1,4 @@
-// Voice typing. Double-tap Option anywhere (or the shortcut chosen in settings): Bubble listens
+// Voice typing. Double-tap Option anywhere (or the shortcut chosen in settings): Mercury listens
 // (Whisper on this Mac, or Apple's on-device speech recognition), tidies what you said, expands
 // snippets, then types it into the text box you're in. If no text box is focused, the text goes
 // onto the clipboard. It finishes by itself when you stop talking, or tap Option once; Esc cancels.
@@ -104,7 +104,7 @@ final class SpeechSession: NSObject, AVCaptureAudioDataOutputSampleBufferDelegat
         let status: SFSpeechRecognizerAuthorizationStatus = await withCheckedContinuation { c in
             SFSpeechRecognizer.requestAuthorization { c.resume(returning: $0) }
         }
-        guard status == .authorized else { return "Allow Speech Recognition for Bubble in System Settings → Privacy & Security." }
+        guard status == .authorized else { return "Allow Speech Recognition for Mercury in System Settings → Privacy & Security." }
         guard let r = recognizer(), r.supportsOnDeviceRecognition else {
             return "On-device dictation isn't set up for your language. Turn on Dictation in System Settings → Keyboard once so macOS downloads it."
         }
@@ -359,7 +359,7 @@ final class DictationModel: ObservableObject {
 
 final class DictationController {
     let model = DictationModel()
-    /// Returns true if one of Bubble's own text boxes took the dictated text.
+    /// Returns true if one of Mercury's own text boxes took the dictated text.
     var ownTextTarget: ((String) -> Bool)?
     private let monitor = ModifierTapMonitor()
     private var speech: SpeechSession?
@@ -457,7 +457,7 @@ final class DictationController {
         let words = raw.split(separator: " ").count
         log("dictation: heard \(words) words")
         guard words > 0 else {
-            model.phase = .failed("Didn't catch anything. Check the mic in Bubble's settings.")
+            model.phase = .failed("Didn't catch anything. Check the mic in Mercury's settings.")
             hideHUD(after: 2.5)
             return
         }
@@ -471,11 +471,11 @@ final class DictationController {
         model.history.insert(final, at: 0)
         if model.history.count > 10 { model.history.removeLast() }
 
-        // Bubble's own panels (Ask Bubble) take the text directly: pasting with ⌘V would go to
-        // whichever app is in front, since those panels never make Bubble the active app.
+        // Mercury's own panels (Ask Mercury) take the text directly: pasting with ⌘V would go to
+        // whichever app is in front, since those panels never make Mercury the active app.
         if let own = ownTextTarget, own(final) {
-            model.phase = .done("Typed into Ask Bubble")
-            log("dictation: delivered (Bubble panel)")
+            model.phase = .done("Typed into Ask Mercury")
+            log("dictation: delivered (Mercury panel)")
             hideHUD(after: 1.6)
             return
         }
@@ -487,7 +487,7 @@ final class DictationController {
             let pb = NSPasteboard.general
             pb.clearContents()
             pb.setString(final, forType: .string)
-            model.phase = .done(Inserter.trusted ? "No text box selected. Copied, paste anywhere" : "Copied. Allow Accessibility so Bubble can type for you")
+            model.phase = .done(Inserter.trusted ? "No text box selected. Copied, paste anywhere" : "Copied. Allow Accessibility so Mercury can type for you")
         }
         log("dictation: delivered (\(target.editable ? "typed" : "copied"))")
         hideHUD(after: 2.2)

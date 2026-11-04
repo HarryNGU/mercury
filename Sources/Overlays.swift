@@ -37,7 +37,7 @@ final class ControlBar {
         panel.setFrameOrigin(NSPoint(x: f.midX - panel.frame.width / 2, y: f.maxY - panel.frame.height - 14))
         follow?.invalidate()
         // macOS only shows a regular (Dock) app's windows on its own desktops. As a menu-bar-only
-        // app, Bubble's pill can follow you onto other desktops and other apps' full-screen spaces.
+        // app, Mercury's pill can follow you onto other desktops and other apps' full-screen spaces.
         panel.collectionBehavior = [.canJoinAllSpaces, .fullScreenAuxiliary, .stationary]
         AppPresence.need("pill", true)
         follow = Timer.scheduledTimer(withTimeInterval: 0.4, repeats: true) { [weak self] _ in self?.followMouse() }

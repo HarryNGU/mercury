@@ -1,4 +1,4 @@
-// The editor's sound studio. Works on each sound track of a recording on its own (Bubble records your
+// The editor's sound studio. Works on each sound track of a recording on its own (Mercury records your
 // microphone on the first track and the computer's sound, such as a call, on the second), once, in the
 // background, and keeps the results with the edit (never next to the video):
 //

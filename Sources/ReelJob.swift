@@ -197,13 +197,13 @@ final class ReelJob: ObservableObject {
 
     private var jobPrompt: String {
         """
-        You're running a job for the user from Bubble's reel editor, a Mac app. Work through what they ask on \
+        You're running a job for the user from Mercury's reel editor, a Mac app. Work through what they ask on \
         your own with your tools, until it's done or you need them.
 
         Keep them posted: before each main step, write one short, plain sentence about what you're doing. They \
         watch these lines as progress, so don't narrate every command.
 
-        Bubble lets you work without asking inside these folders: \(policy.roots.joined(separator: ", ")). There \
+        Mercury lets you work without asking inside these folders: \(policy.roots.joined(separator: ", ")). There \
         you can read and write files and run their own scripts, Python, ffmpeg, ffprobe and Manim. Anything else \
         (deleting or moving files, other folders, the network, opening apps, installing things) waits for the \
         user to tap Allow, so prefer the first kind and say why when you need the second. Inline Python \
@@ -234,7 +234,7 @@ final class ReelJob: ObservableObject {
         finished = nil
         receivingText = false
         let message = first
-            ? "The recording open in Bubble's editor: \(recording.path)\nBubble's recordings folder: \(Settings.folder.path)\n\n\(t)"
+            ? "The recording open in Mercury's editor: \(recording.path)\nBubble's recordings folder: \(Settings.folder.path)\n\n\(t)"
             : t
         log("reel job: \(first ? "started" : "follow-up"), working in \(policy.shown.joined(separator: ", "))")
         session?.ask(message, screenshot: nil)

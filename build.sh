@@ -1,13 +1,14 @@
 #!/bin/zsh
-# Builds Bubble.app and installs it to ~/Applications.
+# Builds Mercury.app and installs it to ~/Applications.
 set -euo pipefail
 cd "$(dirname "$0")"
 
-APP=build/Bubble.app
+APP=build/Mercury.app
 rm -rf "$APP"
 mkdir -p "$APP/Contents/MacOS" "$APP/Contents/Resources"
 cp Info.plist "$APP/Contents/Info.plist"
 [[ -f AppIcon.icns ]] && cp AppIcon.icns "$APP/Contents/Resources/"
+[[ -f Planet.png ]] && cp Planet.png "$APP/Contents/Resources/"
 
 # Some Command Line Tools releases ship SwiftBridging twice (module.modulemap and
 # bridging.modulemap), which breaks every compile. Hide the duplicate with a VFS overlay.
@@ -21,7 +22,7 @@ if [[ -f $DUP && -f ${DUP:h}/module.modulemap ]]; then
 fi
 
 swiftc -O -swift-version 5 -target arm64-apple-macos15.0 "${FLAGS[@]}" \
-  Sources/*.swift -o "$APP/Contents/MacOS/Bubble"
+  Sources/*.swift -o "$APP/Contents/MacOS/Mercury"
 
 # Sign with the local "Bubble Local Signing" certificate (login keychain) so macOS sees the
 # same app on every rebuild and keeps its Screen Recording, camera and mic permissions.
@@ -35,6 +36,6 @@ else
 fi
 
 mkdir -p ~/Applications
-rm -rf ~/Applications/Bubble.app
+rm -rf ~/Applications/Mercury.app ~/Applications/Bubble.app  # Bubble.app is the old name of the same app
 mv "$APP" ~/Applications/  # keep a single copy so macOS permissions stay attached to one app
-echo "Installed ~/Applications/Bubble.app"
+echo "Installed ~/Applications/Mercury.app"

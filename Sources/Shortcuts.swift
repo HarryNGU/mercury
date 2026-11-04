@@ -10,16 +10,16 @@ enum ShortcutAction: String, CaseIterable, Identifiable {
     case record, area, dictate, assist, assistVoice, assistAsk
     var id: String { rawValue }
     var hotKeyID: UInt32 { switch self { case .record: 1; case .area: 2; case .dictate: 3; case .assist: 4; case .assistAsk: 5; case .assistVoice: 6 } }
-    /// Only active while Ask Bubble is on screen (the panel registers it itself).
+    /// Only active while Ask Mercury is on screen (the panel registers it itself).
     var panelOnly: Bool { self == .assistAsk }
     var title: String {
         switch self {
         case .record: "Start / finish recording"
         case .area: "Record an area"
         case .dictate: "Dictate"
-        case .assist: "Show / hide Ask Bubble"
+        case .assist: "Show / hide Ask Mercury"
         case .assistAsk: "Ask about the screen"
-        case .assistVoice: "Talk to Ask Bubble"
+        case .assistVoice: "Talk to Ask Mercury"
         }
     }
     /// Double-tapping a modifier needs the Accessibility-backed monitor, which only dictation has.

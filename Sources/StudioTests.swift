@@ -3,6 +3,7 @@
 //
 //   --studiorender <recording> <plan.json> <shape> <out.mp4>   saves a video with that edit
 //   --studioshot <recording> <out.png> [tool] [plan.json] [selection]   draws the editor window into a picture
+//   --brandshot <out.png>   draws Mercury's logo pieces (chat picture, menu bar planet, themes) into a picture
 //
 // <recording> is a file in Bubble Recordings or a full path. A plan given here is never saved over the
 // recording's own edit unless the recording is a copy.
@@ -124,6 +125,33 @@ enum StudioTests {
         }
         if let i = args.firstIndex(of: "--studiolive"), i + 1 < args.count {
             live(file(args[i + 1]))
+            return true
+        }
+        if let i = args.firstIndex(of: "--brandshot"), i + 1 < args.count {
+            let swatches = HStack(spacing: 8) {
+                ForEach(BubbleTheme.all) { t in
+                    Circle().fill(LinearGradient(colors: [Color(nsColor: t.start), Color(nsColor: t.end)], startPoint: .topLeading, endPoint: .bottomTrailing))
+                        .frame(width: 28, height: 28)
+                }
+            }
+            let menu = { (dark: Bool) in
+                Image(nsImage: Brand.menuPlanet).renderingMode(.template).foregroundStyle(dark ? .white : .black)
+                    .padding(8).background(dark ? Color(white: 0.15) : Color(white: 0.93))
+            }
+            let view = VStack(alignment: .leading, spacing: 24) {
+                HStack(spacing: 24) { Avatar(emoji: "", size: 22); Avatar(emoji: "", size: 30); Avatar(emoji: "", size: 96); Avatar(emoji: "🦊", size: 30) }
+                HStack(spacing: 12) { menu(true); menu(false) }
+                swatches
+            }
+            .padding(30).background(Color(red: 0.07, green: 0.08, blue: 0.11))
+            let r = ImageRenderer(content: view)
+            r.scale = 2
+            if let img = r.nsImage, let tiff = img.tiffRepresentation, let rep = NSBitmapImageRep(data: tiff),
+               let png = rep.representation(using: .png, properties: [:]) {
+                try? png.write(to: URL(fileURLWithPath: args[i + 1]))
+                log("brandshot: wrote \(args[i + 1]), planet image \(Brand.planet == nil ? "missing" : "found")")
+            }
+            NSApp.terminate(nil)
             return true
         }
         if let i = args.firstIndex(of: "--studioshot"), i + 2 < args.count {

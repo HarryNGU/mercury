@@ -1,6 +1,6 @@
-// Your chats with Bubble, kept on this Mac so the panel always picks up where you left off.
+// Your chats with Mercury, kept on this Mac so the panel always picks up where you left off.
 // One file per chat in ~/Library/Application Support/Bubble/Chats, readable only by your account.
-// Screenshots are never kept here, only whether Bubble looked at your screen.
+// Screenshots are never kept here, only whether Mercury looked at your screen.
 
 import Foundation
 
@@ -21,7 +21,7 @@ struct ChatRecord: Codable, Identifiable, Equatable {
     var id = UUID()
     var started = Date()
     var updated = Date()
-    /// The Claude Code conversation this chat continues, so Bubble remembers it too.
+    /// The Claude Code conversation this chat continues, so Mercury remembers it too.
     var claudeSession: String?
     var turns: [Turn] = []
     /// A name you gave the chat; otherwise it's named after your first question.

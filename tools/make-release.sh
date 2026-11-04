@@ -1,5 +1,5 @@
 #!/bin/zsh
-# Builds a release for download: one Bubble.app for Apple silicon and Intel Macs, signed with the
+# Builds a release for download: one Mercury.app for Apple silicon and Intel Macs, signed with the
 # hardened runtime, packed in a disk image, plus a SHA-256 checksum people can verify.
 #
 # With an Apple Developer ID it also has Apple notarise the download, so it opens without warnings:
@@ -11,11 +11,11 @@ cd "$(dirname "$0")/.."
 
 VERSION=$(/usr/libexec/PlistBuddy -c "Print CFBundleShortVersionString" Info.plist)
 OUT=build/release
-APP=$OUT/Bubble.app
+APP=$OUT/Mercury.app
 rm -rf $OUT
 mkdir -p $APP/Contents/MacOS $APP/Contents/Resources
 cp Info.plist $APP/Contents/Info.plist
-cp AppIcon.icns $APP/Contents/Resources/
+cp AppIcon.icns Planet.png $APP/Contents/Resources/
 
 # Same workaround as build.sh for Command Line Tools that ship SwiftBridging twice.
 FLAGS=()
@@ -29,10 +29,10 @@ fi
 
 for arch in arm64 x86_64; do
   echo "Building for $arch…"
-  swiftc -O -swift-version 5 -target $arch-apple-macos15.0 "${FLAGS[@]}" Sources/*.swift -o $OUT/Bubble-$arch
+  swiftc -O -swift-version 5 -target $arch-apple-macos15.0 "${FLAGS[@]}" Sources/*.swift -o $OUT/Mercury-$arch
 done
-lipo -create -output $APP/Contents/MacOS/Bubble $OUT/Bubble-arm64 $OUT/Bubble-x86_64
-rm $OUT/Bubble-arm64 $OUT/Bubble-x86_64
+lipo -create -output $APP/Contents/MacOS/Mercury $OUT/Mercury-arm64 $OUT/Mercury-x86_64
+rm $OUT/Mercury-arm64 $OUT/Mercury-x86_64
 
 SIGN=(--force --options runtime --entitlements tools/Bubble.entitlements)
 if [[ -n ${DEVELOPER_ID:-} ]]; then
@@ -48,8 +48,8 @@ STAGE=$OUT/dmg
 mkdir -p $STAGE
 cp -R $APP $STAGE/
 ln -s /Applications $STAGE/Applications
-DMG=$OUT/Bubble-$VERSION.dmg
-hdiutil create -quiet -volname "Bubble $VERSION" -srcfolder $STAGE -fs HFS+ -format UDZO $DMG
+DMG=$OUT/Mercury-$VERSION.dmg
+hdiutil create -quiet -volname "Mercury $VERSION" -srcfolder $STAGE -fs HFS+ -format UDZO $DMG
 rm -rf $STAGE
 
 if [[ -n ${DEVELOPER_ID:-} ]]; then

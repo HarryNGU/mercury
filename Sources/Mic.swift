@@ -1,5 +1,5 @@
 // Microphone capture with AVCaptureSession (the same, very reliable stack as the camera).
-// With noise suppression on, every buffer goes through Bubble's Denoiser, which removes
+// With noise suppression on, every buffer goes through Mercury's Denoiser, which removes
 // steady background noise (fans, hum, hiss, rumble) and keeps voices.
 //
 // Apple's voice processing (AVAudioEngine) was tried first, but on some Macs it comes up
@@ -86,7 +86,7 @@ final class MicCapture: NSObject, AVCaptureAudioDataOutputSampleBufferDelegate {
         return queue.sync { Date().timeIntervalSince(lastBuffer) > seconds }
     }
 
-    /// Testing: stops the sound coming in, as a sleeping Mac does, without Bubble knowing.
+    /// Testing: stops the sound coming in, as a sleeping Mac does, without Mercury knowing.
     func stallForTesting() { session?.stopRunning() }
 
     /// Starts the mic again with the same settings.

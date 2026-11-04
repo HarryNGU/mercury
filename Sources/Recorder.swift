@@ -61,7 +61,7 @@ final class Recorder: NSObject, SCStreamOutput, SCStreamDelegate {
     /// The region being recorded in AppKit screen coordinates (used to place the camera bubble).
     private(set) var recordedRect: NSRect?
 
-    /// A window or tab recording takes only that window (plus the camera bubble), so Bubble's own
+    /// A window or tab recording takes only that window (plus the camera bubble), so Mercury's own
     /// panels have to be added to it by name when you've chosen to show them.
     private var windowTarget: (window: SCWindow, display: SCDisplay, extras: [SCWindow])?
     /// Blurs passwords, emails, card numbers and the like as they're recorded (Settings → Recording).
@@ -77,7 +77,7 @@ final class Recorder: NSObject, SCStreamOutput, SCStreamDelegate {
         let excluded = windowsByNumber(excluding)
         let bubbleWindows = windowsByNumber(bubble)
 
-        // With private details blurred, password managers aren't recorded at all. (Bubble's own pill is
+        // With private details blurred, password managers aren't recorded at all. (Mercury's own pill is
         // already invisible to every capture, so excluding whole apps loses nothing.)
         let hiddenApps = Settings.blurPrivate ? content.applications.filter { Redactor.passwordApps.contains($0.bundleIdentifier) } : []
         func screenFilter(_ d: SCDisplay) -> SCContentFilter {
@@ -171,7 +171,7 @@ final class Recorder: NSObject, SCStreamOutput, SCStreamDelegate {
         // Writer
         let fmt = DateFormatter()
         fmt.dateFormat = "yyyy-MM-dd 'at' HH.mm.ss"
-        let url = Settings.folder.appendingPathComponent("Bubble \(fmt.string(from: Date())).mp4")
+        let url = Settings.folder.appendingPathComponent("Mercury \(fmt.string(from: Date())).mp4")
         let writer = try AVAssetWriter(outputURL: url, fileType: .mp4)
         let bitrate = max(2_000_000, Int(Double(width * height) * 30 * 0.06))
         let videoIn = AVAssetWriterInput(mediaType: .video, outputSettings: [
@@ -237,7 +237,7 @@ final class Recorder: NSObject, SCStreamOutput, SCStreamDelegate {
 
     private var micRestarting = false
 
-    /// Adds Bubble's own panels (Ask Bubble) to a window or tab recording, or takes them out again.
+    /// Adds Mercury's own panels (Ask Mercury) to a window or tab recording, or takes them out again.
     /// Screen, area and app recordings follow each window's own sharing setting instead.
     @MainActor func setOverlays(_ numbers: [Int]) {
         guard let stream, let t = windowTarget, numbers != overlays else { return }

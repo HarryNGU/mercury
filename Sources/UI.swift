@@ -10,6 +10,7 @@ import SwiftUI
 final class UIModel: ObservableObject {
     @Published var camera = Settings.camera { didSet { Settings.camera = camera; onCamera?(camera) } }
     @Published var background = Settings.background { didSet { onBackground?(background) } }
+    @Published var showThings = Settings.showThings { didSet { onShowThings?(showThings) } }
     @Published var bubbleSize = Settings.bubbleSize { didSet { onSize?(bubbleSize) } }
     @Published var mic = Settings.mic { didSet { Settings.mic = mic } }
     @Published var micDevice = Settings.micDevice { didSet { Settings.micDevice = micDevice } }
@@ -40,6 +41,7 @@ final class UIModel: ObservableObject {
     var onCamera: ((Bool) -> Void)?
     var onBackground: ((CameraBackground) -> Void)?
     var onSize: ((CGFloat) -> Void)?
+    var onShowThings: ((Bool) -> Void)?
     var onStart: (() -> Void)?
     var onOpenFolder: (() -> Void)?
     var onPause: (() -> Void)?
@@ -116,6 +118,8 @@ struct BubbleTheme: Identifiable, Equatable {
     }
 
     static let all: [BubbleTheme] = [
+        BubbleTheme(id: "mercury", name: "Mercury", start: rgb(0x2B4FD6), end: rgb(0x7FA4FF)),
+        BubbleTheme(id: "volcanic", name: "Volcanic Gold", start: rgb(0xB8732E), end: rgb(0xEBBE6E)),
         BubbleTheme(id: "electric", name: "Electric Blue", start: rgb(0x1F5BFF), end: rgb(0x00B8FF)),
         BubbleTheme(id: "cobalt", name: "Cobalt", start: rgb(0x2433FF), end: rgb(0x7A5CFF)),
         BubbleTheme(id: "aqua", name: "Aqua", start: rgb(0x0091FF), end: rgb(0x00D9C0)),
@@ -125,16 +129,38 @@ struct BubbleTheme: Identifiable, Equatable {
     ]
 }
 
-/// The chosen colour theme, shared by every window. Default: a sharp electric blue.
+/// The chosen colour theme, shared by every window. Default: Mercury's planet blue.
 final class ThemeStore: ObservableObject {
     static let shared = ThemeStore()
     @Published var current: BubbleTheme {
         didSet { UserDefaults.standard.set(current.id, forKey: "theme") }
     }
     private init() {
-        let id = UserDefaults.standard.string(forKey: "theme") ?? "electric"
+        let id = UserDefaults.standard.string(forKey: "theme") ?? "mercury"
         current = BubbleTheme.all.first { $0.id == id } ?? BubbleTheme.all[0]
     }
+}
+
+/// Mercury's planet logo (Planet.png in the app, drawn by tools/make_planet.py).
+enum Brand {
+    static let planet: NSImage? = Bundle.main.image(forResource: "Planet")
+
+    /// The menu bar's planet: a disc with three craters cut out. It's a template image, so it
+    /// follows the menu bar's colour.
+    static let menuPlanet: NSImage = {
+        let img = NSImage(size: NSSize(width: 18, height: 18), flipped: false) { r in
+            let p = NSBezierPath(ovalIn: r.insetBy(dx: 2, dy: 2))
+            p.windingRule = .evenOdd
+            p.appendOval(in: NSRect(x: 5.4, y: 8.6, width: 3.8, height: 3.8))
+            p.appendOval(in: NSRect(x: 10.2, y: 5.2, width: 2.8, height: 2.8))
+            p.appendOval(in: NSRect(x: 10.8, y: 10.9, width: 2, height: 2))
+            NSColor.black.setFill()
+            p.fill()
+            return true
+        }
+        img.isTemplate = true
+        return img
+    }()
 }
 
 enum Theme {
@@ -366,7 +392,7 @@ struct PillIcon: View {
 
 // MARK: - Chat box
 
-/// The box you type into in Ask Bubble and the reel editor. It's a real Mac text view rather than
+/// The box you type into in Ask Mercury and the reel editor. It's a real Mac text view rather than
 /// SwiftUI's growing text field, which re-measures every line on each redraw and slowed the whole app
 /// to a crawl with a long pasted prompt. Return sends; Shift+Return or Option+Return starts a new line.
 /// It grows up to `maxLines`, then scrolls.

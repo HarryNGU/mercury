@@ -1,149 +1,173 @@
 <!doctype html>
-<html lang="en">
+<html lang="en" data-tone="dark">
 <head>
 <meta charset="utf-8">
 <meta name="viewport" content="width=device-width, initial-scale=1">
-<title>Bubble · The ultimate personal assistant for your Mac</title>
+<title>Mercury · Personal assistant for Mac</title>
 <meta name="description" content="Ask about anything on your screen, get emails and tasks done, talk instead of typing, and record and edit videos. Free, private and open source, for the Mac.">
 <meta name="referrer" content="no-referrer">
-<meta name="theme-color" content="#f7f5f0">
+<meta name="theme-color" content="#04050a">
 <link rel="canonical" href="https://harryngu.github.io/bubble/">
 <meta property="og:type" content="website">
-<meta property="og:site_name" content="Bubble">
-<meta property="og:title" content="Bubble · The ultimate personal assistant for your Mac">
+<meta property="og:site_name" content="Mercury">
+<meta property="og:title" content="Mercury · Personal assistant for Mac">
 <meta property="og:description" content="Ask about anything on your screen, get emails and tasks done, talk instead of typing, and record and edit videos. Free, private and open source, for the Mac.">
 <meta property="og:url" content="https://harryngu.github.io/bubble/">
-<meta property="og:image" content="https://harryngu.github.io/bubble/assets/og.png?v=2">
+<meta property="og:image" content="https://harryngu.github.io/bubble/assets/og.png?v=3">
 <meta property="og:image:width" content="1200">
 <meta property="og:image:height" content="630">
-<meta property="og:image:alt" content="Bubble, the ultimate personal assistant for your Mac, answering a question in a floating chat">
+<meta property="og:image:alt" content="Mercury, a personal assistant for the Mac, shown as a blue and gold planet">
 <meta name="twitter:card" content="summary_large_image">
-<meta name="twitter:title" content="Bubble · The ultimate personal assistant for your Mac">
+<meta name="twitter:title" content="Mercury · Personal assistant for Mac">
 <meta name="twitter:description" content="Ask about anything on your screen, get emails and tasks done, talk instead of typing, and record and edit videos. Free, private and open source, for the Mac.">
-<meta name="twitter:image" content="https://harryngu.github.io/bubble/assets/og.png?v=2">
+<meta name="twitter:image" content="https://harryngu.github.io/bubble/assets/og.png?v=3">
 <meta http-equiv="Content-Security-Policy" content="default-src 'self'; img-src 'self' data:; media-src 'self'; style-src 'self' 'unsafe-inline'; script-src 'self'; connect-src 'self'; base-uri 'self'; form-action 'none'">
-<link rel="icon" href="assets/favicon.png">
-<link rel="stylesheet" href="assets/style.css?v=6">
+<link rel="icon" href="assets/favicon.png?v=2">
+<link rel="apple-touch-icon" href="assets/icon.png?v=2">
+<link rel="stylesheet" href="assets/style.css?v=14">
 </head>
-<body>
-<div class="nav-shell">
+<body class="home">
+<header class="nav-shell">
 <nav class="bar" aria-label="Main">
-<a class="brand" href="index.html"><span class="logo"></span>Bubble</a>
-<div class="links"><span class="glide"></span><a href="index.html#features">Features</a><a href="get-started.html">Get started</a><a href="security.html">Safety</a><a href="faq.html">FAQ</a></div>
+<a class="brand" href="index.html"><img class="mark" src="assets/favicon.png?v=2" alt="" width="22" height="22">Mercury</a>
+<div class="links"><a href="index.html#features">Features</a><a href="get-started.html">Get started</a><a href="security.html">Safety</a><a href="faq.html">FAQ</a></div>
 <a href="index.html#download" class="btn primary small nav-cta">Download</a>
 <button class="menu-btn" aria-label="Menu" aria-expanded="false"><span></span><span></span></button>
 </nav>
-</div>
 <div class="drawer"><a href="index.html#features">Features</a><a href="get-started.html">Get started</a><a href="security.html">Safety</a><a href="faq.html">FAQ</a><a href="index.html#download" class="btn primary">Download for Mac</a></div>
+</header>
 <main>
 
-<section class="hero">
-<div class="wrap">
-<h1 class="rise">The ultimate<br>personal assistant<br><span class="quiet">for your Mac.</span></h1>
-<p class="lede rise" style="--d:.08s">Bubble floats over whatever you're doing, whether that's Gmail, Notion, Zoom or anything else, and helps you right there. It already knows you, and it only does things when you say so.</p>
-<div class="actions rise" style="--d:.14s">
-<a class="btn primary" href="#download"><svg viewBox="0 0 24 24" fill="currentColor"><path d="M16.4 12.6c0-2.6 2.1-3.8 2.2-3.9-1.2-1.8-3.1-2-3.7-2-1.6-.2-3.1.9-3.9.9-.8 0-2-.9-3.4-.9-1.7 0-3.3 1-4.2 2.6-1.8 3.1-.5 7.7 1.3 10.2.9 1.2 1.9 2.6 3.2 2.6 1.3-.1 1.8-.8 3.3-.8 1.6 0 2 .8 3.4.8 1.4 0 2.3-1.3 3.1-2.5 1-1.4 1.4-2.8 1.4-2.9-.1 0-2.7-1-2.7-4.1zM13.9 5c.7-.9 1.2-2 1-3.2-1 0-2.3.7-3 1.6-.7.8-1.3 2-1.1 3.1 1.1.1 2.3-.6 3.1-1.5z"/></svg>Download for Mac</a>
-<a class="btn ghost" href="#demo"><svg viewBox="0 0 24 24" fill="currentColor"><path d="M8 5.5v13l11-6.5z"/></svg>Watch the demo</a>
+<section class="scene" data-tone="dark" aria-label="Introduction">
+<div class="scene-pin">
+<canvas class="space" aria-hidden="true"></canvas>
+<img class="space-fallback" src="assets/planet.png" alt="" width="1024" height="1024">
+<div class="intro">
+<span class="kicker"><svg class="orb" viewBox="0 0 20 20" aria-hidden="true"><ellipse cx="10" cy="10" rx="8.5" ry="4.2" transform="rotate(-18 10 10)"/><circle cx="10" cy="10" r="2.6"/></svg>Mercury for Mac</span>
+<h1>The assistant that <br>lives on <span class="ringed">your Mac<svg class="ring" viewBox="0 0 200 60" preserveAspectRatio="none" aria-hidden="true"><path d="M4,30 a96,26 0 1,0 192,0 a96,26 0 1,0 -192,0" pathLength="1"/><circle class="moon" r="3.4"><animateMotion dur="11s" repeatCount="indefinite" path="M4,30 a96,26 0 1,0 192,0 a96,26 0 1,0 -192,0"/></circle></svg></span><span class="pdot">.</span></h1>
+<p class="lede">Mercury floats over whatever you're doing and helps you right there. It sees your screen when you ask, types what you say, records and edits your videos, and never sends a thing without your OK.</p>
+<div class="actions"><a class="btn primary" href="#download"><svg viewBox="0 0 24 24" fill="currentColor"><path d="M16.4 12.6c0-2.6 2.1-3.8 2.2-3.9-1.2-1.8-3.1-2-3.7-2-1.6-.2-3.1.9-3.9.9-.8 0-2-.9-3.4-.9-1.7 0-3.3 1-4.2 2.6-1.8 3.1-.5 7.7 1.3 10.2.9 1.2 1.9 2.6 3.2 2.6 1.3-.1 1.8-.8 3.3-.8 1.6 0 2 .8 3.4.8 1.4 0 2.3-1.3 3.1-2.5 1-1.4 1.4-2.8 1.4-2.9-.1 0-2.7-1-2.7-4.1zM13.9 5c.7-.9 1.2-2 1-3.2-1 0-2.3.7-3 1.6-.7.8-1.3 2-1.1 3.1 1.1.1 2.3-.6 3.1-1.5z"/></svg>Download for Mac</a><a class="btn ghost" href="#features">See what it does</a></div>
+<p class="meta">Free and open source, for macOS 15 or later</p>
 </div>
-<p class="meta rise" style="--d:.18s">Free · macOS 15 or later · Apple silicon and Intel</p>
-<div class="stage rise" id="demo" style="--d:.24s">
-<div class="frame"><video src="assets/bubble-demo.mp4" poster="assets/demo-poster.jpg" autoplay muted loop playsinline preload="metadata" width="1280" height="720" aria-label="A short demo of Bubble"></video></div>
-<button class="sound" type="button"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M11 5 6 9H3v6h3l5 4z"/><path d="M15.5 8.5a5 5 0 0 1 0 7M18.5 5.5a9 9 0 0 1 0 13"/></svg><span>Sound on</span></button>
-</div>
+<div class="meet" aria-hidden="true"><span class="kicker"><svg class="orb" viewBox="0 0 20 20" aria-hidden="true"><ellipse cx="10" cy="10" rx="8.5" ry="4.2" transform="rotate(-18 10 10)"/><circle cx="10" cy="10" r="2.6"/></svg>Meet Mercury</span><p>Small enough to stay out of your way.<br>Clever enough to help with anything on your screen.</p></div>
+<div class="laptop" aria-hidden="true"><div class="bezel"><i class="notch"></i></div><div class="base"><i></i></div></div>
+<div class="screen-ui" aria-hidden="true"><div class="screen-inner">
+<div class="menubar"><b></b><strong>Preview</strong><span>File</span><span>Edit</span><span>View</span><span>Window</span><em><img src="assets/favicon.png?v=2" alt="">Wed 9:41</em></div>
+<div class="win-title">Mercury in colour.png</div>
+<div class="panel live-panel"><div class="ph"><img class="pl" src="assets/favicon.png?v=2" alt="" width="64" height="64"><b>Mercury</b><span class="dots"><i></i><i></i></span></div>
+<div class="ctx"><span class="eye"></span>Looking at Preview</div>
+<div class="pbody"><div class="m you q">What am I looking at?</div><div class="m me a" data-type="That's the planet Mercury in enhanced colour. The tan patches are old volcanic plains, the deep blue is darker rock, and the bright streaks are fresh material thrown out by a young crater."></div></div>
+<div class="pin"><span>Ask anything</span><i class="mic"></i></div></div>
+</div></div>
+<p class="caption">It lives on your screen, over whatever you're doing.</p>
+<div class="scroll-hint" aria-hidden="true"><i></i></div>
 </div>
 </section>
 
-<section class="block"><div class="wrap">
-<div class="head reveal"><span class="kicker">A day with Bubble</span><h2>The apps you already use, with help.</h2><p>There's nothing new to learn. Bubble shows up over the apps you already use whenever you need a hand.</p></div>
+<section class="orbit-sec" data-tone="dark"><div class="wrap">
+<div class="head reveal"><span class="kicker"><svg class="orb" viewBox="0 0 20 20" aria-hidden="true"><ellipse cx="10" cy="10" rx="8.5" ry="4.2" transform="rotate(-18 10 10)"/><circle cx="10" cy="10" r="2.6"/></svg>Works everywhere</span><h2>The apps you already use, <span class="ringed">with help<svg class="ring" viewBox="0 0 200 60" preserveAspectRatio="none" aria-hidden="true"><path d="M4,30 a96,26 0 1,0 192,0 a96,26 0 1,0 -192,0" pathLength="1"/><circle class="moon" r="3.4"><animateMotion dur="11s" repeatCount="indefinite" path="M4,30 a96,26 0 1,0 192,0 a96,26 0 1,0 -192,0"/></circle></svg></span><span class="pdot">.</span></h2><p>There's nothing new to learn. Mercury shows up over any app on your Mac whenever you need a hand, and gets out of the way when you don't.</p></div>
+<div class="orbit reveal" aria-hidden="true"><div class="ring r1"></div><div class="ring r2"></div><div class="core"><img src="assets/planet.png" alt="" width="1024" height="1024" loading="lazy"></div><div class="sats"><div class="sat" style="--a:0.0deg;--r:0.72"><span><i style="background:#ea4335"></i>Gmail</span></div><div class="sat" style="--a:30.0deg;--r:1"><span><i style="background:#2d8cff"></i>Zoom</span></div><div class="sat" style="--a:60.0deg;--r:0.72"><span><i style="background:#e8e6e1"></i>Notion</span></div><div class="sat" style="--a:90.0deg;--r:1"><span><i style="background:#e01e5a"></i>Slack</span></div><div class="sat" style="--a:120.0deg;--r:0.72"><span><i style="background:#34c759"></i>Messages</span></div><div class="sat" style="--a:150.0deg;--r:1"><span><i style="background:#21a366"></i>Excel</span></div><div class="sat" style="--a:180.0deg;--r:0.72"><span><i style="background:#d62976"></i>Instagram</span></div><div class="sat" style="--a:210.0deg;--r:1"><span><i style="background:#4e8cf6"></i>GoodNotes</span></div><div class="sat" style="--a:240.0deg;--r:0.72"><span><i style="background:#0a64d6"></i>Outlook</span></div><div class="sat" style="--a:270.0deg;--r:1"><span><i style="background:#00ac47"></i>Google Meet</span></div><div class="sat" style="--a:300.0deg;--r:0.72"><span><i style="background:#2b7cd3"></i>Word</span></div><div class="sat" style="--a:330.0deg;--r:1"><span><i style="background:#1e9bf0"></i>Safari</span></div></div></div>
 <div class="day"><div class="moment reveal" style="--d:0.00s"><div class="when">8:30<span class="app"><i style="background:#ea4335"></i>Gmail</span></div>
 <h3>Replying before class</h3><div class="said">Reply to Ms Lee: I'll hand the lab report in on Friday.</div><div class="then">Written in Gmail. You read it and press Send yourself.</div></div><div class="moment reveal" style="--d:0.07s"><div class="when">10:00<span class="app"><i style="background:#2d8cff"></i>Zoom</span></div>
-<h3>Lost in a lecture</h3><div class="said">What did she mean by activation energy?</div><div class="then">A plain answer with a diagram while the lecture keeps going.</div></div><div class="moment reveal" style="--d:0.14s"><div class="when">13:15<span class="app"><i style="background:#111214"></i>Notion</span></div>
+<h3>Lost in a lecture</h3><div class="said">What did she mean by activation energy?</div><div class="then">A plain answer with a diagram while the lecture keeps going.</div></div><div class="moment reveal" style="--d:0.14s"><div class="when">13:15<span class="app"><i style="background:#e8e6e1"></i>Notion</span></div>
 <h3>Writing up notes</h3><div class="said">Double tap ⌥ and talk through what you learned.</div><div class="then">Tidy notes, typed where your cursor is.</div></div><div class="moment reveal" style="--d:0.21s"><div class="when">17:40<span class="app"><i style="background:#d62976"></i>Instagram</span></div>
 <h3>Running late</h3><div class="said">Tell Mia I'm 10 minutes away.</div><div class="then">Typed into her chat, and you press send.</div></div><div class="moment reveal" style="--d:0.28s"><div class="when">21:00<span class="app"><i style="background:#4e8cf6"></i>GoodNotes</span></div>
 <h3>Checking homework</h3><div class="said">Is my working for question 4 right?</div><div class="then">Spots the mistake in step 2 and explains it.</div></div></div>
 </div></section>
 
-<section class="block" id="features"><div class="wrap">
-<div class="head reveal"><span class="kicker">What it does</span><h2>One assistant for everything you do on your Mac.</h2></div>
-<div class="story">
-<div class="copy reveal"><div class="num">01 · Ask</div><h3>Ask about anything on your screen</h3><p>If you're stuck on something in your Notion notes, a chart in Excel or a paragraph in a PDF, press ⌥\ and ask. Bubble looks at your screen and answers the way a friend would over text, with pictures, videos and links when they help.</p><ul class="ticks"><li>It only looks at your screen when you ask</li><li>Diagrams, molecules and YouTube videos show up in the chat</li><li>It works over any app, so there's nothing to copy and paste</li></ul><div class="keys"><kbd>⌥</kbd><kbd>\</kbd> to open it</div></div>
-<div class="shot reveal" style="--d:.12s"><img src="assets/feat-ask.jpg" alt="Bubble's chat over a Notion page of chemistry notes, showing caffeine's structure" width="1600" height="900" loading="lazy"></div>
-</div><div class="story flip">
-<div class="copy reveal"><div class="num">02 · Knows you</div><h3>It already knows you</h3><p>Bubble works with the AI you already use. Connect Claude and it knows your notes, your calendar and your inbox. If you use ChatGPT, you can bring over what it remembers about you with one paste.</p><ul class="ticks"><li>Uses your Claude memory and connected apps</li><li>Brings in what ChatGPT knows about you</li><li>Kept on your Mac, and you can delete it any time</li></ul></div>
-<div class="shot reveal" style="--d:.12s"><img src="assets/feat-knows.jpg" alt="Bubble planning a revision week around the user's exam and shifts" width="1600" height="900" loading="lazy"></div>
-</div><div class="story">
-<div class="copy reveal"><div class="num">03 · Do</div><h3>It writes, you send</h3><p>Say “reply to Sam and tell him I'll be there at 6” and Bubble writes the reply in Gmail or Outlook, shows it to you, and waits. It only sends once you tap Allow or say “yes”.</p><ul class="ticks"><li>Drafts in Gmail, Outlook, Messages, Instagram and Messenger</li><li>Shows an Allow or Deny card before anything is sent</li><li>Chat messages are typed in for you to send yourself</li></ul></div>
-<div class="shot reveal" style="--d:.12s"><img src="assets/feat-do.jpg" alt="Bubble writing a reply in Gmail and waiting for approval to send" width="1600" height="900" loading="lazy"></div>
-</div><div class="story flip">
-<div class="copy reveal"><div class="num">04 · Dictate</div><h3>Talk instead of typing</h3><p>Double tap Option in iMessage, Slack, Word or anywhere else and start talking. Bubble types a tidy version where your cursor is, and stops on its own when you pause.</p><ul class="ticks"><li>Works in any text box on your Mac</li><li>Takes out the ums and applies your corrections</li><li>Your speech is turned into text on your Mac</li></ul><div class="keys"><kbd>⌥</kbd><kbd>⌥</kbd> double tap</div></div>
-<div class="shot reveal" style="--d:.12s"><img src="assets/feat-dictate.jpg" alt="Bubble typing a dictated message into iMessage" width="1600" height="900" loading="lazy"></div>
-</div><div class="story">
-<div class="copy reveal"><div class="num">05 · Listen</div><h3>Help during calls</h3><p>Turn on Listen during a Zoom or Google Meet call, a lecture or a YouTube video. Bubble hears your Mac's sound (never your microphone) and can suggest what to say, or sum up what you missed.</p><ul class="ticks"><li>Ask “what should I say?” with one tap</li><li>Summaries and to do lists from long calls</li><li>A red dot shows whenever it's listening</li></ul></div>
-<div class="shot reveal" style="--d:.12s"><img src="assets/feat-listen.jpg" alt="Bubble listening to a Zoom call and suggesting a reply" width="1600" height="900" loading="lazy"></div>
-</div><div class="story flip">
-<div class="copy reveal"><div class="num">06 · Record</div><h3>Record once, post anywhere</h3><p>Hover over any window and click to record. Your face sits in a round bubble and the background noise is gone. Then edit it properly in Bubble, or make captioned versions for Reels, TikTok, Shorts and YouTube in one click.</p><ul class="ticks"><li>Pauses are cut out for you</li><li>Big captions timed to what you say</li><li>A full editor with sound clean up, text, zooms and music</li></ul><div class="keys"><kbd>⌘</kbd><kbd>\</kbd> to record</div></div>
-<div class="shot reveal" style="--d:.12s"><img src="assets/feat-record.jpg" alt="Three captioned videos made from one recording" width="1600" height="900" loading="lazy"></div>
+<section class="features" id="features" data-tone="dark"><div class="wrap">
+<div class="head reveal"><span class="kicker"><svg class="orb" viewBox="0 0 20 20" aria-hidden="true"><ellipse cx="10" cy="10" rx="8.5" ry="4.2" transform="rotate(-18 10 10)"/><circle cx="10" cy="10" r="2.6"/></svg>What it does</span><h2>One assistant for <span class="ringed">everything<svg class="ring" viewBox="0 0 200 60" preserveAspectRatio="none" aria-hidden="true"><path d="M4,30 a96,26 0 1,0 192,0 a96,26 0 1,0 -192,0" pathLength="1"/><circle class="moon" r="3.4"><animateMotion dur="11s" repeatCount="indefinite" path="M4,30 a96,26 0 1,0 192,0 a96,26 0 1,0 -192,0"/></circle></svg></span> you do on your Mac<span class="pdot">.</span></h2></div>
+<div class="feat-grid">
+<div class="feat-list"><article class="feat" data-i="0"><div class="num">Ask</div><h3>Ask about anything on your screen</h3><p>If you're stuck on something in your notes, a chart in Excel or a paragraph in a PDF, press ⌥\ and ask. Mercury looks at your screen and answers the way a friend would over text, with pictures, videos and links when they help.</p>
+<ul class="ticks"><li>It only looks at your screen when you ask</li><li>Diagrams, molecules and videos show up in the chat</li><li>It works over any app, so there's nothing to copy</li></ul><div class="keys"><kbd>⌥</kbd><kbd>\</kbd> to open it</div>
+<div class="inline-mock"><div class="panel"><div class="ph"><img class="pl" src="assets/favicon.png?v=2" alt="" width="64" height="64"><b>Mercury</b><span class="dots"><i></i><i></i></span></div>
+<div class="ctx"><span class="eye"></span>Looking at Notion · Chemistry notes</div><div class="pbody"><div class="m you">Why is caffeine so bitter?</div><div class="m me">It's the shape. Caffeine fits the bitter taste receptors on your tongue, so they fire as if it were a warning. Here's the molecule from your notes:</div><div class="card mol"><svg viewBox="0 0 120 70" aria-hidden="true"><g fill="none" stroke="currentColor" stroke-width="2"><path d="M30 15l17 10v20l-17 10-17-10V25z"/><path d="M47 25l16-6 10 14-10 14-16-2"/><path d="M30 15V4M13 55l-9 5M73 33h12"/></g><g font-size="7" fill="currentColor" font-family="-apple-system,sans-serif"><text x="2" y="64">O</text><text x="86" y="36">N</text><text x="27" y="3">O</text></g></svg><span>Caffeine · C₈H₁₀N₄O₂</span></div></div><div class="pin"><span>Ask anything</span><i class="mic"></i></div></div></div></article><article class="feat" data-i="1"><div class="num">Knows you</div><h3>It already knows you</h3><p>Mercury works with the AI you already use. Connect Claude and it knows your notes, your calendar and your inbox. If you use ChatGPT, you can bring over what it remembers about you with one paste.</p>
+<ul class="ticks"><li>Uses your Claude memory and connected apps</li><li>Brings in what ChatGPT knows about you</li><li>Kept on your Mac, and you can delete it any time</li></ul>
+<div class="inline-mock"><div class="panel"><div class="ph"><img class="pl" src="assets/favicon.png?v=2" alt="" width="64" height="64"><b>Mercury</b><span class="dots"><i></i><i></i></span></div>
+<div class="pbody"><div class="m you">Plan my revision week around work</div><div class="m me">Here's a plan that fits your shifts:</div><div class="card plan"><div><b>Mon</b><span>Chemistry practice exam</span></div><div><b>Tue</b><span>Shift 4 to 9, light review only</span></div><div><b>Wed</b><span>Methods, chapter 6 questions</span></div><div><b>Thu</b><span>Go over Monday's mistakes</span></div></div><div class="chips"><span>From your calendar</span><span>From your notes</span></div></div><div class="pin"><span>Ask anything</span><i class="mic"></i></div></div></div></article><article class="feat" data-i="2"><div class="num">Do</div><h3>It writes, you send</h3><p>Say “reply to Sam and tell him I'll be there at 6” and Mercury writes the reply in Gmail or Outlook, shows it to you, and waits. It only sends once you tap Allow or say “yes”.</p>
+<ul class="ticks"><li>Drafts in Gmail, Outlook, Messages, Instagram and Messenger</li><li>Shows an Allow or Deny card before anything is sent</li><li>Chat messages are typed in for you to send yourself</li></ul>
+<div class="inline-mock"><div class="panel"><div class="ph"><img class="pl" src="assets/favicon.png?v=2" alt="" width="64" height="64"><b>Mercury</b><span class="dots"><i></i><i></i></span></div>
+<div class="ctx"><span class="eye"></span>Looking at Gmail</div><div class="pbody"><div class="m you">Reply to Sam and say I'll be there at 6</div><div class="m me">Here's the reply. I'll wait for you.</div><div class="approve"><small>To: Sam Lee · Re: Study group</small><p>Hi Sam, I'll be there at 6. See you then!</p>
+<div class="ask"><span>✋ Send this email?</span><div class="btns"><span>Deny</span><span class="yes">Allow once</span></div></div></div></div><div class="pin"><span>Ask anything</span><i class="mic"></i></div></div></div></article><article class="feat" data-i="3"><div class="num">Dictate</div><h3>Talk instead of typing</h3><p>Double tap Option in iMessage, Slack, Word or anywhere else and start talking. Mercury types a tidy version where your cursor is, and stops on its own when you pause.</p>
+<ul class="ticks"><li>Works in any text box on your Mac</li><li>Takes out the ums and applies your corrections</li><li>Your speech is turned into text on your Mac</li></ul><div class="keys"><kbd>⌥</kbd><kbd>⌥</kbd> double tap</div>
+<div class="inline-mock"><div class="field"><div class="fh"><i></i><i></i><i></i><span>Messages · Mia</span></div><div class="bub them">Are you still coming tonight?</div><div class="typing"><span class="t">Yes! Running about ten minutes late, save me a seat</span><span class="caret"></span></div><div class="dict"><div class="wave"><i style="--h:3"></i><i style="--h:6"></i><i style="--h:9"></i><i style="--h:5"></i><i style="--h:11"></i><i style="--h:7"></i><i style="--h:4"></i><i style="--h:10"></i><i style="--h:6"></i><i style="--h:8"></i><i style="--h:3"></i><i style="--h:7"></i><i style="--h:12"></i><i style="--h:5"></i><i style="--h:8"></i><i style="--h:4"></i><i style="--h:9"></i><i style="--h:6"></i><i style="--h:3"></i><i style="--h:5"></i></div><span>Listening</span><kbd>⌥</kbd><kbd>⌥</kbd></div></div></div></article><article class="feat" data-i="4"><div class="num">Listen</div><h3>Help during calls</h3><p>Turn on Listen during a Zoom or Google Meet call, a lecture or a video. Mercury hears your Mac's sound (never your microphone) and can suggest what to say, or sum up what you missed.</p>
+<ul class="ticks"><li>Ask “what should I say?” with one tap</li><li>Summaries and to do lists from long calls</li><li>A red dot shows whenever it's listening</li></ul>
+<div class="inline-mock"><div class="panel"><div class="ph"><img class="pl" src="assets/favicon.png?v=2" alt="" width="64" height="64"><b>Mercury</b><span class="dots"><i></i><i></i></span></div>
+<div class="pbody"><div class="live"><span class="rec"></span>Listening to Zoom</div><div class="tx"><p><b>Priya</b> So what do you think the main risk is?</p><p><b>Tom</b> I'd say the timeline, honestly.</p></div><div class="m you">What should I say?</div><div class="m me">Agree on the timeline, then add that the budget review lands the same week. Suggest moving it back by a week.</div></div><div class="pin"><span>Ask anything</span><i class="mic"></i></div></div></div></article><article class="feat" data-i="5"><div class="num">Record</div><h3>Record once, post anywhere</h3><p>Hover over any window and click to record. Your face sits in a round bubble and the background noise is gone. Then edit it properly in Mercury, or make captioned versions for Reels, TikTok, Shorts and YouTube in one click.</p>
+<ul class="ticks"><li>Pauses are cut out for you</li><li>Big captions timed to what you say</li><li>A full editor with sound clean up, text, zooms and music</li></ul><div class="keys"><kbd>⌘</kbd><kbd>\</kbd> to record</div>
+<div class="inline-mock"><div class="reels"><div class="phone"><div class="cap">Pauses are cut out</div></div><div class="phone mid"><div class="cap">Captions timed to you</div></div><div class="phone"><div class="cap">One click, every size</div></div><div class="pill"><span class="rec"></span>02:14<i class="stop"></i></div><div class="cam"></div></div></div></article></div>
+<div class="feat-stage"><div class="stage-inner"><div class="halo"></div><div class="mock on" data-i="0"><div class="panel"><div class="ph"><img class="pl" src="assets/favicon.png?v=2" alt="" width="64" height="64"><b>Mercury</b><span class="dots"><i></i><i></i></span></div>
+<div class="ctx"><span class="eye"></span>Looking at Notion · Chemistry notes</div><div class="pbody"><div class="m you">Why is caffeine so bitter?</div><div class="m me">It's the shape. Caffeine fits the bitter taste receptors on your tongue, so they fire as if it were a warning. Here's the molecule from your notes:</div><div class="card mol"><svg viewBox="0 0 120 70" aria-hidden="true"><g fill="none" stroke="currentColor" stroke-width="2"><path d="M30 15l17 10v20l-17 10-17-10V25z"/><path d="M47 25l16-6 10 14-10 14-16-2"/><path d="M30 15V4M13 55l-9 5M73 33h12"/></g><g font-size="7" fill="currentColor" font-family="-apple-system,sans-serif"><text x="2" y="64">O</text><text x="86" y="36">N</text><text x="27" y="3">O</text></g></svg><span>Caffeine · C₈H₁₀N₄O₂</span></div></div><div class="pin"><span>Ask anything</span><i class="mic"></i></div></div></div><div class="mock" data-i="1"><div class="panel"><div class="ph"><img class="pl" src="assets/favicon.png?v=2" alt="" width="64" height="64"><b>Mercury</b><span class="dots"><i></i><i></i></span></div>
+<div class="pbody"><div class="m you">Plan my revision week around work</div><div class="m me">Here's a plan that fits your shifts:</div><div class="card plan"><div><b>Mon</b><span>Chemistry practice exam</span></div><div><b>Tue</b><span>Shift 4 to 9, light review only</span></div><div><b>Wed</b><span>Methods, chapter 6 questions</span></div><div><b>Thu</b><span>Go over Monday's mistakes</span></div></div><div class="chips"><span>From your calendar</span><span>From your notes</span></div></div><div class="pin"><span>Ask anything</span><i class="mic"></i></div></div></div><div class="mock" data-i="2"><div class="panel"><div class="ph"><img class="pl" src="assets/favicon.png?v=2" alt="" width="64" height="64"><b>Mercury</b><span class="dots"><i></i><i></i></span></div>
+<div class="ctx"><span class="eye"></span>Looking at Gmail</div><div class="pbody"><div class="m you">Reply to Sam and say I'll be there at 6</div><div class="m me">Here's the reply. I'll wait for you.</div><div class="approve"><small>To: Sam Lee · Re: Study group</small><p>Hi Sam, I'll be there at 6. See you then!</p>
+<div class="ask"><span>✋ Send this email?</span><div class="btns"><span>Deny</span><span class="yes">Allow once</span></div></div></div></div><div class="pin"><span>Ask anything</span><i class="mic"></i></div></div></div><div class="mock" data-i="3"><div class="field"><div class="fh"><i></i><i></i><i></i><span>Messages · Mia</span></div><div class="bub them">Are you still coming tonight?</div><div class="typing"><span class="t">Yes! Running about ten minutes late, save me a seat</span><span class="caret"></span></div><div class="dict"><div class="wave"><i style="--h:3"></i><i style="--h:6"></i><i style="--h:9"></i><i style="--h:5"></i><i style="--h:11"></i><i style="--h:7"></i><i style="--h:4"></i><i style="--h:10"></i><i style="--h:6"></i><i style="--h:8"></i><i style="--h:3"></i><i style="--h:7"></i><i style="--h:12"></i><i style="--h:5"></i><i style="--h:8"></i><i style="--h:4"></i><i style="--h:9"></i><i style="--h:6"></i><i style="--h:3"></i><i style="--h:5"></i></div><span>Listening</span><kbd>⌥</kbd><kbd>⌥</kbd></div></div></div><div class="mock" data-i="4"><div class="panel"><div class="ph"><img class="pl" src="assets/favicon.png?v=2" alt="" width="64" height="64"><b>Mercury</b><span class="dots"><i></i><i></i></span></div>
+<div class="pbody"><div class="live"><span class="rec"></span>Listening to Zoom</div><div class="tx"><p><b>Priya</b> So what do you think the main risk is?</p><p><b>Tom</b> I'd say the timeline, honestly.</p></div><div class="m you">What should I say?</div><div class="m me">Agree on the timeline, then add that the budget review lands the same week. Suggest moving it back by a week.</div></div><div class="pin"><span>Ask anything</span><i class="mic"></i></div></div></div><div class="mock" data-i="5"><div class="reels"><div class="phone"><div class="cap">Pauses are cut out</div></div><div class="phone mid"><div class="cap">Captions timed to you</div></div><div class="phone"><div class="cap">One click, every size</div></div><div class="pill"><span class="rec"></span>02:14<i class="stop"></i></div><div class="cam"></div></div></div></div></div>
 </div>
 </div></section>
 
-<section class="block" id="control" style="padding-top:10px"><div class="wrap">
-<div class="head reveal"><span class="kicker">You're in control</span><h2>Nothing happens without you.</h2><p>Bubble can see, hear and do things on your Mac, so this is when it does each of them.</p></div>
+<section class="control-sec" id="control" data-tone="light"><div class="wrap">
+<div class="head reveal"><span class="kicker"><svg class="orb" viewBox="0 0 20 20" aria-hidden="true"><ellipse cx="10" cy="10" rx="8.5" ry="4.2" transform="rotate(-18 10 10)"/><circle cx="10" cy="10" r="2.6"/></svg>You're in control</span><h2>Nothing happens <span class="ringed">without you<svg class="ring" viewBox="0 0 200 60" preserveAspectRatio="none" aria-hidden="true"><path d="M4,30 a96,26 0 1,0 192,0 a96,26 0 1,0 -192,0" pathLength="1"/><circle class="moon" r="3.4"><animateMotion dur="11s" repeatCount="indefinite" path="M4,30 a96,26 0 1,0 192,0 a96,26 0 1,0 -192,0"/></circle></svg></span><span class="pdot">.</span></h2><p>Mercury can see, hear and do things on your Mac, so here's exactly when it does each of them.</p></div>
 <div class="control">
-<div class="reveal"><div class="ledger"><div class="row"><b>Looks at your screen</b><span>Only when you ask a question, and only one screenshot each time.</span><span class="tag">👁 You can turn it off</span></div><div class="row"><b>Hears your Mac's sound</b><span>Only while you've turned Listen on.</span><span class="tag"><span class="dot"></span>Red dot while on</span></div><div class="row"><b>Hears your voice</b><span>Only while you're dictating or talking to it.</span><span class="tag">You start it</span></div><div class="row"><b>Sends an email or message</b><span>Only after you tap Allow or say “yes”. Chat messages are typed in for you to send.</span><span class="tag">Your OK first</span></div><div class="row"><b>Changes files or apps</b><span>Only after you see exactly what it will do, and allow it.</span><span class="tag">Your OK first</span></div><div class="row"><b>Works in the background</b><span>Never. Nothing happens unless you ask for it.</span><span class="tag never">Never</span></div><div class="row"><b>Collects or sells your data</b><span>Never. No account, no tracking, no analytics.</span><span class="tag never">Never</span></div></div>
-<p class="ledger-foot">Bubble is open source, so anyone can check it does what this page says. <a href="security.html">Read the full safety details →</a></p></div>
-<div class="approval reveal" style="--d:.12s">
-<div class="who"><span class="logo"></span>Bubble</div>
-<div class="msg"><small>To: Sam Lee · Re: Study group</small>Hi Sam, I'll be there at 6. See you then!</div>
-<div class="ask"><p>✋ Send this email?</p><div class="btns"><span>Deny</span><span class="yes">Allow once</span></div></div>
-<p class="cap">This is what you see before anything leaves your Mac.</p>
+<div><div class="ledger"><div class="row reveal" style="--d:0.00s"><b>Looks at your screen</b><span>Only when you ask a question, and only one screenshot each time.</span><span class="tag">You can turn it off</span></div><div class="row reveal" style="--d:0.05s"><b>Hears your Mac's sound</b><span>Only while you've turned Listen on.</span><span class="tag"><span class="dot"></span>Red dot while on</span></div><div class="row reveal" style="--d:0.10s"><b>Hears your voice</b><span>Only while you're dictating or talking to it.</span><span class="tag">You start it</span></div><div class="row reveal" style="--d:0.15s"><b>Sends an email or message</b><span>Only after you tap Allow or say “yes”. Chat messages are typed in for you to send.</span><span class="tag">Your OK first</span></div><div class="row reveal" style="--d:0.20s"><b>Changes files or apps</b><span>Only after you see exactly what it will do, and allow it.</span><span class="tag">Your OK first</span></div><div class="row reveal" style="--d:0.25s"><b>Works in the background</b><span>Never. Nothing happens unless you ask for it.</span><span class="tag never">Never</span></div><div class="row reveal" style="--d:0.30s"><b>Collects or sells your data</b><span>Never. No account, no tracking, no analytics.</span><span class="tag never">Never</span></div></div>
+<p class="ledger-foot reveal">Mercury is open source, so anyone can check it does what this page says. <a href="security.html">Read the full safety details</a></p></div>
 </div>
+<div class="film reveal">
+<video src="assets/mercury-film.mp4?v=3" poster="assets/film-poster.jpg?v=4" preload="none" playsinline width="1600" height="900" aria-label="A short film: the first Monday back after a week off sick, and Mercury sorting out what matters"></video>
+<button class="play" type="button" aria-label="Play the film with sound"><svg viewBox="0 0 24 24" fill="currentColor"><path d="M8 5.5v13l11-6.5z"/></svg><span>Play the film</span></button>
 </div>
+<p class="film-cap reveal">56 seconds, best with sound on.</p>
 </div></section>
 
-<section class="block"><div class="wrap">
-<div class="head reveal"><span class="kicker">Getting started</span><h2>Set up in about two minutes.</h2><p>Bubble introduces itself and asks before each step, and you can skip anything you like.</p></div>
+<section class="steps-sec" data-tone="light"><div class="wrap">
+<div class="head reveal"><span class="kicker"><svg class="orb" viewBox="0 0 20 20" aria-hidden="true"><ellipse cx="10" cy="10" rx="8.5" ry="4.2" transform="rotate(-18 10 10)"/><circle cx="10" cy="10" r="2.6"/></svg>Getting started</span><h2>Set up in about <span class="ringed">two minutes<svg class="ring" viewBox="0 0 200 60" preserveAspectRatio="none" aria-hidden="true"><path d="M4,30 a96,26 0 1,0 192,0 a96,26 0 1,0 -192,0" pathLength="1"/><circle class="moon" r="3.4"><animateMotion dur="11s" repeatCount="indefinite" path="M4,30 a96,26 0 1,0 192,0 a96,26 0 1,0 -192,0"/></circle></svg></span><span class="pdot">.</span></h2><p>Mercury introduces itself and asks before each step, and you can skip anything you like.</p></div>
 <div class="steps3">
-<div class="step reveal"><b class="n">01</b><h3>Download</h3><p>It's a small download for any Mac on macOS 15 or later. Drag it into Applications.</p><div class="big-keys"><div class="logo" style="width:64px;height:64px"></div></div></div>
-<div class="step reveal" style="--d:.1s"><b class="n">02</b><h3>Say hello</h3><p>A short chat sets things up and explains each permission before macOS asks for it.</p><div class="pic"><img src="assets/onboard-hello.jpg" alt="Bubble's welcome chat" width="1200" height="776" loading="lazy"></div></div>
-<div class="step reveal" style="--d:.2s"><b class="n">03</b><h3>Press and ask</h3><p>In any app, press the shortcut and ask your first question.</p><div class="big-keys"><kbd>⌥</kbd><kbd>\</kbd></div></div>
+<div class="step reveal"><b class="n">Step 1</b><h3>Download</h3><p>A small download for any Mac on macOS 15 or later. Drag it into Applications.</p><div class="art"><img src="assets/icon.png?v=2" alt="" width="512" height="512" loading="lazy"></div></div>
+<div class="step reveal" style="--d:.1s"><b class="n">Step 2</b><h3>Say hello</h3><p>A short chat sets things up and explains each permission before macOS asks for it.</p><div class="art chat"><div class="m me">Hi! I'm Mercury. What should I call you?</div><div class="m you">Alex is fine</div></div></div>
+<div class="step reveal" style="--d:.2s"><b class="n">Step 3</b><h3>Press and ask</h3><p>In any app, press the shortcut and ask your first question.</p><div class="art keys-big"><kbd>⌥</kbd><kbd>\</kbd></div></div>
 </div>
 </div></section>
 
-<section class="block"><div class="wrap narrow">
-<div class="head reveal"><span class="kicker">Questions</span><h2>Common questions</h2></div>
+<section class="faq-sec" data-tone="dark"><div class="wrap narrow">
+<div class="head reveal"><span class="kicker"><svg class="orb" viewBox="0 0 20 20" aria-hidden="true"><ellipse cx="10" cy="10" rx="8.5" ry="4.2" transform="rotate(-18 10 10)"/><circle cx="10" cy="10" r="2.6"/></svg>Questions</span><h2>Common questions</h2></div>
 <div class="faq reveal">
-<details><summary>Is Bubble really free?</summary><p>Yes. It's open source, with no paid version and no ads. The assistant uses an AI you bring yourself (your Claude plan or your own API key).</p></details>
-<details><summary>Can Bubble do anything without me knowing?</summary><p>No. It only looks, listens or does something when you ask. A red dot shows while it's listening, and anything that sends or changes something waits for you to press Allow.</p></details>
-<details><summary>I use ChatGPT. Does Bubble know what it knows about me?</summary><p>You can bring it over. Bubble gives you a short prompt to paste into ChatGPT, and you paste the answer back. It's saved on your Mac and you can delete it any time. Bubble's answers themselves come from Claude.</p></details>
+<details><summary>Is Mercury really free?</summary><p>Yes. It's open source, with no paid version and no ads. The assistant uses an AI you bring yourself (your Claude plan or your own API key).</p></details>
+<details><summary>Can Mercury do anything without me knowing?</summary><p>No. It only looks, listens or does something when you ask. A red dot shows while it's listening, and anything that sends or changes something waits for you to press Allow.</p></details>
+<details><summary>I use ChatGPT. Does Mercury know what it knows about me?</summary><p>You can bring it over. Mercury gives you a short prompt to paste into ChatGPT, and you paste the answer back. It's saved on your Mac and you can delete it any time. Mercury's answers themselves come from Claude.</p></details>
 <details><summary>Which Macs does it work on?</summary><p>Any Mac on macOS 15 Sequoia or later, with Apple silicon or Intel. There's no Windows or phone version yet.</p></details>
+<details><summary>Is this the Mercury bank?</summary><p>No. This Mercury is a free, open source assistant app for the Mac, made by one person. It has nothing to do with any bank or company of the same name.</p></details>
 </div>
-<p class="center" style="margin-top:30px"><a href="faq.html">All questions →</a></p>
+<p class="more reveal"><a href="faq.html">More questions and answers</a></p>
 </div></section>
 
-<section id="download"><div class="wrap">
-<div class="cta reveal">
-<div class="logo"></div>
-<h2>Get Bubble</h2>
-<div data-available="false"><p>Bubble is in a small private beta at the moment. The public download is coming soon.</p>
+<section class="download" id="download" data-tone="dark">
+<div class="horizon" aria-hidden="true"><img src="assets/planet.png" alt="" width="1024" height="1024" loading="lazy"></div>
+<div class="wrap narrow cta reveal">
+<img class="cta-icon" src="assets/icon.png?v=2" alt="" width="512" height="512" loading="lazy">
+<h2>Get Mercury</h2>
+<div data-available="false"><p>Mercury is in a small private beta at the moment. The public download is coming soon.</p>
 <a class="btn primary" href="https://github.com/HarryNGU/bubble">Follow on GitHub</a>
-<p class="fine">On GitHub, choose Watch → Custom → Releases and you'll hear as soon as it's out.</p></div>
+<p class="fine">On GitHub, choose Watch, then Custom, then Releases, and you'll hear as soon as it's out.</p></div>
 <div data-os="mac" data-available="true" hidden>
 <p>Free, for any Mac on macOS 15 or later.</p>
 <a class="btn primary" data-release="url" href="https://github.com/HarryNGU/bubble/releases/latest"><svg viewBox="0 0 24 24" fill="currentColor"><path d="M16.4 12.6c0-2.6 2.1-3.8 2.2-3.9-1.2-1.8-3.1-2-3.7-2-1.6-.2-3.1.9-3.9.9-.8 0-2-.9-3.4-.9-1.7 0-3.3 1-4.2 2.6-1.8 3.1-.5 7.7 1.3 10.2.9 1.2 1.9 2.6 3.2 2.6 1.3-.1 1.8-.8 3.3-.8 1.6 0 2 .8 3.4.8 1.4 0 2.3-1.3 3.1-2.5 1-1.4 1.4-2.8 1.4-2.9-.1 0-2.7-1-2.7-4.1zM13.9 5c.7-.9 1.2-2 1-3.2-1 0-2.3.7-3 1.6-.7.8-1.3 2-1.1 3.1 1.1.1 2.3-.6 3.1-1.5z"/></svg>Download for Mac</a>
 <p class="fine">Version <span data-release="version">1.1.0</span> · <span data-release="size">3.3 MB</span> · Apple silicon and Intel · <a href="get-started.html">Install guide</a></p>
 </div>
-<div data-os="ios android" class="elsewhere" hidden><p>Bubble is a Mac app. Open this page on your Mac to download it.</p></div>
-<div data-os="windows linux chromeos other" class="elsewhere" hidden><p>Bubble is made for the Mac and relies on macOS features that Windows, Linux and ChromeOS don't have. Follow it on <a href="https://github.com/HarryNGU/bubble" style="color:#fff;text-decoration:underline">GitHub</a> to hear if that changes.</p></div>
+<div data-os="ios android" class="elsewhere" hidden><p>Mercury is a Mac app. Open this page on your Mac to download it.</p></div>
+<div data-os="windows linux chromeos other" class="elsewhere" hidden><p>Mercury is made for the Mac and relies on macOS features that Windows, Linux and ChromeOS don't have. Follow it on <a href="https://github.com/HarryNGU/bubble">GitHub</a> to hear if that changes.</p></div>
 </div>
-</div></section>
+</section>
 
 </main>
-<footer class="site"><div class="wrap"><div class="cols">
-<div><a class="brand" href="index.html"><span class="logo"></span>Bubble</a><p style="max-width:300px">The ultimate personal assistant for your Mac. It's free and open source, with no account, no tracking and no ads.</p></div>
+<footer class="site" data-tone="dark"><div class="wrap">
+<div class="foot-mark"><img src="assets/planet.png" alt="" width="1024" height="1024" loading="lazy"></div>
+<div class="cols">
+<div><a class="brand" href="index.html"><img class="mark" src="assets/favicon.png?v=2" alt="" width="22" height="22">Mercury</a><p class="about">A personal assistant for your Mac. Free and open source, with no account, no tracking and no ads.</p></div>
 <div><h4>Product</h4><ul><li><a href="index.html#download">Download</a></li><li><a href="index.html#features">Features</a></li><li><a href="get-started.html">Get started</a></li><li><a href="faq.html">FAQ</a></li><li><a href="https://github.com/HarryNGU/bubble">Source code</a></li></ul></div>
 <div><h4>Trust</h4><ul><li><a href="security.html">Safety and security</a></li><li><a href="privacy.html">Privacy policy</a></li><li><a href="terms.html">Terms of use</a></li><li><a href="notices.html">Open source notices</a></li></ul></div>
 <div><h4>Help</h4><ul><li><a href="https://github.com/HarryNGU/bubble/issues">Report a problem</a></li><li><a href="https://github.com/HarryNGU/bubble/security/advisories/new">Report a security issue</a></li><li><a href="get-started.html#uninstall">Uninstall</a></li></ul></div>
-</div><p style="margin-top:34px;font-size:14px">This site doesn't use cookies or analytics. It's hosted on GitHub Pages.</p></div></footer>
-<script src="assets/site.js?v=6"></script>
+</div>
+<p class="fine-print">Mercury is an independent open source project for the Mac. It isn't connected to any bank, company or other product called Mercury. This site doesn't use cookies or analytics, and it's hosted on GitHub Pages.</p>
+</div></footer>
+<script src="assets/site.js?v=14"></script>
 </body>
 </html>

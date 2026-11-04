@@ -91,7 +91,7 @@ struct EditPlan: Codable, Equatable {
     var progressBar: ProgressBar?
 }
 
-// Every field falls back to its default, so edits saved by an older Bubble still open.
+// Every field falls back to its default, so edits saved by an older Mercury still open.
 extension EditPlan {
     init(from d: Decoder) throws {
         let c = try d.container(keyedBy: CodingKeys.self)
@@ -115,7 +115,7 @@ struct Word: Codable, Equatable {
     var end: Double
 }
 
-/// What Bubble learns from a recording once, then keeps: audio loudness every 20 ms and the words.
+/// What Mercury learns from a recording once, then keeps: audio loudness every 20 ms and the words.
 struct Analysis: Codable {
     var duration: Double
     var hop: Double

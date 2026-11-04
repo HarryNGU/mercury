@@ -1,4 +1,4 @@
-// Bubble's own symbols, drawn on a 24-point grid around the app's circle-and-dot logo, so the
+// Mercury's own symbols, drawn on a 24-point grid around the app's circle-and-dot logo, so the
 // main features look like one family instead of stock icons.
 
 import SwiftUI
@@ -47,7 +47,7 @@ struct BubbleGlyph: View {
                 }
 
             case .assist:
-                // Bubble's logo with a companion orbiting it: someone who knows you, always nearby.
+                // Mercury's logo with a companion orbiting it: someone who knows you, always nearby.
                 ctx.stroke(Path(ellipseIn: r(3, 5, 16, 16)), with: soft, style: line)
                 ctx.fill(Path(ellipseIn: r(7.6, 9.6, 6.8, 6.8)), with: accent)
                 ctx.blendMode = .destinationOut

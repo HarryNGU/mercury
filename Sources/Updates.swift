@@ -1,5 +1,5 @@
-// Tells you when a newer Bubble is out, so fixes reach you. It reads one small public file from
-// Bubble's website (no account, nothing about you is sent beyond a normal web request), at most once
+// Tells you when a newer Mercury is out, so fixes reach you. It reads one small public file from
+// Mercury's website (no account, nothing about you is sent beyond a normal web request), at most once
 // a day, and only if "Check for updates" is on. Installing is up to you.
 
 import AppKit
@@ -27,7 +27,7 @@ enum Updates {
 
     static func check(manual: Bool, changed: @escaping () -> Void) {
         var req = URLRequest(url: feed, cachePolicy: .reloadIgnoringLocalCacheData, timeoutInterval: 15)
-        req.setValue("Bubble/\(current)", forHTTPHeaderField: "User-Agent")
+        req.setValue("Mercury/\(current)", forHTTPHeaderField: "User-Agent")
         URLSession.shared.dataTask(with: req) { data, _, error in
             let json = data.flatMap { try? JSONSerialization.jsonObject(with: $0) as? [String: Any] }
             DispatchQueue.main.async {
@@ -42,14 +42,14 @@ enum Updates {
                     log("updates: \(v) available")
                     changed()
                     if manual {
-                        if alert("Bubble \(v) is available", "You have \(current). The new version has fixes and improvements.", ok: "Get It", cancel: "Later") {
+                        if alert("Mercury \(v) is available", "You have \(current). The new version has fixes and improvements.", ok: "Get It", cancel: "Later") {
                             NSWorkspace.shared.open(available!.page)
                         }
                     }
                 } else {
                     available = nil
                     changed()
-                    if manual { alert("You're up to date", "Bubble \(current) is the newest version.") }
+                    if manual { alert("You're up to date", "Mercury \(current) is the newest version.") }
                 }
             }
         }.resume()

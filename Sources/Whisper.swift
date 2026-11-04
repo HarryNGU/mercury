@@ -1,6 +1,6 @@
-// Accurate captions with Whisper (whisper.cpp), run on this Mac. Optional: Bubble falls back to
+// Accurate captions with Whisper (whisper.cpp), run on this Mac. Optional: Mercury falls back to
 // Apple's speech recognition when it isn't set up. Needs the `whisper-cli` tool
-// (`brew install whisper-cpp`) and a model file, which Bubble downloads into
+// (`brew install whisper-cpp`) and a model file, which Mercury downloads into
 // ~/Library/Application Support/Bubble/Models when you ask it to.
 
 import AVFoundation
@@ -226,8 +226,8 @@ final class WhisperServer: @unchecked Sendable {
         let lang = Locale.current.language.languageCode?.identifier ?? "en"
         let args = [bin.path, "-m", Whisper.modelURL.path, "--host", "127.0.0.1", "--port", "\(port)",
                     "-t", "\(max(4, ProcessInfo.processInfo.activeProcessorCount - 2))", "-l", lang, "-nt"]
-        // The server holds about 600 MB, so it must never outlive Bubble, even if Bubble crashes or is
-        // force quit: a small shell minder runs it and stops it as soon as Bubble is gone.
+        // The server holds about 600 MB, so it must never outlive Mercury, even if Mercury crashes or is
+        // force quit: a small shell minder runs it and stops it as soon as Mercury is gone.
         let quoted = args.map { "'" + $0.replacingOccurrences(of: "'", with: "'\\''") + "'" }.joined(separator: " ")
         let p = Process()
         p.executableURL = URL(fileURLWithPath: "/bin/sh")
@@ -291,7 +291,7 @@ final class WhisperServer: @unchecked Sendable {
         process = nil
     }
 
-    /// Stops servers left behind by an earlier Bubble that didn't get to stop them (before the minder existed).
+    /// Stops servers left behind by an earlier Mercury that didn't get to stop them (before the minder existed).
     static func stopLeftovers() {
         let p = Process()
         p.executableURL = URL(fileURLWithPath: "/usr/bin/pkill")

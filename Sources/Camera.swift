@@ -1,5 +1,7 @@
 // The floating camera bubble. Frames come from AVCaptureVideoDataOutput; when a background
 // effect is on, Vision's person segmentation cuts you out and Core Image swaps what's behind you.
+// The cut is eased over a few frames so things Vision is unsure about (a chair) don't flicker, and
+// "show things too" adds whatever you hold up to the camera.
 
 import AppKit
 import AVFoundation
@@ -9,23 +11,33 @@ import Vision
 
 final class CameraBubble: NSObject, AVCaptureVideoDataOutputSampleBufferDelegate {
     let panel: NSPanel
-    private let container = DragView()
+    private let container = CameraView()
     private let imageLayer = CALayer()
     private let session = AVCaptureSession()
     private let output = AVCaptureVideoDataOutput()
     private let frameQueue = DispatchQueue(label: "bubble.camera", qos: .userInteractive)
     private let ciContext = CIContext(options: [.cacheIntermediates: false])
+    /// Masks are plain numbers, not colours: without colour matching, easing between frames stays exact.
+    private let maskContext = CIContext(options: [.workingColorSpace: NSNull(), .outputColorSpace: NSNull(), .cacheIntermediates: false])
+    private static let raw: [CIImageOption: Any] = [.colorSpace: NSNull()]
+    private static let maskSide: CGFloat = 256
     private let segmentation: VNGeneratePersonSegmentationRequest = {
         let r = VNGeneratePersonSegmentationRequest()
         r.qualityLevel = .balanced
         r.outputPixelFormat = kCVPixelFormatType_OneComponent8
         return r
     }()
+    private let things = VNGenerateForegroundInstanceMaskRequest()
+    private let badge = NSTextField(labelWithString: "")
+    /// Double click on the bubble: switch between just you and you plus what you hold up.
+    var onToggleThings: (() -> Void)?
     private var configured = false
     private var lastFrame = Date()  // camera queue only
     // Read on the camera queue, written on main; only ever replaced whole.
     private var background = Settings.background
     private var pixelSize: CGFloat = Settings.bubbleSize * 2
+    private var showThings = Settings.showThings
+    private var lastMask: CIImage?  // camera queue only: the eased mask from the previous frame
 
     override init() {
         let size = Settings.bubbleSize
@@ -42,6 +54,15 @@ final class CameraBubble: NSObject, AVCaptureVideoDataOutputSampleBufferDelegate
         container.wantsLayer = true
         imageLayer.contentsGravity = .resizeAspectFill
         container.layer?.addSublayer(imageLayer)
+        badge.font = .systemFont(ofSize: 11, weight: .semibold)
+        badge.textColor = .white
+        badge.alignment = .center
+        badge.wantsLayer = true
+        badge.layer?.backgroundColor = NSColor.black.withAlphaComponent(0.6).cgColor
+        badge.layer?.cornerRadius = 9
+        badge.alphaValue = 0
+        container.addSubview(badge)
+        container.onDoubleClick = { [weak self] in self?.onToggleThings?() }
         panel.contentView = container
         applyStyle()
         layout(size: size)
@@ -50,6 +71,7 @@ final class CameraBubble: NSObject, AVCaptureVideoDataOutputSampleBufferDelegate
     private func layout(size: CGFloat) {
         container.frame = NSRect(x: 0, y: 0, width: size, height: size)
         imageLayer.frame = container.bounds
+        badge.frame = NSRect(x: size / 2 - 66, y: size * 0.14, width: 132, height: 18)
         pixelSize = size * (panel.screen?.backingScaleFactor ?? 2)
         applyStyle()
     }
@@ -70,9 +92,26 @@ final class CameraBubble: NSObject, AVCaptureVideoDataOutputSampleBufferDelegate
 
     func setBackground(_ bg: CameraBackground) {
         Settings.background = bg
-        frameQueue.async { self.background = bg }
+        frameQueue.async { self.background = bg; self.lastMask = nil }
         background = bg
         applyStyle()
+    }
+
+    func setShowThings(_ on: Bool) {
+        Settings.showThings = on
+        frameQueue.async { self.showThings = on; self.lastMask = nil }
+        flash(on ? "Showing things too" : "Just you")
+    }
+
+    /// A short label on the bubble so you can see which mode you've switched to.
+    private func flash(_ text: String) {
+        guard panel.isVisible, background != .off else { return }
+        badge.stringValue = text
+        NSAnimationContext.runAnimationGroup { $0.duration = 0.15; badge.animator().alphaValue = 1 }
+        DispatchQueue.main.asyncAfter(deadline: .now() + 1.4) { [weak self] in
+            guard let self, self.badge.stringValue == text else { return }
+            NSAnimationContext.runAnimationGroup { $0.duration = 0.4; self.badge.animator().alphaValue = 0 }
+        }
     }
 
     func setSize(_ size: CGFloat) {
@@ -90,7 +129,7 @@ final class CameraBubble: NSObject, AVCaptureVideoDataOutputSampleBufferDelegate
             DispatchQueue.main.async {
                 guard ok else {
                     if CommandLine.arguments.contains(where: { $0.hasPrefix("--") && $0.hasSuffix("test") }) { return }  // test runs
-                    return alert("Bubble needs camera access. Turn it on in System Settings → Privacy & Security → Camera.")
+                    return alert("Mercury needs camera access. Turn it on in System Settings → Privacy & Security → Camera.")
                 }
                 self.startSession()
                 if let screen { self.moveOnto(screen, force: !screen.frame.intersects(self.panel.frame)) }
@@ -192,14 +231,56 @@ final class CameraBubble: NSObject, AVCaptureVideoDataOutputSampleBufferDelegate
         }
     }
 
+    /// How much of you (and, if asked, what you're holding) is in each pixel, from 0 to 1.
     private func personMask(for img: CIImage) -> CIImage? {
         let handler = VNImageRequestHandler(ciImage: img, options: [:])
-        guard (try? handler.perform([segmentation])) != nil,
+        guard (try? handler.perform(showThings ? [segmentation, things] : [segmentation])) != nil,
               let buf = segmentation.results?.first?.pixelBuffer else { return nil }
-        let m = CIImage(cvPixelBuffer: buf)
-        // Scale the mask to the frame and soften its edge slightly.
-        return m.transformed(by: CGAffineTransform(scaleX: img.extent.width / m.extent.width,
-                                                   y: img.extent.height / m.extent.height))
-            .clampedToExtent().applyingGaussianBlur(sigma: 1.5).cropped(to: img.extent)
+        let side = Self.maskSide
+        var mask = Self.fit(CIImage(cvPixelBuffer: buf, options: Self.raw), side)
+        if showThings, let labels = things.results?.first?.instanceMask {
+            // Each object has its own number in the label map; any number above zero counts.
+            let any = Self.fit(CIImage(cvPixelBuffer: labels, options: Self.raw), side)
+                .applyingFilter("CIColorMatrix", parameters: ["inputRVector": CIVector(x: 255, y: 0, z: 0, w: 0),
+                    "inputGVector": CIVector(x: 255, y: 0, z: 0, w: 0), "inputBVector": CIVector(x: 255, y: 0, z: 0, w: 0)])
+                .applyingFilter("CIColorClamp")
+            mask = any.applyingFilter("CIMaximumCompositing", parameters: [kCIInputBackgroundImageKey: mask])
+        }
+        // Things fade in over a few frames, so a chair Vision keeps changing its mind about can't
+        // flick on and off. But anything that's now clearly background goes at once, or the room
+        // would trail behind you like a shadow when you move.
+        if let last = lastMask {
+            let eased = Self.times(mask, 0.4).applyingFilter("CIAdditionCompositing", parameters: [kCIInputBackgroundImageKey: Self.times(last, 0.6)])
+            mask = eased.applyingFilter("CIMinimumCompositing", parameters: [kCIInputBackgroundImageKey: Self.times(mask, 3).applyingFilter("CIColorClamp")])
+        }
+        let box = CGRect(x: 0, y: 0, width: side, height: side)
+        guard let kept = maskContext.createCGImage(mask, from: box, format: .L8, colorSpace: CGColorSpaceCreateDeviceGray()) else { return nil }
+        lastMask = CIImage(cgImage: kept, options: Self.raw)
+        // Leave out what's only there now and then, scale up to the frame and soften the edge slightly.
+        let k = img.extent.width / side
+        return lastMask!.applyingFilter("CIColorMatrix", parameters: ["inputRVector": CIVector(x: 2, y: 0, z: 0, w: 0),
+                "inputGVector": CIVector(x: 0, y: 2, z: 0, w: 0), "inputBVector": CIVector(x: 0, y: 0, z: 2, w: 0),
+                "inputBiasVector": CIVector(x: -0.5, y: -0.5, z: -0.5, w: 0)])
+            .applyingFilter("CIColorClamp").clampedToExtent()
+            .transformed(by: CGAffineTransform(scaleX: k, y: k))
+            .applyingGaussianBlur(sigma: 1.5).cropped(to: img.extent)
+    }
+
+    private static func fit(_ m: CIImage, _ side: CGFloat) -> CIImage {
+        m.transformed(by: CGAffineTransform(scaleX: side / m.extent.width, y: side / m.extent.height))
+    }
+
+    private static func times(_ m: CIImage, _ a: CGFloat) -> CIImage {
+        m.applyingFilter("CIColorMatrix", parameters: ["inputRVector": CIVector(x: a, y: 0, z: 0, w: 0),
+            "inputGVector": CIVector(x: 0, y: a, z: 0, w: 0), "inputBVector": CIVector(x: 0, y: 0, z: a, w: 0)])
+    }
+}
+
+/// The bubble's view: drags the window like the background does, and reports double clicks.
+private final class CameraView: NSView {
+    var onDoubleClick: (() -> Void)?
+    override var mouseDownCanMoveWindow: Bool { true }
+    override func mouseDown(with event: NSEvent) {
+        if event.clickCount == 2 { onDoubleClick?() } else { super.mouseDown(with: event) }
     }
 }

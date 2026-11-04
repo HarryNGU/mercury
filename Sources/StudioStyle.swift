@@ -1,4 +1,4 @@
-// The editor's look: light like the rest of Bubble or a dark studio, lit by the Bubble theme's colours.
+// The editor's look: light like the rest of Mercury or a dark studio, lit by the Mercury theme's colours.
 // Soft rounded cards with a fine light edge, gradients and gentle glows on what's picked, springy
 // hovers and presses. Everything in the editor draws with these.
 
@@ -7,7 +7,7 @@ import SwiftUI
 
 enum SC {
     private static func c(_ hex: String, _ a: Double = 1) -> Color { Color(nsColor: NSColor(hex: hex, alpha: a)) }
-    /// Light like the rest of Bubble, or a dark studio; the editor picks it (Auto follows the Mac).
+    /// Light like the rest of Mercury, or a dark studio; the editor picks it (Auto follows the Mac).
     nonisolated(unsafe) static var dark = false
     static var bg: Color { dark ? c("0A0B0F") : c("F3F2EE") }
     static var panel: Color { dark ? c("111318") : c("FBFAF8") }

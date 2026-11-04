@@ -1,5 +1,5 @@
 // The editor's timeline: a ruler and playhead, the video as clips with thumbnails and the sound
-// underneath, and tracks for text, zooms, videos and pictures on top, captions and music. Bubble's own
+// underneath, and tracks for text, zooms, videos and pictures on top, captions and music. Mercury's own
 // pause cuts show as fine marks inside a clip, so the recording reads as one piece you can trim and
 // split anywhere. Click a clip to pick it, drag its ends to trim; drag text, zooms and overlays to
 // move or stretch them; they snap to the playhead and cuts.
@@ -402,7 +402,7 @@ struct StudioTimeline: View {
                             c.fill(wave, with: .linearGradient(Gradient(colors: [Color(nsColor: SC.ends.0), Color(nsColor: SC.ends.1)]),
                                                                 startPoint: CGPoint(x: rect.minX, y: 0), endPoint: CGPoint(x: rect.maxX, y: 0)))
                         }
-                        // Bubble's pause cuts: fine marks inside the clip.
+                        // Mercury's pause cuts: fine marks inside the clip.
                         for pi in clip.pieces.dropFirst() where tl.pieces[pi].afterCut {
                             let mx = x(tl.pieces[pi].out.start)
                             guard mx > from, mx < to else { continue }

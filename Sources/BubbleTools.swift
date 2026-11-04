@@ -1,8 +1,8 @@
-// Tools Bubble lends to Ask Bubble's brain (Claude Code), over a tiny MCP server that only this
+// Tools Mercury lends to Ask Mercury's brain (Claude Code), over a tiny MCP server that only this
 // Mac can reach (127.0.0.1, with a secret that changes every launch).
 //
 // prepare_message opens a chat in Messenger, Instagram, WhatsApp or Messages and puts the message
-// in the box, but never sends it: you read it and press Enter yourself. Bubble keeps no
+// in the box, but never sends it: you read it and press Enter yourself. Mercury keeps no
 // passwords or tokens for these apps; it uses the browser and apps you're already signed in to.
 
 import AppKit
@@ -95,7 +95,7 @@ final class BubbleToolServer: @unchecked Sendable {
     }
 
     private func respond(_ c: NWConnection, _ r: Request) {
-        // Only Claude Code, started by Bubble, knows the secret.
+        // Only Claude Code, started by Mercury, knows the secret.
         guard r.headers["authorization"] == "Bearer \(token)" else { send(c, status: "401 Unauthorized", json: nil); return }
         guard r.method == "POST" else { send(c, status: "405 Method Not Allowed", json: nil); return }
         guard let msg = (try? JSONSerialization.jsonObject(with: r.body)) as? [String: Any], let method = msg["method"] as? String else {
@@ -111,7 +111,7 @@ final class BubbleToolServer: @unchecked Sendable {
                 "protocolVersion": params["protocolVersion"] as? String ?? "2025-06-18",
                 "capabilities": ["tools": [:] as [String: Any]],
                 "serverInfo": ["name": "bubble", "version": "1.0"],
-                "instructions": "Tools from Bubble, the Mac app the user is talking to you through.",
+                "instructions": "Tools from Mercury, the Mac app the user is talking to you through.",
             ])
         case "tools/list":
             reply(["tools": Self.tools])
@@ -176,7 +176,7 @@ enum BubbleTools {
         case "messenger": url = URL(string: "https://www.messenger.com/t/\(handle)")
         case "instagram": url = URL(string: "https://ig.me/m/\(handle)")
         case "messages", "imessage", "sms": url = URL(string: "sms:\(handle)")
-        default: return ("Bubble can prepare messages in Messenger, Instagram, WhatsApp or Messages.", true)
+        default: return ("Mercury can prepare messages in Messenger, Instagram, WhatsApp or Messages.", true)
         }
         guard let url else { return ("Couldn't make a link for \(to).", true) }
         NSWorkspace.shared.open(url)
@@ -195,7 +195,7 @@ enum BubbleTools {
         let pb = NSPasteboard.general
         pb.clearContents()
         pb.setString(text, forType: .string)
-        return ("Opened the \(app) chat with \(to). Bubble couldn't find the message box, so the message is on the clipboard: the user clicks the box, presses ⌘V, then Enter. Tell them that.", false)
+        return ("Opened the \(app) chat with \(to). Mercury couldn't find the message box, so the message is on the clipboard: the user clicks the box, presses ⌘V, then Enter. Tell them that.", false)
     }
 
     /// A text box where you'd write a message is focused (not the browser's address bar).

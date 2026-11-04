@@ -36,6 +36,8 @@ enum Settings {
     static var hotKeyLabel: String { get { d.string(forKey: "hotKeyLabel") ?? "⌥⇧R" } set { d.set(newValue, forKey: "hotKeyLabel") } }
     static var countdown: Bool { get { bool("countdown", true) } set { d.set(newValue, forKey: "countdown") } }
     static var bubbleSize: CGFloat { get { d.object(forKey: "bubbleSize") as? CGFloat ?? 200 } set { d.set(newValue, forKey: "bubbleSize") } }
+    /// With a background on, also show what you hold up to the camera, not only you.
+    static var showThings: Bool { get { bool("showThings", false) } set { d.set(newValue, forKey: "showThings") } }
     static var background: CameraBackground {
         get { CameraBackground(rawValue: d.string(forKey: "background") ?? "") ?? .off }
         set { d.set(newValue.rawValue, forKey: "background") }
@@ -85,7 +87,7 @@ func log(_ msg: String) {
 func alert(_ text: String) {
     NSApp.activate(ignoringOtherApps: true)
     let a = NSAlert()
-    a.messageText = "Bubble"
+    a.messageText = "Mercury"
     a.informativeText = text
     a.runModal()
 }
@@ -124,7 +126,7 @@ func appKitRect(fromGlobalTopLeft r: CGRect) -> NSRect {
     return NSRect(x: r.minX, y: primaryHeight - r.maxY, width: r.width, height: r.height)
 }
 
-/// Opening Bubble when you log in, so its shortcuts are always ready.
+/// Opening Mercury when you log in, so its shortcuts are always ready.
 enum LoginItem {
     static var isOn: Bool { SMAppService.mainApp.status == .enabled }
     /// Needs your OK in System Settings → General → Login Items the first time.

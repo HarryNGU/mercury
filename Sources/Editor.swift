@@ -1,4 +1,4 @@
-// The reel editor: a video editor for one recording, in the spirit of VEED. Bubble cuts the pauses straight
+// The reel editor: a video editor for one recording, in the spirit of VEED. Mercury cuts the pauses straight
 // away and writes captions; you trim, split and speed up clips on the timeline, cut words from the
 // transcript, add text, zoom moments, pictures and music, style the canvas and colour, or ask Claude in
 // the chat ("cut the part about pricing", "add a title"). Saving writes the videos to Bubble Recordings/Reels.
@@ -653,7 +653,7 @@ final class ReelEditor: ObservableObject {
         select(.zoom(z.id))
     }
 
-    /// Keeps a copy of a picture or song with Bubble's edits, so the edit still works if the original moves.
+    /// Keeps a copy of a picture or song with Mercury's edits, so the edit still works if the original moves.
     private func keep(_ file: URL) -> URL? {
         let dir = Analyzer.cacheURL(for: url, "x").deletingLastPathComponent().appendingPathComponent("Assets", isDirectory: true)
         try? FileManager.default.createDirectory(at: dir, withIntermediateDirectories: true)
@@ -939,8 +939,8 @@ enum ReelAssistant {
     static func ask(_ message: String, history: [ChatLine], plan: EditPlan, analysis a: Analysis,
                     spans: [TimeSpan], editedLength: Double) async throws -> (EditPlan, String) {
         let system = """
-        You edit screen recordings into short social media reels inside Bubble, a Mac app. The user tells you what \
-        they want; you change the edit with the update_edit tool. Bubble already cuts silences automatically using \
+        You edit screen recordings into short social media reels inside Mercury, a Mac app. The user tells you what \
+        they want; you change the edit with the update_edit tool. Mercury already cuts silences automatically using \
         max_pause, lays the recording out as Original, 1:1, 9:16 and 16:9 over a blurred background, and adds captions. You can \
         also add text overlays and zoom moments, and change the caption style and layout. Times are always seconds in the \
         ORIGINAL recording. Use the transcript to find the parts the user means. To shorten \
@@ -1004,7 +1004,7 @@ enum ReelAssistant {
         }
         if let bin { return try await viaClaudeCode(bin, system: system, user: user) }
         if Keychain.hasKey {
-            throw Failure(message: "Your saved API key couldn't be read (macOS asks again after Bubble updates). Paste it again below, or sign in to Claude Code.")
+            throw Failure(message: "Your saved API key couldn't be read (macOS asks again after Mercury updates). Paste it again below, or sign in to Claude Code.")
         }
         throw Failure(message: "Sign in to Claude Code, or add an Anthropic API key below, to chat.")
     }

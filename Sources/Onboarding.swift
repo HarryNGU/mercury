@@ -1,7 +1,7 @@
-// First-run welcome, told as a short conversation with Bubble. Bubble introduces itself, asks
+// First-run welcome, told as a short conversation with Mercury. Mercury introduces itself, asks
 // what to call you (optional, kept on this Mac), lets you pick what it helps with, asks for each
 // permission one at a time with the reason, offers to use the Claude you already have, and makes
-// its promises before Ask Bubble can see or hear anything. You can run it again from Settings.
+// its promises before Ask Mercury can see or hear anything. You can run it again from Settings.
 
 import AppKit
 import AVFoundation
@@ -10,14 +10,14 @@ import SwiftUI
 
 extension Settings {
     static var onboarded: Bool { get { d.bool(forKey: "onboarded") } set { d.set(newValue, forKey: "onboarded") } }
-    /// You agreed to Ask Bubble's ground rules (screenshots on ask, consent when listening to others).
+    /// You agreed to Ask Mercury's ground rules (screenshots on ask, consent when listening to others).
     static var assistantConsent: Bool { get { d.bool(forKey: "assistantConsent") } set { d.set(newValue, forKey: "assistantConsent") } }
     static var wantsRecord: Bool { get { d.object(forKey: "wantsRecord") as? Bool ?? true } set { d.set(newValue, forKey: "wantsRecord") } }
     static var wantsDictate: Bool { get { d.object(forKey: "wantsDictate") as? Bool ?? true } set { d.set(newValue, forKey: "wantsDictate") } }
     static var wantsAssist: Bool { get { d.object(forKey: "wantsAssist") as? Bool ?? true } set { d.set(newValue, forKey: "wantsAssist") } }
-    /// What Bubble calls you. Only shown on this Mac; never sent anywhere.
+    /// What Mercury calls you. Only shown on this Mac; never sent anywhere.
     static var userName: String { get { d.string(forKey: "userName") ?? "" } set { d.set(newValue, forKey: "userName") } }
-    /// Where the welcome tour was, so it picks up again if macOS asks you to reopen Bubble.
+    /// Where the welcome tour was, so it picks up again if macOS asks you to reopen Mercury.
     static var onboardScene: Int { get { d.integer(forKey: "onboardScene") } set { d.set(newValue, forKey: "onboardScene") } }
 }
 
@@ -106,14 +106,14 @@ struct OnboardingView: View {
         .onAppear { permissions.refresh(); play(animated: true) }
     }
 
-    // MARK: What Bubble says
+    // MARK: What Mercury says
 
     private var you: String { name.isEmpty ? "" : ", \(name)" }
 
     private var lines: [String] {
         switch scene {
         case .hello:
-            return ["Hi, I'm Bubble 👋",
+            return ["Hi, I'm Mercury 👋",
                     "I'm the ultimate personal assistant, and I live on your Mac. Whatever you're working on, I can help: answer questions about what's on your screen, write and reply for you, type what you say, record and edit videos, and get tasks done.",
                     "Let's get to know each other. It takes about two minutes."]
         case .name:
@@ -221,7 +221,7 @@ struct OnboardingView: View {
                 }
                 .padding(20)
                 .background(glass(20))
-                ReplyChips([("Deal 🤝", true), ("Not now, skip Ask Bubble", false)]) { i in
+                ReplyChips([("Deal 🤝", true), ("Not now, skip Ask Mercury", false)]) { i in
                     agreed = i == 0
                     say(i == 0 ? "Deal 🤝" : "Not now") { go(.ready) }
                 }
@@ -280,7 +280,7 @@ struct OnboardingView: View {
                         Text(a.title).font(.system(size: 20, weight: .semibold, design: .rounded)).foregroundStyle(.white)
                         Text(a.why).font(.system(size: 14)).foregroundStyle(.white.opacity(0.7)).fixedSize(horizontal: false, vertical: true)
                         if a.kind == .screen {
-                            Text("macOS may ask you to reopen Bubble after this. I'll pick up right here.")
+                            Text("macOS may ask you to reopen Mercury after this. I'll pick up right here.")
                                 .font(.system(size: 12)).foregroundStyle(.white.opacity(0.5)).padding(.top, 2)
                         }
                         HStack(spacing: 10) {
@@ -404,12 +404,12 @@ struct OnboardingView: View {
                 Label("Try it now: press \(ShortcutCenter.shared.label(.assist)) and ask me what's on your screen.", systemImage: "sparkles")
                     .font(.system(size: 13.5, weight: .medium)).foregroundStyle(.white.opacity(0.85))
             } else if assist {
-                Label("Ask Bubble stays off for now. You can turn it on any time in Settings.", systemImage: "info.circle")
+                Label("Ask Mercury stays off for now. You can turn it on any time in Settings.", systemImage: "info.circle")
                     .font(.system(size: 12.5)).foregroundStyle(.white.opacity(0.55))
             }
             Toggle(isOn: $atLogin) {
                 VStack(alignment: .leading, spacing: 2) {
-                    Text("Open Bubble when I log in").font(.system(size: 14, weight: .semibold)).foregroundStyle(.white)
+                    Text("Open Mercury when I log in").font(.system(size: 14, weight: .semibold)).foregroundStyle(.white)
                     Text("My shortcuts only work while I'm running, so this keeps me ready. You can change it in Settings.")
                         .font(.system(size: 12)).foregroundStyle(.white.opacity(0.55)).fixedSize(horizontal: false, vertical: true)
                 }
@@ -422,7 +422,7 @@ struct OnboardingView: View {
                 Spacer()
                 Button { finish() } label: {
                     HStack(spacing: 8) {
-                        Text("Start using Bubble").font(.system(size: 16, weight: .semibold, design: .rounded))
+                        Text("Start using Mercury").font(.system(size: 16, weight: .semibold, design: .rounded))
                         Image(systemName: "arrow.right").font(.system(size: 14, weight: .bold))
                     }
                     .foregroundStyle(.white)
@@ -525,7 +525,7 @@ struct OnboardingView: View {
 
     // MARK: Flow
 
-    /// Bubble "types" its lines one by one, then shows what you can do.
+    /// Mercury "types" its lines one by one, then shows what you can do.
     private func play(animated: Bool) {
         let id = UUID()
         playID = id
@@ -641,7 +641,7 @@ private struct OnboardBackdrop: View {
     }
 }
 
-/// One of Bubble's messages, on the left with its logo on the first one.
+/// One of Mercury's messages, on the left with its logo on the first one.
 private struct BubbleLine: View {
     let text: String
     let avatar: Bool
@@ -704,7 +704,7 @@ private struct Chip: View {
     }
 }
 
-/// One thing Bubble can do, to keep or leave out.
+/// One thing Mercury can do, to keep or leave out.
 private struct FeatureCard: View {
     @Binding var on: Bool
     let glyph: BubbleGlyph.Kind
@@ -747,7 +747,7 @@ private struct FeatureCard: View {
     }
 }
 
-/// Bubble's logo, glowing, with rings rippling out: the finish line.
+/// Mercury's logo, glowing, with rings rippling out: the finish line.
 private struct ReadyOrb: View {
     @State private var go = false
     var body: some View {
@@ -758,8 +758,7 @@ private struct ReadyOrb: View {
                     .scaleEffect(go ? 2.2 : 1).opacity(go ? 0 : 0.8)
                     .animation(.easeOut(duration: 2.4).repeatForever(autoreverses: false).delay(Double(i) * 0.8), value: go)
             }
-            Circle().fill(Theme.brand).frame(width: 96, height: 96).shadow(color: Theme.accent.opacity(0.7), radius: 30)
-            Circle().fill(.white).frame(width: 34, height: 34)
+            Avatar(emoji: "", size: 96).shadow(color: Theme.accent.opacity(0.7), radius: 30)
         }
         .frame(height: 170)
         .onAppear { go = true }

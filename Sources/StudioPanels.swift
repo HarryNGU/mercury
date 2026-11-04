@@ -810,7 +810,7 @@ struct TranscriptPanel: View {
                     .disabled(fillers == 0)
             } else if ed.plan.words != nil {
                 Button { ed.change { $0.words = nil } } label: {
-                    Label("Go back to what Bubble heard", systemImage: "arrow.counterclockwise").font(.system(size: 11.5, weight: .medium)).foregroundStyle(SC.dim)
+                    Label("Go back to what Mercury heard", systemImage: "arrow.counterclockwise").font(.system(size: 11.5, weight: .medium)).foregroundStyle(SC.dim)
                 }
                 .buttonStyle(.plain)
             }

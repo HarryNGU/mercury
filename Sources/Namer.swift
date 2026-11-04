@@ -178,7 +178,7 @@ enum Namer {
         }
     }
 
-    /// The title part of a Bubble file name, for display.
+    /// The title part of a Mercury file name, for display.
     static func displayTitle(of url: URL) -> String {
         let name = url.deletingPathExtension().lastPathComponent
         if let r = name.range(of: " · ", options: .backwards) { return String(name[..<r.lowerBound]) }

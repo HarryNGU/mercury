@@ -42,7 +42,7 @@ final class Picker {
             overlays.append(w)
             w.orderFrontRegardless()
         }
-        // Don't activate Bubble: that would pull you off a full-screen app's Space.
+        // Don't activate Mercury: that would pull you off a full-screen app's Space.
         let mouseScreen = NSScreen.underMouse
         (overlays.first { $0.screen == mouseScreen } ?? overlays.first)?.makeKey()
         update(at: NSEvent.mouseLocation)

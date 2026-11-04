@@ -1,4 +1,4 @@
-// Bubble: a free, local Loom-style screen recorder for macOS 15+.
+// Mercury: a free, local Loom-style screen recorder for macOS 15+.
 // Choose a screen, window, app or custom area; record with a camera bubble (optional
 // background blur / grey / cut-out) and a noise-suppressed microphone, straight to MP4.
 
@@ -58,7 +58,7 @@ final class AppDelegate: NSObject, NSApplicationDelegate, NSMenuDelegate, NSWind
         if on, awake == nil {
             var id = IOPMAssertionID(0)
             let r = IOPMAssertionCreateWithName(kIOPMAssertionTypePreventUserIdleDisplaySleep as CFString,
-                                                IOPMAssertionLevel(kIOPMAssertionLevelOn), "Bubble is recording" as CFString, &id)
+                                                IOPMAssertionLevel(kIOPMAssertionLevelOn), "Mercury is recording" as CFString, &id)
             if r == kIOReturnSuccess { awake = id; log("keeping the Mac awake while recording") }
             else { log("couldn't keep the Mac awake while recording (0x\(String(UInt32(bitPattern: r), radix: 16)))") }
         } else if !on, let id = awake {
@@ -88,13 +88,14 @@ final class AppDelegate: NSObject, NSApplicationDelegate, NSMenuDelegate, NSWind
     func applicationDidFinishLaunching(_ n: Notification) {
         let args = CommandLine.arguments
         if StudioTests.run(args) { return }
-        // Only one Bubble at a time: a second copy hands over to the first and quits.
+        renamedToMercury()
+        // Only one Mercury at a time: a second copy hands over to the first and quits.
         // (Test runs pass "--" options and are allowed alongside.)
         if !args.contains(where: { $0.hasPrefix("--") }),
            let other = NSRunningApplication.runningApplications(withBundleIdentifier: Bundle.main.bundleIdentifier ?? "")
             .first(where: { $0 != NSRunningApplication.current }), let url = other.bundleURL {
             NSWorkspace.shared.openApplication(at: url, configuration: NSWorkspace.OpenConfiguration())
-            log("another Bubble is already running; handing over")
+            log("another Mercury is already running; handing over")
             NSApp.terminate(nil)
             return
         }
@@ -154,7 +155,7 @@ final class AppDelegate: NSObject, NSApplicationDelegate, NSMenuDelegate, NSWind
         log("launched; screen access = \(CGPreflightScreenCaptureAccess())")
         if !CGPreflightScreenCaptureAccess() {
             CGRequestScreenCaptureAccess()
-            // A real ScreenCaptureKit query is what puts Bubble in the Screen Recording list.
+            // A real ScreenCaptureKit query is what puts Mercury in the Screen Recording list.
             Task {
                 do { _ = try await SCShareableContent.current; log("screen capture query ok") }
                 catch { log("screen capture query: \(error.localizedDescription)") }
@@ -236,7 +237,7 @@ final class AppDelegate: NSObject, NSApplicationDelegate, NSMenuDelegate, NSWind
                     NSApp.terminate(nil)
                 }
             }
-            // Testing: `--drawtest <question>` asks Ask Bubble's brain in a separate throwaway conversation,
+            // Testing: `--drawtest <question>` asks Ask Mercury's brain in a separate throwaway conversation,
             // says no to anything needing approval, and logs whether a picture it drew would show in the chat.
             if let i = args.firstIndex(of: "--drawtest"), i + 1 < args.count {
                 Settings.d.removeObject(forKey: "drawTestSessionID")
@@ -257,7 +258,7 @@ final class AppDelegate: NSObject, NSApplicationDelegate, NSMenuDelegate, NSWind
                 }
                 s.ask(args[i + 1], screenshot: nil)
             }
-            // Marketing demos: `--demo "first question||second question" [--demo-at x,top]` opens Ask Bubble in a fresh
+            // Marketing demos: `--demo "first question||second question" [--demo-at x,top]` opens Ask Mercury in a fresh
             // chat, types each question at a person's pace, lets Claude answer (it sees the screen), then quits.
             // The chat's id is logged so the recording script can remove it afterwards.
             if let i = args.firstIndex(of: "--demo"), i + 1 < args.count {
@@ -345,7 +346,7 @@ final class AppDelegate: NSObject, NSApplicationDelegate, NSMenuDelegate, NSWind
 
     // MARK: Launcher window
 
-    /// The standard Mac menu bar: Bubble, File, Edit, View, Window and Help. Items for Bubble's own
+    /// The standard Mac menu bar: Mercury, File, Edit, View, Window and Help. Items for Mercury's own
     /// shortcuts show the keys you chose, and the menus are rebuilt when you change them.
     private func buildMainMenu() {
         let main = NSMenu()
@@ -368,24 +369,24 @@ final class AppDelegate: NSObject, NSApplicationDelegate, NSMenuDelegate, NSWind
             return i
         }
 
-        // Bubble
-        let update = Updates.available.map { mine("Update to Bubble \($0.version)…", #selector(openUpdate)) }
+        // Mercury
+        let update = Updates.available.map { mine("Update to Mercury \($0.version)…", #selector(openUpdate)) }
         let services = NSMenuItem(title: "Services", action: nil, keyEquivalent: "")
         services.submenu = NSMenu(title: "Services")
         NSApp.servicesMenu = services.submenu
-        _ = menu("Bubble", [
-            mine("About Bubble", #selector(showAbout)),
+        _ = menu("Mercury", [
+            mine("About Mercury", #selector(showAbout)),
             update ?? mine("Check for Updates…", #selector(checkForUpdates)),
             .separator(),
             mine("Settings…", #selector(showSettings), key: ","),
             .separator(),
             services,
             .separator(),
-            std("Hide Bubble", #selector(NSApplication.hide(_:)), "h"),
+            std("Hide Mercury", #selector(NSApplication.hide(_:)), "h"),
             std("Hide Others", #selector(NSApplication.hideOtherApplications(_:)), "h", [.command, .option]),
             std("Show All", #selector(NSApplication.unhideAllApplications(_:))),
             .separator(),
-            mine("Quit Bubble", #selector(quit), key: "q"),
+            mine("Quit Mercury", #selector(quit), key: "q"),
         ])
 
         // File
@@ -413,7 +414,7 @@ final class AppDelegate: NSObject, NSApplicationDelegate, NSMenuDelegate, NSWind
             mine("Copy Last Dictation", #selector(copyLastDictation)),
         ])
 
-        // View: the pages of Bubble's window, then the floating helpers.
+        // View: the pages of Mercury's window, then the floating helpers.
         var pages: [NSMenuItem] = []
         for (n, page) in [Page.home, .recordings, .assistant, .dictation, .snippets, .style].enumerated() {
             let i = mine(page.title, #selector(showPage(_:)), key: "\(n + 1)")
@@ -422,7 +423,7 @@ final class AppDelegate: NSObject, NSApplicationDelegate, NSMenuDelegate, NSWind
         }
         _ = menu("View", pages + [
             .separator(),
-            mine("Ask Bubble", #selector(assistClicked), shortcut: .assist),
+            mine("Ask Mercury", #selector(assistClicked), shortcut: .assist),
             mine("Camera Bubble", #selector(toggleCamera)),
             .separator(),
             std("Enter Full Screen", #selector(NSWindow.toggleFullScreen(_:)), "f", [.command, .control]),
@@ -433,7 +434,7 @@ final class AppDelegate: NSObject, NSApplicationDelegate, NSMenuDelegate, NSWind
             std("Minimise", #selector(NSWindow.performMiniaturize(_:)), "m"),
             std("Zoom", #selector(NSWindow.performZoom(_:))),
             .separator(),
-            mine("Bubble", #selector(showLauncherClicked), key: "0"),
+            mine("Mercury", #selector(showLauncherClicked), key: "0"),
             .separator(),
             std("Bring All to Front", #selector(NSApplication.arrangeInFront(_:))),
         ])
@@ -441,20 +442,20 @@ final class AppDelegate: NSObject, NSApplicationDelegate, NSMenuDelegate, NSWind
 
         // Help (macOS adds its search field)
         let help = menu("Help", [
-            mine("Bubble Help", #selector(openHelp), key: "?"),
+            mine("Mercury Help", #selector(openHelp), key: "?"),
             mine("Keyboard Shortcuts", #selector(openShortcutsHelp)),
             mine("Testing Guide", #selector(openTestingGuide)),
             .separator(),
             mine("Report a Problem…", #selector(reportProblem)),
             mine("Privacy Policy", #selector(openPrivacy)),
-            mine("Bubble on GitHub", #selector(openGitHub)),
+            mine("Mercury on GitHub", #selector(openGitHub)),
         ])
         NSApp.helpMenu = help
         NSApp.mainMenu = main
     }
 
-    /// The menu key for one of Bubble's shortcuts, when it's an ordinary key combination.
-    /// (Bubble's global shortcut fires first, so the menu item is only there to show the keys.)
+    /// The menu key for one of Mercury's shortcuts, when it's an ordinary key combination.
+    /// (Mercury's global shortcut fires first, so the menu item is only there to show the keys.)
     static func keyEquivalent(_ s: Shortcut) -> (String, NSEvent.ModifierFlags)? {
         guard !s.isDoubleTap else { return nil }
         var mods: NSEvent.ModifierFlags = []
@@ -476,7 +477,7 @@ final class AppDelegate: NSObject, NSApplicationDelegate, NSMenuDelegate, NSWind
         let para = NSMutableParagraphStyle()
         para.alignment = .center
         credits.addAttribute(.paragraphStyle, value: para, range: NSRange(location: 0, length: credits.length))
-        NSApp.orderFrontStandardAboutPanel(options: [.credits: credits, .applicationName: "Bubble"])
+        NSApp.orderFrontStandardAboutPanel(options: [.credits: credits, .applicationName: "Mercury"])
     }
 
     @objc func showSettings() { showPageNamed(Page.settings.rawValue) }
@@ -511,6 +512,8 @@ final class AppDelegate: NSObject, NSApplicationDelegate, NSMenuDelegate, NSWind
             on ? self.bubble.show(on: NSScreen.underMouse) : self.bubble.hide()
         }
         model.onBackground = { [weak self] bg in self?.bubble.setBackground(bg) }
+        model.onShowThings = { [weak self] on in self?.bubble.setShowThings(on) }
+        bubble.onToggleThings = { [weak self] in self?.model.showThings.toggle() }
         model.onSize = { [weak self] size in self?.bubble.setSize(size) }
         model.onStart = { [weak self] in self?.startPicker() }
         model.onOpenFolder = { [weak self] in self?.openFolder() }
@@ -548,7 +551,7 @@ final class AppDelegate: NSObject, NSApplicationDelegate, NSMenuDelegate, NSWind
                             backing: .buffered, defer: false)
         launcher.titlebarAppearsTransparent = true
         launcher.titleVisibility = .hidden
-        launcher.title = "Bubble"
+        launcher.title = "Mercury"
         launcher.isReleasedWhenClosed = false
         launcher.collectionBehavior = [.fullScreenPrimary]
         launcher.minSize = NSSize(width: 860, height: 560)
@@ -571,7 +574,7 @@ final class AppDelegate: NSObject, NSApplicationDelegate, NSMenuDelegate, NSWind
         if (notification.object as? NSWindow) === launcher { AppPresence.mainWindow(false) }
     }
 
-    /// Started by "Open Bubble when you log in": stay quietly in the menu bar.
+    /// Started by "Open Mercury when you log in": stay quietly in the menu bar.
     private var launchedAtLogin: Bool {
         guard let e = NSAppleEventManager.shared().currentAppleEvent, e.eventID == kAEOpenApplication else { return false }
         return e.paramDescriptor(forKeyword: keyAEPropData)?.enumCodeValue == keyAELaunchedAsLogInItem
@@ -631,7 +634,7 @@ final class AppDelegate: NSObject, NSApplicationDelegate, NSMenuDelegate, NSWind
         menu.addItem(item(dictation.model.phase == .listening ? "Finish Dictation   \(dk)" : "Dictate   \(dk)", #selector(dictateClicked)))
         menu.addItem(item("Copy Last Dictation", #selector(copyLastDictation), enabled: !dictation.model.last.isEmpty))
         menu.addItem(.separator())
-        menu.addItem(item("Ask Bubble   \(ShortcutCenter.shared.label(.assist))", #selector(assistClicked)))
+        menu.addItem(item("Ask Mercury   \(ShortcutCenter.shared.label(.assist))", #selector(assistClicked)))
         if assistant.model.listening { menu.addItem(item("Stop Listening", #selector(stopListeningClicked))) }
         menu.addItem(.separator())
         menu.addItem(item("Camera Bubble", #selector(toggleCamera), on: Settings.camera))
@@ -641,15 +644,17 @@ final class AppDelegate: NSObject, NSApplicationDelegate, NSMenuDelegate, NSWind
             i.representedObject = bg.rawValue
             bgMenu.addItem(i)
         }
+        bgMenu.addItem(.separator())
+        bgMenu.addItem(item("Show Things I Hold Up", #selector(toggleShowThings), on: Settings.showThings))
         let bgItem = NSMenuItem(title: "Camera Background", action: nil, keyEquivalent: "")
         bgItem.submenu = bgMenu
         menu.addItem(bgItem)
         menu.addItem(item("Microphone", #selector(toggleMic), on: Settings.mic, enabled: !recording))
         menu.addItem(item("Noise Suppression", #selector(toggleNoise), on: Settings.noiseSuppression, enabled: !recording))
         menu.addItem(.separator())
-        menu.addItem(item("Show Bubble Window", #selector(showLauncherClicked)))
+        menu.addItem(item("Show Mercury Window", #selector(showLauncherClicked)))
         menu.addItem(item("Open Recordings Folder", #selector(openFolder)))
-        menu.addItem(item("Quit Bubble", #selector(quit), key: "q"))
+        menu.addItem(item("Quit Mercury", #selector(quit), key: "q"))
     }
 
     private final class Box: NSObject {
@@ -666,18 +671,29 @@ final class AppDelegate: NSObject, NSApplicationDelegate, NSMenuDelegate, NSWind
         return i
     }
 
+    /// Bubble became Mercury. Once, anyone still on the old defaults (the assistant called
+    /// "Bubble", the Electric Blue theme) moves to the new ones. A name or theme you picked stays.
+    private func renamedToMercury() {
+        let d = UserDefaults.standard
+        guard !d.bool(forKey: "renamedToMercury") else { return }
+        d.set(true, forKey: "renamedToMercury")
+        if d.string(forKey: "chatName") == "Bubble" { d.set("Mercury", forKey: "chatName") }
+        if d.string(forKey: "theme") == "electric" {
+            d.set("mercury", forKey: "theme")
+            ThemeStore.shared.current = BubbleTheme.all[0]
+        }
+    }
+
     private func setIcon() {
         guard let button = statusItem.button else { return }
         if recording {
             statusItem.length = NSStatusItem.variableLength
-            let img = NSImage(systemSymbolName: "record.circle.fill", accessibilityDescription: "Bubble recording")
+            let img = NSImage(systemSymbolName: "record.circle.fill", accessibilityDescription: "Mercury recording")
             button.image = img?.withSymbolConfiguration(.init(paletteColors: [.white, .systemRed]))
             button.title = " " + (model.paused ? "Paused" : model.elapsedText)
         } else {
             statusItem.length = NSStatusItem.squareLength
-            let img = NSImage(systemSymbolName: "record.circle", accessibilityDescription: "Bubble")
-            img?.isTemplate = true
-            button.image = img
+            button.image = Brand.menuPlanet
             button.title = ""
         }
         button.imagePosition = .imageLeading
@@ -816,7 +832,7 @@ final class AppDelegate: NSObject, NSApplicationDelegate, NSMenuDelegate, NSWind
                     DispatchQueue.main.asyncAfter(deadline: .now() + 2) { self.restart() }
                 } else if let secs = selftestSeconds {
                     DispatchQueue.main.asyncAfter(deadline: .now() + secs) { self.stop(discard: false) }
-                    if CommandLine.arguments.contains("assist") {  // Ask Bubble appears 2s in
+                    if CommandLine.arguments.contains("assist") {  // Ask Mercury appears 2s in
                         DispatchQueue.main.asyncAfter(deadline: .now() + 2) { self.assistant.show() }
                     }
                     if CommandLine.arguments.contains("stall") {  // camera and mic cut out 4s in
@@ -835,7 +851,7 @@ final class AppDelegate: NSObject, NSApplicationDelegate, NSMenuDelegate, NSWind
         }
     }
 
-    /// Puts Ask Bubble into a window or tab recording when you've chosen to show it in recordings.
+    /// Puts Ask Mercury into a window or tab recording when you've chosen to show it in recordings.
     private func syncAssistantCapture() {
         guard recording else { return }
         // A moment's wait so a panel that just appeared is on screen for ScreenCaptureKit to find.
@@ -972,7 +988,7 @@ final class AppDelegate: NSObject, NSApplicationDelegate, NSMenuDelegate, NSWind
         showLauncher()
         let ns = error as NSError
         if ns.domain == "com.apple.ScreenCaptureKit.SCStreamErrorDomain" && ns.code == -3801 {
-            alert("Bubble needs Screen Recording permission.\n\nIn System Settings → Privacy & Security → Screen & System Audio Recording, turn on Bubble (remove any old Bubble entry first), then quit and reopen Bubble.")
+            alert("Mercury needs Screen Recording permission.\n\nIn System Settings → Privacy & Security → Screen & System Audio Recording, turn on Mercury (remove any old Mercury entry first), then quit and reopen Mercury.")
             NSWorkspace.shared.open(URL(string: "x-apple.systempreferences:com.apple.preference.security?Privacy_ScreenCapture")!)
         } else {
             alert("Recording stopped: \(error.localizedDescription)")
@@ -985,24 +1001,25 @@ final class AppDelegate: NSObject, NSApplicationDelegate, NSMenuDelegate, NSWind
     @objc func menuBackground(_ sender: NSMenuItem) {
         model.background = CameraBackground(rawValue: sender.representedObject as? String ?? "off") ?? .off
     }
+    @objc func toggleShowThings() { model.showThings.toggle() }
     @objc func toggleMic() { model.mic.toggle() }
     @objc func toggleNoise() { model.noise.toggle() }
     @objc func openFolder() { NSWorkspace.shared.open(Settings.folder) }
     @objc func quit() { NSApp.terminate(nil) }
 
-    /// Background helpers (Whisper's voice server, Claude Code) stop with Bubble.
+    /// Background helpers (Whisper's voice server, Claude Code) stop with Mercury.
     func applicationWillTerminate(_ n: Notification) {
         WhisperServer.shared.stop()
         assistant.model.session.shutdown()
     }
 
-    /// However Bubble is asked to quit (menu, ⌘Q, logging out, another app), a recording in
-    /// progress is finished and saved first; Bubble quits once the file is complete.
+    /// However Mercury is asked to quit (menu, ⌘Q, logging out, another app), a recording in
+    /// progress is finished and saved first; Mercury quits once the file is complete.
     func applicationShouldTerminate(_ sender: NSApplication) -> NSApplication.TerminateReply {
         if !recording, ReelEditor.saving > 0 {
             NSApp.activate(ignoringOtherApps: true)
             let a = NSAlert()
-            a.messageText = "Bubble is still saving your reels"
+            a.messageText = "Mercury is still saving your reels"
             a.informativeText = "If you quit now, the reel being saved is thrown away. It usually takes about a minute."
             a.addButton(withTitle: "Keep Saving")
             a.addButton(withTitle: "Quit Anyway")

@@ -158,7 +158,7 @@ struct ProgressBar: Codable, Equatable {
     var thickness = 0.008
 }
 
-// Every field falls back to its default, so edits saved by an older Bubble still open.
+// Every field falls back to its default, so edits saved by an older Mercury still open.
 extension KeyedDecodingContainer {
     func v<T: Decodable>(_ k: Key, _ d: T) -> T { (try? decodeIfPresent(T.self, forKey: k)) ?? d }
 }
@@ -404,7 +404,7 @@ struct Piece: Equatable {
     var beforeCut = false      // … or just after it
 }
 
-/// What you see as one clip on the timeline: pieces joined by Bubble's own pause cuts, which show as
+/// What you see as one clip on the timeline: pieces joined by Mercury's own pause cuts, which show as
 /// marks inside it. Your splits, your cuts and clips with their own speed or volume start a new one.
 struct Clip: Equatable {
     var pieces: Range<Int>
@@ -1106,7 +1106,7 @@ enum ReelBuilder {
     }
 
     /// Writes to a hidden file first and only gives it the reel's name once it's complete, so a save that's
-    /// interrupted (Bubble quit, Mac asleep, disk full) never leaves a broken video that looks finished.
+    /// interrupted (Mercury quit, Mac asleep, disk full) never leaves a broken video that looks finished.
     static func export(_ b: Built, to url: URL, progress: @escaping @Sendable (Double) -> Void) async throws {
         let partial = url.deletingLastPathComponent().appendingPathComponent(".saving-\(UUID().uuidString).mp4")
         do {

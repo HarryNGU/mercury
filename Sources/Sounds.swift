@@ -1,4 +1,4 @@
-// Bubble's own sound effects, synthesised at launch (no audio files): a rising "bloop" when
+// Mercury's own sound effects, synthesised at launch (no audio files): a rising "bloop" when
 // recording starts, a falling one when it ends, and a soft tick for each countdown number.
 
 import AVFoundation

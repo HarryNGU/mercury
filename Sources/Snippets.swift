@@ -1,4 +1,4 @@
-// Snippets: say a trigger phrase while dictating ("email 3") and Bubble types the saved
+// Snippets: say a trigger phrase while dictating ("email 3") and Mercury types the saved
 // text instead. Stored only on this Mac in ~/Library/Application Support/Bubble/snippets.json
 // (never in the app bundle or the source code).
 

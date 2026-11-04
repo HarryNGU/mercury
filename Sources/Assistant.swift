@@ -1,4 +1,4 @@
-// Ask Bubble: a translucent panel you open with a shortcut, anywhere. It can see your screen
+// Ask Mercury: a translucent panel you open with a shortcut, anywhere. It can see your screen
 // (a screenshot each time you ask) and hear what's playing and what you say (live, on-device
 // transcription), and Claude answers in real time with your own API key.
 //
@@ -14,11 +14,11 @@ import Speech
 import SwiftUI
 import WebKit
 
-// MARK: - When Bubble hides its Dock icon
+// MARK: - When Mercury hides its Dock icon
 
-/// Bubble lives in the menu bar. Its Dock icon shows only while its main window is open, like
+/// Mercury lives in the menu bar. Its Dock icon shows only while its main window is open, like
 /// other menu-bar helpers. (macOS only shows a Dock app's windows on that app's own desktops, so
-/// while the pill follows you or the assistant is open, Bubble stays a menu-bar app so its panels
+/// while the pill follows you or the assistant is open, Mercury stays a menu-bar app so its panels
 /// can appear over other apps' full-screen spaces too.)
 enum AppPresence {
     private static var reasons = Set<String>()
@@ -84,7 +84,7 @@ final class LiveListener: NSObject, SCStreamOutput, SCStreamDelegate, @unchecked
     func start(mac: Bool, mic: Bool) async throws {
         guard !running else { return }
         let status: SFSpeechRecognizerAuthorizationStatus = await withCheckedContinuation { c in SFSpeechRecognizer.requestAuthorization { c.resume(returning: $0) } }
-        guard status == .authorized else { throw Failure("Allow Speech Recognition for Bubble in System Settings → Privacy & Security.") }
+        guard status == .authorized else { throw Failure("Allow Speech Recognition for Mercury in System Settings → Privacy & Security.") }
         recognizer = SFSpeechRecognizer(locale: Locale.current) ?? SFSpeechRecognizer(locale: Locale(identifier: "en-US"))
         guard recognizer?.supportsOnDeviceRecognition == true else { throw Failure("Turn on Dictation once in System Settings → Keyboard so macOS downloads on-device speech.") }
 
@@ -271,7 +271,7 @@ final class LiveListener: NSObject, SCStreamOutput, SCStreamDelegate, @unchecked
 // MARK: - Seeing the screen
 
 enum ScreenGrab {
-    /// A JPEG of the display under the mouse, without Bubble's own panels.
+    /// A JPEG of the display under the mouse, without Mercury's own panels.
     static func jpeg(excluding windowNumbers: [Int]) async -> Data? {
         do {
             let content = try await SCShareableContent.excludingDesktopWindows(false, onScreenWindowsOnly: true)
@@ -296,27 +296,27 @@ enum ScreenGrab {
 // MARK: - Claude
 
 extension Settings {
-    /// Whether the Ask Bubble panel appears in recordings and screen shares: Bubble's own recordings and
-    /// Zoom, Meet, Teams and the rest alike. On by default: Bubble is visible on purpose, and you can
+    /// Whether the Ask Mercury panel appears in recordings and screen shares: Mercury's own recordings and
+    /// Zoom, Meet, Teams and the rest alike. On by default: Mercury is visible on purpose, and you can
     /// hide it when your chat is private.
     static let showInCapturesKey = "assistantInCaptures"
     static var showInCaptures: Bool { get { d.object(forKey: showInCapturesKey) as? Bool ?? true } set { d.set(newValue, forKey: showInCapturesKey) } }
 }
 
-/// How Claude asks Bubble to show pictures (shared by both brains).
+/// How Claude asks Mercury to show pictures (shared by both brains).
 let pictureRules = """
-Pictures: Bubble can show pictures for you. Put [[images: search words]] on its own line and Bubble shows \
+Pictures: Mercury can show pictures for you. Put [[images: search words]] on its own line and Mercury shows \
 several matching pictures from Wikimedia Commons (diagrams, anatomy, maps, places, plants, artworks, \
 apparatus). For any chemical compound or molecule, always put [[molecule: compound name]] on its own line \
-(for example [[molecule: caffeine]]) and Bubble shows its 2D and 3D structure from PubChem. Use these \
+(for example [[molecule: caffeine]]) and Mercury shows its 2D and 3D structure from PubChem. Use these \
 whenever a picture would help someone learn or decide. Prefer them to markdown image links; you don't need \
 to search the web for pictures yourself. To show a picture file on this Mac (one you made, such as a chart \
 or diagram, or one the user has), put ![short description](/full/path/to/file.png) on its own line and \
-Bubble shows it right in the chat (PNG, JPEG, GIF, HEIC, WebP, TIFF, SVG or PDF). Do this instead of \
+Mercury shows it right in the chat (PNG, JPEG, GIF, HEIC, WebP, TIFF, SVG or PDF). Do this instead of \
 opening it in a browser or Preview, and never upload a picture anywhere just to show it.
 """
 
-/// What another assistant (ChatGPT, say) knows about you, brought over by pasting, so Bubble isn't a
+/// What another assistant (ChatGPT, say) knows about you, brought over by pasting, so Mercury isn't a
 /// stranger. Kept in a file only your account can read, and sent along with your questions.
 enum AboutMe {
     static var url: URL {
@@ -351,7 +351,7 @@ enum AssistantClient {
 
     static var system: String { systemText + AboutMe.forPrompt }
     private static let systemText = """
-    You are Bubble's on-screen assistant on the user's Mac. The panel looks like a chat with a friend: reply as \
+    You are Mercury's on-screen assistant on the user's Mac. The panel looks like a chat with a friend: reply as \
     a few short messages separated by blank lines, each one thought, most useful first, keeping all the detail. Each message can include a screenshot of their \
     screen and a live transcript of the sound playing on their Mac recently: the other people on a call or \
     meeting, or a video they're watching. It is never the user's own voice (they talk to you with Talk). It's \
@@ -373,7 +373,7 @@ enum AssistantClient {
     static func ask(_ question: String, history: [Turn], screenshot: Data?, transcript: String,
                     onText: @escaping @MainActor (String) -> Void) async throws {
         guard let key = Keychain.apiKey, !key.isEmpty else {
-            throw LiveListener.Failure("Add your Anthropic API key in Bubble → Assistant to start asking.")
+            throw LiveListener.Failure("Add your Anthropic API key in Mercury → Assistant to start asking.")
         }
         var messages: [[String: Any]] = []
         for t in history.suffix(8) {
@@ -416,7 +416,7 @@ enum AssistantClient {
             let json = (try? JSONSerialization.jsonObject(with: raw)) as? [String: Any]
             let msg = (json?["error"] as? [String: Any])?["message"] as? String ?? "HTTP \(status)"
             log("assistant: \(msg)")
-            throw LiveListener.Failure(status == 401 ? "That API key isn't working. Check it in Bubble → Assistant." : "Claude couldn't answer: \(msg)")
+            throw LiveListener.Failure(status == 401 ? "That API key isn't working. Check it in Mercury → Assistant." : "Claude couldn't answer: \(msg)")
         }
         for try await line in bytes.lines {
             guard line.hasPrefix("data: "), let d = line.dropFirst(6).data(using: .utf8),
@@ -459,7 +459,7 @@ extension Settings {
 final class AssistantModel: ObservableObject {
     struct Exchange: Identifiable {
         let id = UUID(); var question: String; var answer: String; var withScreen: Bool; var activity: String?
-        /// Your reactions to Bubble's messages in this reply, by message number.
+        /// Your reactions to Mercury's messages in this reply, by message number.
         var reactions: [Int: [String]] = [:]
         var reactionsTold = false
         var at = Date()
@@ -482,7 +482,7 @@ final class AssistantModel: ObservableObject {
     @Published var talking = false
     /// The chat on screen, saved to disk as it goes.
     @Published private(set) var chat = ChatRecord()
-    /// Your previous chat, offered as "Continue" after Bubble started a fresh one.
+    /// Your previous chat, offered as "Continue" after Mercury started a fresh one.
     @Published var resumable: ChatRecord?
     private var speech: SpeechSession?
     private var silence: Timer?
@@ -642,13 +642,13 @@ final class AssistantModel: ObservableObject {
         }
     }
 
-    /// Reactions you've added since your last message, and Bubble's nickname if you changed it.
+    /// Reactions you've added since your last message, and Mercury's nickname if you changed it.
     private func contextNote() -> String {
         var notes: [String] = []
         // Claude Code keeps the conversation, so what you brought over goes in once at the start.
         let about = Settings.assistantBrain == .claudeCode && exchanges.isEmpty ? AboutMe.forPrompt : ""
         let name = Settings.d.string(forKey: "chatName") ?? ""
-        if !name.isEmpty && name != "Bubble" { notes.append("In this chat I call you \(name).") }
+        if !name.isEmpty && name != "Mercury" { notes.append("In this chat I call you \(name).") }
         if let i = exchanges.indices.last(where: { !exchanges[$0].reactions.isEmpty && !exchanges[$0].reactionsTold }) {
             let parts = AssistantView.messages(AssistantView.splitReactions(exchanges[i].answer).text)
             for (n, r) in exchanges[i].reactions.sorted(by: { $0.key < $1.key }) where n < parts.count && !r.isEmpty {
@@ -851,7 +851,7 @@ final class AssistantController: NSObject, NSWindowDelegate {
     }
 
     /// macOS leaves windows marked this way out of every screenshot, recording and screen share,
-    /// whichever app takes it, so one switch covers Bubble's recordings and Zoom or Meet alike.
+    /// whichever app takes it, so one switch covers Mercury's recordings and Zoom or Meet alike.
     private var sharing: NSWindow.SharingType { Settings.showInCaptures ? .readOnly : .none }
 
     private func applyCaptureVisibility() {
@@ -918,12 +918,12 @@ final class AssistantController: NSObject, NSWindowDelegate {
         log("assistant: shown")
     }
 
-    /// Ask Bubble only runs after you've agreed to its ground rules (asked once).
+    /// Ask Mercury only runs after you've agreed to its ground rules (asked once).
     static func consent() -> Bool {
         if Settings.assistantConsent { return true }
         NSApp.activate(ignoringOtherApps: true)
         let a = NSAlert()
-        a.messageText = "Before you use Ask Bubble"
+        a.messageText = "Before you use Ask Mercury"
         a.informativeText = """
         • It sends one screenshot to your AI each time you ask (turn the eye off for private screens).
         • Listening is off until you turn it on. Other people on a call are transcribed too, so tell them.
@@ -967,7 +967,7 @@ final class AssistantController: NSObject, NSWindowDelegate {
     private var glide: Timer?
 
     /// A press moves the panel one step; holding the keys keeps it gliding until you let go.
-    /// (Global shortcuts only report the press, so Bubble watches the arrow key itself.)
+    /// (Global shortcuts only report the press, so Mercury watches the arrow key itself.)
     private func move(dx: CGFloat, dy: CGFloat, key: Int) {
         nudge(dx: dx, dy: dy)
         glide?.invalidate()
@@ -1066,7 +1066,7 @@ enum MoveKeys: Int, CaseIterable, Identifiable {
 }
 
 extension Settings {
-    /// Modifier held with the arrow keys to move Ask Bubble. Default ⌥.
+    /// Modifier held with the arrow keys to move Ask Mercury. Default ⌥.
     static var assistantMove: MoveKeys {
         get { MoveKeys(rawValue: d.integer(forKey: "assistantMove")) ?? .option }
         set { d.set(newValue.rawValue, forKey: "assistantMove") }
@@ -1089,7 +1089,7 @@ struct AssistantView: View {
     @AppStorage("chatMyColor") private var myColor = ChatStyle.defaultMine
     @AppStorage("chatTheirColor") private var theirColor = ChatStyle.defaultTheirs
     @AppStorage("chatTextSize") private var textSize = 14.0
-    @AppStorage("chatName") private var name = "Bubble"
+    @AppStorage("chatName") private var name = "Mercury"
     @AppStorage("chatAvatar") private var avatar = ""
     @State private var inputHeight: CGFloat = 18
     @State private var showTranscript = false
@@ -1105,7 +1105,8 @@ struct AssistantView: View {
     @State private var eyeHover: DispatchWorkItem?
     @State private var visibilityInfo = false
     @State private var visibilityHover: DispatchWorkItem?
-    @State private var awayFromEnd = false
+    @State private var awayFromEnd = false   // you scrolled up, so new text shouldn't pull you down
+    @State private var farFromEnd = false    // the latest message is well out of view
     @State private var listenHover: DispatchWorkItem?
 
     private let chips: [(String, String)] = [
@@ -1160,7 +1161,7 @@ struct AssistantView: View {
                 .padding(.horizontal, 10).frame(height: 30).contentShape(Rectangle())
             }
             .buttonStyle(.plain)
-            .accessibilityLabel(inCaptures ? "Visibility on: shows in recordings and screen shares" : "Visibility off: only you can see Bubble")
+            .accessibilityLabel(inCaptures ? "Visibility on: shows in recordings and screen shares" : "Visibility off: only you can see Mercury")
             .onHover { inside in hoverCard(inside, item: &visibilityHover) { visibilityInfo = $0 } }
             .popover(isPresented: $visibilityInfo, arrowEdge: .bottom) { visibilityCard }
             Spacer(minLength: 4)
@@ -1169,7 +1170,7 @@ struct AssistantView: View {
                     .foregroundStyle(.white.opacity(model.seeScreen ? 0.9 : 0.45)).frame(width: 28, height: 28)
             }
             .buttonStyle(.plain)
-            .accessibilityLabel(model.seeScreen ? "Screen sharing on: Bubble sees your screen when you ask" : "Screen sharing off")
+            .accessibilityLabel(model.seeScreen ? "Screen sharing on: Mercury sees your screen when you ask" : "Screen sharing off")
             .onHover { inside in hoverCard(inside, item: &eyeHover) { eyeInfo = $0 } }
             .popover(isPresented: $eyeInfo, arrowEdge: .bottom) { eyeCard }
             Menu {
@@ -1391,25 +1392,25 @@ struct AssistantView: View {
     /// What Listen is for, shown when you hover over it.
     private var listenCard: some View {
         infoCard(icon: "speaker.wave.2.fill", title: "Listen to your Mac",
-                 intro: "Bubble hears the sound playing on your Mac, not your microphone, so it can follow along and help.") {
+                 intro: "Mercury hears the sound playing on your Mac, not your microphone, so it can follow along and help.") {
             VStack(alignment: .leading, spacing: 10) {
                 infoRow("person.2.wave.2", "Calls and meetings", "It hears the other people. Ask \"What should I say?\"")
                 infoRow("play.rectangle", "Videos and lectures", "Ask it to explain or summarise what was said.")
                 infoRow("headphones", "Podcasts and talks", "Ask about a point you missed.")
             }
-            infoFoot("Want to talk to \(name.isEmpty ? "Bubble" : name) yourself? Use Talk (\(keys.label(.assistVoice))). Sound is turned into text on this Mac, and a red dot shows while it's on. Let people on a call know.")
+            infoFoot("Want to talk to \(name.isEmpty ? "Mercury" : name) yourself? Use Talk (\(keys.label(.assistVoice))). Sound is turned into text on this Mac, and a red dot shows while it's on. Let people on a call know.")
         }
     }
 
     /// What the eye does, shown when you hover over it.
     private var eyeCard: some View {
         infoCard(icon: model.seeScreen ? "eye" : "eye.slash",
-                 title: model.seeScreen ? "Bubble can see your screen" : "Bubble isn't looking at your screen",
+                 title: model.seeScreen ? "Mercury can see your screen" : "Mercury isn't looking at your screen",
                  intro: model.seeScreen
-                    ? "Each time you ask, \(name.isEmpty ? "Bubble" : name) looks at your screen, so it knows what you're working on and can help right there."
-                    : "\(name.isEmpty ? "Bubble" : name) only reads what you type or say. Turn the eye on when you want help with what's on your screen.") {
+                    ? "Each time you ask, \(name.isEmpty ? "Mercury" : name) looks at your screen, so it knows what you're working on and can help right there."
+                    : "\(name.isEmpty ? "Mercury" : name) only reads what you type or say. Turn the eye on when you want help with what's on your screen.") {
             VStack(alignment: .leading, spacing: 10) {
-                infoRow("camera.viewfinder", "One picture per question", "Taken only when you ask, never in the background, and never of Bubble itself.")
+                infoRow("camera.viewfinder", "One picture per question", "Taken only when you ask, never in the background, and never of Mercury itself.")
                 infoRow("text.magnifyingglass", "Help where you are", "\"What does this error mean?\", \"Reply to this email\", \"Explain this chart\".")
             }
             infoFoot("Click the eye to turn it \(model.seeScreen ? "off" : "on"). Turn it off for private screens, like banking or medical pages.")
@@ -1421,23 +1422,23 @@ struct AssistantView: View {
         infoCard(icon: inCaptures ? "person.2.fill" : "person.fill",
                  title: inCaptures ? "Visibility is on" : "Visibility is off",
                  intro: inCaptures
-                    ? "Anyone watching sees Bubble too: in your Bubble recordings and when you share your screen in Zoom, Meet, Teams or FaceTime."
-                    : "Only you can see Bubble. It's left out of your Bubble recordings, screen shares in every app, and screenshots.") {
+                    ? "Anyone watching sees Mercury too: in your Mercury recordings and when you share your screen in Zoom, Meet, Teams or FaceTime."
+                    : "Only you can see Mercury. It's left out of your Mercury recordings, screen shares in every app, and screenshots.") {
             VStack(alignment: .leading, spacing: 10) {
-                infoRow("record.circle", "Bubble recordings", inCaptures ? "The panel is recorded over what you're showing." : "The panel isn't recorded.")
+                infoRow("record.circle", "Mercury recordings", inCaptures ? "The panel is recorded over what you're showing." : "The panel isn't recorded.")
                 infoRow("rectangle.inset.filled.and.person.filled", "Screen sharing", inCaptures ? "People on the call see the panel." : "People on the call can't see the panel.")
             }
-            infoFoot("Click to switch it \(inCaptures ? "off" : "on"). Hide Bubble to keep your chat private, not to cheat in exams or interviews.")
+            infoFoot("Click to switch it \(inCaptures ? "off" : "on"). Hide Mercury to keep your chat private, not to cheat in exams or interviews.")
         }
     }
 
-    /// Pick a friendly face and a nickname for Bubble.
+    /// Pick a friendly face and a nickname for Mercury.
     private var buddyPicker: some View {
         VStack(alignment: .leading, spacing: 12) {
             Text("Make it yours").font(.system(size: 13, weight: .semibold))
             VStack(alignment: .leading, spacing: 5) {
                 Text("Nickname").font(.system(size: 11.5)).foregroundStyle(.secondary)
-                TextField("Bubble", text: $name).textFieldStyle(.roundedBorder)
+                TextField("Mercury", text: $name).textFieldStyle(.roundedBorder)
                     .onChange(of: name) { if name.count > 24 { name = String(name.prefix(24)) } }
             }
             Text("Picture").font(.system(size: 11.5)).foregroundStyle(.secondary)
@@ -1465,10 +1466,10 @@ struct AssistantView: View {
                             .frame(width: 13, height: 13).background(Circle().fill(.white)).offset(x: 3, y: 3)
                     }
             }
-            .buttonStyle(.plain).help("Change \(name.isEmpty ? "Bubble" : name)'s picture and name")
+            .buttonStyle(.plain).help("Change \(name.isEmpty ? "Mercury" : name)'s picture and name")
             .popover(isPresented: $showBuddy, arrowEdge: .bottom) { buddyPicker.solidPopover() }
             VStack(alignment: .leading, spacing: 1) {
-                Text(name.isEmpty ? "Bubble" : name).font(.system(size: 13, weight: .semibold))
+                Text(name.isEmpty ? "Mercury" : name).font(.system(size: 13, weight: .semibold))
                 HStack(spacing: 4) {
                     Circle().fill(model.thinking ? Color.orange : Color.green).frame(width: 6, height: 6)
                     Text(model.thinking ? "typing…" : "here for you").font(.system(size: 11)).foregroundStyle(.white.opacity(0.6))
@@ -1517,15 +1518,16 @@ struct AssistantView: View {
                     .onScrollGeometryChange(for: ScrollSpot.self) { g in
                         ScrollSpot(offset: g.contentOffset.y, content: g.contentSize.height, visible: g.containerSize.height)
                     } action: { old, new in
-                        let atEnd = new.offset + new.visible >= new.content - 60
-                        if atEnd { awayFromEnd = false }
-                        else if new.offset < old.offset - 2 { awayFromEnd = true }        // you scrolled up
+                        let gap = new.content - (new.offset + new.visible)
+                        farFromEnd = gap > 120
+                        if gap <= 60 { awayFromEnd = false }
+                        else if new.offset < old.offset - 0.5 { awayFromEnd = true }      // you scrolled up, even slowly
                         else if new.content > old.content + 1, !awayFromEnd { proxy.scrollTo("end", anchor: .bottom) }  // it grew
                     }
                     .onChange(of: model.exchanges.last?.answer) { if !awayFromEnd { proxy.scrollTo("end", anchor: .bottom) } }
                     .onChange(of: model.exchanges.count) { proxy.scrollTo("end", anchor: .bottom) }
                     .overlay(alignment: .bottom) {
-                        if awayFromEnd {
+                        if awayFromEnd || farFromEnd {
                             Button { withAnimation(.easeOut(duration: 0.25)) { proxy.scrollTo("end", anchor: .bottom) } } label: {
                                 Label("Jump to present", systemImage: "arrow.down").font(.system(size: 12, weight: .semibold))
                                     .padding(.horizontal, 12).frame(height: 28)
@@ -1538,7 +1540,7 @@ struct AssistantView: View {
                             .accessibilityLabel("Jump to the latest message")
                         }
                     }
-                    .animation(.easeOut(duration: 0.15), value: awayFromEnd)
+                    .animation(.easeOut(duration: 0.15), value: awayFromEnd || farFromEnd)
                 }
             }
             if model.exchanges.isEmpty, let old = model.resumable {
@@ -1594,7 +1596,7 @@ struct AssistantView: View {
         .overlay(alignment: .bottom) { Rectangle().fill(.white.opacity(0.08)).frame(height: 1) }
     }
 
-    /// Takes Bubble's "[react: ❤️]" off the start of a reply: the emoji it reacted to your message with.
+    /// Takes Mercury's "[react: ❤️]" off the start of a reply: the emoji it reacted to your message with.
     static func splitReactions(_ answer: String) -> (reactions: [String], text: String) {
         let t = answer.drop { $0.isWhitespace }
         guard t.hasPrefix("[") else { return ([], answer) }
@@ -1858,10 +1860,10 @@ struct RichAnswer: View {
     }
 }
 
-// MARK: - Pictures Bubble finds itself
+// MARK: - Pictures Mercury finds itself
 
 enum PictureFetch {
-    static let agent = "Bubble/1.0 (https://github.com/HarryNGU/bubble)"
+    static let agent = "Mercury/1.0 (https://github.com/HarryNGU/bubble)"
 
     static func image(_ url: URL) async -> NSImage? {
         var req = URLRequest(url: url)
@@ -2034,12 +2036,12 @@ struct LinkedPicture: View {
 }
 
 /// Picture files on this Mac shown in the chat, such as a chart Claude just drew. They are only shown here,
-/// never uploaded. Bubble keeps its own copy (in Application Support/Bubble/Pictures, readable only by you),
+/// never uploaded. Mercury keeps its own copy (in Application Support/Bubble/Pictures, readable only by you),
 /// so a saved chat still shows its pictures after a temporary file is cleaned up.
 enum LocalPicture {
     static let kinds: Set<String> = ["png", "jpg", "jpeg", "gif", "heic", "heif", "webp", "tif", "tiff", "bmp", "svg", "pdf"]
 
-    /// Where Ask Bubble saves pictures it draws for you (diagrams, shapes, charts). Writing a picture
+    /// Where Ask Mercury saves pictures it draws for you (diagrams, shapes, charts). Writing a picture
     /// here doesn't need your OK; it's only ever shown in the chat.
     static var drawings: URL {
         let d = FileManager.default.urls(for: .applicationSupportDirectory, in: .userDomainMask)[0]
@@ -2089,7 +2091,7 @@ enum LocalPicture {
         return dir.appendingPathComponent(key).appendingPathExtension(u.pathExtension.lowercased())
     }
 
-    /// The original if it's still there, otherwise Bubble's copy.
+    /// The original if it's still there, otherwise Mercury's copy.
     static func existing(_ u: URL) -> URL? {
         for f in [u, copyURL(u)] where FileManager.default.fileExists(atPath: f.path) { return f }
         return nil
@@ -2179,7 +2181,7 @@ struct YouTubePlayer: NSViewRepresentable {
 
 // MARK: - Chat look
 
-/// Colours and size for the Ask Bubble chat, chosen in Assistant settings.
+/// Colours and size for the Ask Mercury chat, chosen in Assistant settings.
 struct ChatStyle {
     let mine: Color, mineText: Color, theirs: Color, theirsText: Color
     let textSize: Double
@@ -2280,11 +2282,11 @@ struct ChatRow<Content: View>: View {
     }
 }
 
-/// Friendly faces you can give Bubble, each on a soft colour.
+/// Friendly faces you can give Mercury, each on a soft colour.
 enum Buddy {
     struct Face { let emoji: String; let name: String; let hex: UInt32 }
     static let all: [Face] = [
-        Face(emoji: "", name: "Bubble", hex: 0),
+        Face(emoji: "", name: "Mercury", hex: 0),
         Face(emoji: "🦖", name: "Dino", hex: 0xC8F2C2), Face(emoji: "🐼", name: "Panda", hex: 0xE8E8EE),
         Face(emoji: "🦊", name: "Fox", hex: 0xFFD9B8), Face(emoji: "🐨", name: "Koala", hex: 0xD9DEE8),
         Face(emoji: "🐧", name: "Penguin", hex: 0xCFE6FF), Face(emoji: "🦦", name: "Otter", hex: 0xEADCC8),
@@ -2299,13 +2301,17 @@ enum Buddy {
     }
 }
 
-/// Bubble's blue circle logo, or a friendly face if you chose one.
+/// Mercury's planet logo, or a friendly face if you chose one.
 struct Avatar: View {
     let emoji: String
     let size: CGFloat
     var body: some View {
         let e = emoji.trimmingCharacters(in: .whitespaces)
-        if e.isEmpty || e == "🫧" {
+        if e.isEmpty || e == "🫧", let planet = Brand.planet {
+            Image(nsImage: planet).resizable().interpolation(.high)
+                .frame(width: size, height: size)
+                .shadow(color: Color(red: 0.31, green: 0.49, blue: 1).opacity(0.55), radius: size * 0.18)
+        } else if e.isEmpty || e == "🫧" {
             ZStack {
                 Circle().fill(Theme.accent)
                 Circle().fill(.white).frame(width: size * 0.36, height: size * 0.36)
