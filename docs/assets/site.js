@@ -62,6 +62,41 @@
     v.addEventListener("ended", () => { film.classList.remove("playing"); v.controls = false; v.load(); });
   }
 
+  // ── "Meet Mercury": a deep voice line timed to the opening. The voice starts as the orbit around
+  // "your Mac" begins to draw, and "Mercury" lands with the boom as the gold moon appears. Browsers only
+  // allow sound after a click or key press, so if it's blocked on arrival, the first click or key press
+  // near the top redraws the orbit and plays it then. Once per visit.
+  const ringEl = document.querySelector(".intro .ring");
+  if (ringEl && window.Audio) {
+    let played = false;
+    try { played = sessionStorage.getItem("meetMercury") === "1"; } catch (e) {}
+    const voice = new Audio("assets/meet-mercury.mp3?v=1");
+    voice.preload = "auto";
+    const LEAD = 500;   // the orbit starts drawing 0.5 s in; "Mercury" is 1.38 s into the clip, the moon shows at 1.9 s
+    const done = () => { played = true; try { sessionStorage.setItem("meetMercury", "1"); } catch (e) {} };
+    const redraw = () => ringEl.querySelectorAll("path, .moon").forEach((el) => {
+      el.style.animation = "none"; void el.getBoundingClientRect(); el.style.animation = "";
+    });
+    const events = ["pointerdown", "keydown"];
+    const onFirst = (e) => {
+      if (played || (e.target.closest && e.target.closest("a, button, input, textarea, select"))) return;
+      if (window.scrollY > window.innerHeight * 0.4) return;
+      events.forEach((t) => window.removeEventListener(t, onFirst, true));
+      // Unlock the sound inside the click (Safari needs this), then play it in time with the redrawn orbit.
+      voice.muted = true;
+      voice.play().then(() => {
+        voice.pause(); voice.currentTime = 0; voice.muted = false;
+        redraw();
+        setTimeout(() => voice.play().then(done, () => {}), LEAD);
+      }, () => {});
+    };
+    if (!played) {
+      setTimeout(() => {
+        voice.play().then(done, () => events.forEach((t) => window.addEventListener(t, onFirst, true)));
+      }, Math.max(0, LEAD - performance.now()));
+    }
+  }
+
   // ── The opening scene.
   const scene = document.querySelector(".scene");
   if (scene) openingScene(scene);

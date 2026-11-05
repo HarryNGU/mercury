@@ -1106,6 +1106,7 @@ struct SettingsPage: View {
     @ObservedObject private var themes = ThemeStore.shared
     @State private var atLogin = LoginItem.isOn
     @State private var checkUpdates = Settings.checkUpdates
+    @AppStorage("windowTheme") private var windowTheme = "auto"
 
     private var version: String {
         let i = Bundle.main.infoDictionary
@@ -1125,6 +1126,13 @@ struct SettingsPage: View {
                 }
             }
             SettingsGroup(title: "Appearance") {
+                SettingRow(title: "Theme", subtitle: windowTheme == "auto" ? "Follows your Mac" : nil) {
+                    SwiftUI.Picker("", selection: $windowTheme) {
+                        Text("Auto").tag("auto"); Text("Light").tag("light"); Text("Dark").tag("dark")
+                    }
+                    .pickerStyle(.segmented).labelsHidden().frame(width: 220)
+                    .onChange(of: windowTheme) { (NSApp.delegate as? AppDelegate)?.applyWindowTheme() }
+                }
                 SettingRow(title: "Accent colour", subtitle: themes.current.name) {
                     HStack(spacing: 10) {
                         ForEach(BubbleTheme.all) { t in

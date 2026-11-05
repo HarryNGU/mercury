@@ -154,6 +154,24 @@ enum StudioTests {
             NSApp.terminate(nil)
             return true
         }
+        if let i = args.firstIndex(of: "--mainshot"), i + 1 < args.count {
+            // The main window offscreen, in the theme passed as -windowTheme (light or dark) and the page passed
+            // as -page. Both come from the command line only, so the real settings are never changed.
+            let host = NSHostingView(rootView: MainView(model: UIModel(), dictation: DictationModel()).frame(width: 1100, height: 740))
+            let w = NSWindow(contentRect: NSRect(x: -30000, y: -30000, width: 1100, height: 740), styleMask: [.borderless], backing: .buffered, defer: false)
+            w.appearance = NSAppearance(named: UserDefaults.standard.string(forKey: "windowTheme") == "dark" ? .darkAqua : .aqua)
+            w.contentView = host
+            w.orderBack(nil)
+            DispatchQueue.main.asyncAfter(deadline: .now() + 2) {
+                if let rep = host.bitmapImageRepForCachingDisplay(in: host.bounds) {
+                    host.cacheDisplay(in: host.bounds, to: rep)
+                    try? rep.representation(using: .png, properties: [:])?.write(to: URL(fileURLWithPath: args[i + 1]))
+                }
+                log("mainshot: wrote \(args[i + 1])")
+                NSApp.terminate(nil)
+            }
+            return true
+        }
         if let i = args.firstIndex(of: "--drillshot"), i + 1 < args.count {
             // The text box with the + button and a running stopwatch, and the + menu. Reads settings, never writes them.
             let over = DrillTimer(), under = DrillTimer(), idle = DrillTimer()

@@ -557,8 +557,18 @@ final class AppDelegate: NSObject, NSApplicationDelegate, NSMenuDelegate, NSWind
         launcher.minSize = NSSize(width: 860, height: 560)
         launcher.contentView = host
         launcher.delegate = self
+        applyWindowTheme()
         launcher.setFrameAutosaveName("BubbleMainWindow")
         if !launcher.setFrameUsingName("BubbleMainWindow") { launcher.center() }
+    }
+
+    /// The main window's theme from Settings › Appearance: Auto follows the Mac, or always light or dark.
+    func applyWindowTheme() {
+        switch UserDefaults.standard.string(forKey: "windowTheme") {
+        case "light": launcher?.appearance = NSAppearance(named: .aqua)
+        case "dark": launcher?.appearance = NSAppearance(named: .darkAqua)
+        default: launcher?.appearance = nil
+        }
     }
 
     private func showLauncher() {
