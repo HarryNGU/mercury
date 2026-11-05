@@ -16,6 +16,7 @@ final class ControlBar {
         panel = NSPanel(contentRect: NSRect(origin: .zero, size: size),
                         styleMask: [.borderless, .nonactivatingPanel], backing: .buffered, defer: false)
         panel.isOpaque = false
+        panel.alwaysDark()
         panel.backgroundColor = .clear
         panel.level = .statusBar
         panel.hasShadow = true
@@ -220,6 +221,7 @@ func showSavedToast(on screen: NSScreen, url: URL) {
     let panel = NSPanel(contentRect: NSRect(x: f.midX - size.width / 2, y: f.maxY - size.height - 16, width: size.width, height: size.height),
                         styleMask: [.borderless, .nonactivatingPanel], backing: .buffered, defer: false)
     panel.isOpaque = false
+    panel.alwaysDark()
     panel.backgroundColor = .clear
     panel.level = .statusBar
     panel.hasShadow = false

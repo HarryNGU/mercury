@@ -50,21 +50,41 @@ enum Settings {
         return url
     }
 
-    /// ~/Desktop/Bubble Recordings. Anything left in the old ~/Movies folder is moved over once.
-    static var folder: URL {
+    /// ~/Desktop/Mercury Recordings. Recordings from before the rename (Desktop/Bubble Recordings, or the
+    /// older ~/Movies folder) are moved over once, the first time the folder is asked for.
+    static var folder: URL { _folder }
+    private static let _folder: URL = {
         let fm = FileManager.default
-        let url = fm.homeDirectoryForCurrentUser.appendingPathComponent("Desktop/Bubble Recordings", isDirectory: true)
+        let home = fm.homeDirectoryForCurrentUser
+        let url = home.appendingPathComponent("Desktop/Mercury Recordings", isDirectory: true)
+        let olds = ["Desktop/Bubble Recordings", "Movies/Bubble Recordings"].map { home.appendingPathComponent($0, isDirectory: true) }
+        // The usual case: no new folder yet, so the whole old one is simply renamed.
+        if !fm.fileExists(atPath: url.path), fm.fileExists(atPath: olds[0].path) {
+            do { try fm.moveItem(at: olds[0], to: url); log("recordings folder renamed to Mercury Recordings") }
+            catch { log("recordings folder rename failed: \(error.localizedDescription)") }
+        }
         try? fm.createDirectory(at: url, withIntermediateDirectories: true)
-        let old = fm.homeDirectoryForCurrentUser.appendingPathComponent("Movies/Bubble Recordings", isDirectory: true)
-        if let items = try? fm.contentsOfDirectory(at: old, includingPropertiesForKeys: nil) {
-            for f in items where f.pathExtension == "mp4" {
-                try? fm.moveItem(at: f, to: url.appendingPathComponent(f.lastPathComponent))
-            }
-            if (try? fm.contentsOfDirectory(atPath: old.path))?.allSatisfy({ $0.hasPrefix(".") }) ?? false {
-                try? fm.removeItem(at: old)
+        for old in olds { moveContents(of: old, into: url) }
+        return url
+    }()
+
+    /// Moves everything in `old` into `new` (merging folders like Reels), never overwriting a file,
+    /// then removes `old` if nothing but hidden files is left.
+    private static func moveContents(of old: URL, into new: URL) {
+        let fm = FileManager.default
+        guard let items = try? fm.contentsOfDirectory(at: old, includingPropertiesForKeys: [.isDirectoryKey]) else { return }
+        for f in items where !f.lastPathComponent.hasPrefix(".") {
+            let dest = new.appendingPathComponent(f.lastPathComponent)
+            let isDir = (try? f.resourceValues(forKeys: [.isDirectoryKey]).isDirectory) ?? false
+            if isDir, fm.fileExists(atPath: dest.path) {
+                moveContents(of: f, into: dest)
+            } else if !fm.fileExists(atPath: dest.path) {
+                try? fm.moveItem(at: f, to: dest)
             }
         }
-        return url
+        if (try? fm.contentsOfDirectory(atPath: old.path))?.allSatisfy({ $0.hasPrefix(".") }) ?? false {
+            try? fm.removeItem(at: old)
+        }
     }
 }
 

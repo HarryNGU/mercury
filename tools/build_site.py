@@ -367,7 +367,7 @@ STARTED = f"""
 <p>Mercury doesn't keep anything outside your Mac, so this removes it completely:</p>
 <ol>
 <li>Quit Mercury and drag it from Applications to the Bin.</li>
-<li>Optional: delete its data folder, <code>~/Library/Application Support/Bubble</code>, and its log, <code>~/Library/Logs/Bubble.log</code>. Your recordings in <code>~/Desktop/Bubble Recordings</code> are yours to keep or delete.</li>
+<li>Optional: delete its data folder, <code>~/Library/Application Support/Bubble</code>, and its log, <code>~/Library/Logs/Bubble.log</code>. Your recordings in <code>~/Desktop/Mercury Recordings</code> are yours to keep or delete.</li>
 <li>Optional: if you saved an API key, open the Keychain Access app, search for "Bubble AI polish" and delete it.</li>
 <li>Optional: remove Mercury from System Settings → Privacy &amp; Security lists (Screen Recording, Microphone and so on).</li>
 </ol>
@@ -389,7 +389,7 @@ FAQ = head("FAQ", "Questions people ask", "If yours isn't here, ask on GitHub an
     q("Can I use it with ChatGPT or another AI?", "<p>Not yet. Ask Mercury works with Claude, either through Claude Code on your Mac or with an Anthropic API key. Recording and dictation don't need any AI.</p>"),
     q("Does it know my previous Claude chats?", "<p>Through Claude Code it knows your Claude Code memory notes and connected apps. It can't read your chat history from the Claude app or website, because Claude doesn't let other apps do that.</p>"),
     q("Can people tell I'm using Ask Mercury on a call?", "<p>By default, yes: if you share your screen, Mercury's chat shows up in the share and in recordings like any other window. If your chat is private, one switch hides it from every recording and screen share, Mercury's own and Zoom, Meet or Teams alike. Please don't use that to cheat in exams or interviews, and don't record people without telling them.</p>"),
-    q("Where are my recordings?", "<p>In <code>Bubble Recordings</code> on your Desktop, and in Mercury's library. Reels are saved in its <code>Reels</code> folder. Nothing is uploaded.</p>"),
+    q("Where are my recordings?", "<p>In <code>Mercury Recordings</code> on your Desktop, and in Mercury's library. Reels are saved in its <code>Reels</code> folder. Nothing is uploaded.</p>"),
     q("Dictation didn't type into my app. Why?", "<p>Mercury needs Accessibility permission to type into other apps (System Settings → Privacy &amp; Security → Accessibility). Without it, your words are copied so you can paste them. Some secure fields, like password boxes, block typing on purpose.</p>"),
     q("How do I remove Mercury completely?", "<p>See <a href=\"get-started.html#uninstall\">Uninstall</a>. Because Mercury has no servers, deleting it from your Mac removes it completely.</p>"),
     q("How do I report a bug or a security problem?", f"<p>Bugs: <a href=\"{REPO}/issues\">open an issue on GitHub</a>. Security problems: please report them privately through <a href=\"{REPO}/security/advisories/new\">GitHub's private security reporting</a>, not in a public issue.</p>"),
@@ -407,7 +407,7 @@ PRIVACY = f"""
 
 <h2>What stays on your Mac</h2>
 <ul>
-<li>Recordings and reels (<code>~/Desktop/Bubble Recordings</code>).</li>
+<li>Recordings and reels (<code>~/Desktop/Mercury Recordings</code>).</li>
 <li>Your voice. Dictation, captions and Ask Mercury's listening are transcribed on your Mac, and audio is never uploaded.</li>
 <li>The name you asked Mercury to call you, if you gave one. It is only shown to you.</li>
 <li>Your chats with Mercury (in <code>~/Library/Application Support/Bubble/Chats</code>, readable only by your user account), so it picks up where you left off. Screenshots are never saved. They're kept for 30 days unless you choose otherwise in Settings, and you can delete any chat, or all of them, at any time.</li>

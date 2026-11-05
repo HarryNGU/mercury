@@ -504,6 +504,7 @@ final class DictationController {
             p.backgroundColor = .clear
             p.level = .statusBar
             p.hasShadow = false
+            p.alwaysDark()
             p.hidesOnDeactivate = false
             p.ignoresMouseEvents = true
             p.collectionBehavior = [.canJoinAllSpaces, .fullScreenAuxiliary, .stationary]

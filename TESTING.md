@@ -103,4 +103,4 @@ If you turn on Listen during a call, the other people's voices are transcribed (
 
 ## Removing Mercury
 
-Quit it, drag it from Applications to the Bin, and if you like, delete `~/Library/Application Support/Bubble` and `~/Library/Logs/Bubble.log`. Your recordings in `~/Desktop/Bubble Recordings` stay until you delete them. You can also remove its permissions in System Settings → Privacy & Security.
+Quit it, drag it from Applications to the Bin, and if you like, delete `~/Library/Application Support/Bubble` and `~/Library/Logs/Bubble.log`. Your recordings in `~/Desktop/Mercury Recordings` stay until you delete them. You can also remove its permissions in System Settings → Privacy & Security.

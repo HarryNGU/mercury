@@ -18,7 +18,7 @@ Hover over what you want to record and click. It can be a window, a single Chrom
 - Passwords, email addresses, phone and card numbers, API keys and similar codes are blurred as you record. Mercury reads the screen on your Mac to find them, and password managers are left out of the recording altogether. It catches most things but not everything, so do check before you share.
 - You can draw on the screen while recording: a pen, a highlighter, ink that fades after a few seconds, lines, arrows, boxes and circles. Wobbly shapes tidy themselves up. There's also a lasso, an eraser, undo, and one button that clears everything. Viewers see the drawings, but not the toolbar.
 - Each recording is named after the page or window you recorded, then refined using what you talked about.
-- Videos are saved in `~/Desktop/Bubble Recordings` and show up in Mercury's library.
+- Videos are saved in `~/Desktop/Mercury Recordings` and show up in Mercury's library.
 
 ### Turn recordings into reels
 

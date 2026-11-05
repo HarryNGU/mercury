@@ -1,7 +1,7 @@
 // Full jobs in the reel editor: paste a whole recipe (cut this recording into a reel with my scripts,
 // add captions and a panel, render it) and Claude Code works through it with its tools while you watch.
 //
-// It works on its own only inside the folders your prompt names, plus Bubble Recordings and temporary
+// It works on its own only inside the folders your prompt names, plus Mercury Recordings and temporary
 // folders: reading, writing, and running your own scripts, Python, ffmpeg and Manim there. Anything
 // else (deleting or moving files, other folders, the network, opening apps, installing) waits for Allow.
 // The job keeps running if you leave the editor; come back to see where it is.
@@ -15,7 +15,7 @@ struct JobPolicy {
     /// Folders the job works in freely (full paths, no trailing slash).
     let roots: [String]
 
-    /// The working folders for a prompt: Bubble Recordings, temporary folders, and the folder two levels
+    /// The working folders for a prompt: Mercury Recordings, temporary folders, and the folder two levels
     /// down from home for each path the prompt mentions (~/Desktop/Videos/a/b.py gives ~/Desktop/Videos).
     static func roots(for prompt: String) -> [String] {
         let home = NSHomeDirectory()
@@ -380,7 +380,7 @@ struct ReelJobPanel: View {
     private var intro: some View {
         VStack(alignment: .leading, spacing: 6) {
             Text("Paste a whole recipe, like your Day reel prompt. Claude Code works through it with your scripts and tools, and you can watch each step here.")
-            Text("It works on its own only inside the folders your prompt mentions and Bubble Recordings. Deleting, moving, other folders, the internet or opening apps wait for your OK. It never posts anything.")
+            Text("It works on its own only inside the folders your prompt mentions and Mercury Recordings. Deleting, moving, other folders, the internet or opening apps wait for your OK. It never posts anything.")
                 .foregroundStyle(Palette.subtle)
             if ClaudeCodeSession.binary == nil {
                 Text("Full jobs need Claude Code installed and signed in.").foregroundStyle(.orange)

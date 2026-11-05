@@ -473,7 +473,7 @@ struct RecordingsPage: View {
 
     var body: some View {
         VStack(alignment: .leading, spacing: 24) {
-            PageHeader(title: "Recordings", subtitle: "\(model.recents.count) video\(model.recents.count == 1 ? "" : "s") in Bubble Recordings on your Desktop") {
+            PageHeader(title: "Recordings", subtitle: "\(model.recents.count) video\(model.recents.count == 1 ? "" : "s") in Mercury Recordings on your Desktop") {
                 SecondaryButton(title: "Open folder", icon: "folder") { model.onOpenFolder?() }
                 PrimaryButton(title: "New recording", icon: "record.circle") { model.onStart?() }
             }
@@ -624,7 +624,7 @@ struct RecorderPage: View {
                 SettingRow(title: "Start / finish shortcut", subtitle: "Works from any app. Click to change.") { ShortcutField(.record) }
                 SettingRow(title: "Record an area", subtitle: "Draw the area, then recording starts.", divider: false) { ShortcutField(.area) }
             }
-            SettingsGroup(title: "Naming", footer: "Videos are saved to Bubble Recordings on your Desktop.") {
+            SettingsGroup(title: "Naming", footer: "Videos are saved to Mercury Recordings on your Desktop.") {
                 SwitchRow(title: "Name videos automatically", subtitle: "After the page or window you recorded.", isOn: $model.autoName)
                 SwitchRow(title: "Use what you said", subtitle: "Adds the topics you talked about. On-device speech recognition.", isOn: $model.nameFromSpeech, divider: false)
                     .disabled(!model.autoName).opacity(model.autoName ? 1 : 0.5)
@@ -862,6 +862,8 @@ struct AssistantPage: View {
     @AppStorage("chatTextSize") private var textSize = 14.0
     @AppStorage("chatName") private var chatName = "Mercury"
     @AppStorage("chatAvatar") private var chatAvatar = ""
+    @AppStorage("drillTimerOn") private var drillOn = false
+    @AppStorage("drillTarget") private var drillTarget = 0
     @State private var brain = Settings.assistantBrain
     @State private var move = Settings.assistantMove
     @State private var choice = Settings.assistantModel
@@ -977,6 +979,23 @@ struct AssistantPage: View {
                 }
                 SettingRow(title: "See-through", subtitle: "How much of what's behind shows through.", divider: false) {
                     Slider(value: Binding(get: { 1 - darkness }, set: { darkness = 1 - $0 }), in: 0.15...0.75).frame(width: 220).tint(Theme.accent)
+                }
+            }
+            SettingsGroup(title: "Stopwatch", footer: "In the + button inside the text box. It never starts on its own. When you send, your laps go on the end of the message, like \"laps: 41s, 63s; total 104s\", and it resets. If you never started it, your message goes as typed.") {
+                SwitchRow(title: "Use keys", subtitle: "Off unless you turn it on. The keys only work while the panel is open.", isOn: Binding(get: { drillOn }, set: { drillOn = $0; model.onAssistKeysChanged?() }))
+                if drillOn {
+                    SettingRow(title: "Start") { ShortcutField(.timerStart) }
+                    SettingRow(title: "Lap", subtitle: "Records the time for this problem and starts the next.") { ShortcutField(.timerLap) }
+                    SettingRow(title: "Stop and reset") { ShortcutField(.timerStop) }
+                }
+                SettingRow(title: "Target time", subtitle: "Seconds a problem. Past it, the time turns red and keeps counting. Leave empty for none.", divider: false) {
+                    HStack(spacing: 6) {
+                        TextField("None", text: Binding(
+                            get: { drillTarget > 0 ? String(drillTarget) : "" },
+                            set: { drillTarget = max(0, Int($0.filter(\.isNumber).prefix(5)) ?? 0) }))
+                            .textFieldStyle(.roundedBorder).frame(width: 70).multilineTextAlignment(.trailing)
+                        Text("s").foregroundStyle(Palette.subtle)
+                    }
                 }
             }
             SettingsGroup(title: "Chat look", footer: "Like texting a friend: your messages on the right, theirs on the left.") {
@@ -1121,8 +1140,9 @@ struct SettingsPage: View {
                 SwitchRow(title: "Sound effects", subtitle: "Soft pops when recording or dictation starts and ends.", isOn: $model.sounds, divider: false)
             }
             SettingsGroup(title: "Keyboard shortcuts", footer: "Click a shortcut and press new keys. Right-click to reset.") {
-                ForEach(Array(ShortcutAction.allCases.enumerated()), id: \.element) { i, a in
-                    SettingRow(title: a.title, divider: i < ShortcutAction.allCases.count - 1) { ShortcutField(a) }
+                let general = ShortcutAction.allCases.filter { !$0.isTimer }
+                ForEach(Array(general.enumerated()), id: \.element) { i, a in
+                    SettingRow(title: a.title, divider: i < general.count - 1) { ShortcutField(a) }
                 }
             }
             SettingsGroup(title: "Permissions", footer: "Mercury only uses these on your Mac. After allowing Screen Recording, quit and reopen Mercury.") {

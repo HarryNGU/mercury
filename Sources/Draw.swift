@@ -488,6 +488,7 @@ final class DrawController {
         let size = host.fittingSize
         toolbar = NSPanel(contentRect: NSRect(origin: .zero, size: size), styleMask: [.borderless, .nonactivatingPanel], backing: .buffered, defer: false)
         toolbar.isOpaque = false
+        toolbar.alwaysDark()
         toolbar.backgroundColor = .clear
         toolbar.level = .statusBar
         toolbar.hasShadow = true

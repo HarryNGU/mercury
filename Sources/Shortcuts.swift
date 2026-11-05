@@ -7,11 +7,13 @@ import AppKit
 import Carbon.HIToolbox
 
 enum ShortcutAction: String, CaseIterable, Identifiable {
-    case record, area, dictate, assist, assistVoice, assistAsk
+    case record, area, dictate, assist, assistVoice, assistAsk, timerStart, timerLap, timerStop
     var id: String { rawValue }
-    var hotKeyID: UInt32 { switch self { case .record: 1; case .area: 2; case .dictate: 3; case .assist: 4; case .assistAsk: 5; case .assistVoice: 6 } }
+    var hotKeyID: UInt32 { switch self { case .record: 1; case .area: 2; case .dictate: 3; case .assist: 4; case .assistAsk: 5; case .assistVoice: 6; case .timerStart: 10; case .timerLap: 11; case .timerStop: 12 } }
     /// Only active while Ask Mercury is on screen (the panel registers it itself).
-    var panelOnly: Bool { self == .assistAsk }
+    var panelOnly: Bool { self == .assistAsk || isTimer }
+    /// The drill timer's keys, set up in Ask Mercury settings.
+    var isTimer: Bool { self == .timerStart || self == .timerLap || self == .timerStop }
     var title: String {
         switch self {
         case .record: "Start / finish recording"
@@ -20,6 +22,9 @@ enum ShortcutAction: String, CaseIterable, Identifiable {
         case .assist: "Show / hide Ask Mercury"
         case .assistAsk: "Ask about the screen"
         case .assistVoice: "Talk to Ask Mercury"
+        case .timerStart: "Start the stopwatch"
+        case .timerLap: "Lap"
+        case .timerStop: "Stop and reset"
         }
     }
     /// Double-tapping a modifier needs the Accessibility-backed monitor, which only dictation has.
@@ -47,6 +52,9 @@ struct Shortcut: Codable, Equatable {
         case .assist: Shortcut(keyCode: UInt32(kVK_ANSI_Backslash), mods: UInt32(optionKey), label: "⌥\\")
         case .assistAsk: Shortcut(keyCode: UInt32(kVK_Return), mods: UInt32(cmdKey), label: "⌘↩")
         case .assistVoice: Shortcut(keyCode: UInt32(kVK_ANSI_Backslash), mods: UInt32(optionKey | shiftKey), label: "⌥⇧\\")
+        case .timerStart: Shortcut(keyCode: UInt32(kVK_ANSI_S), mods: UInt32(controlKey | optionKey), label: "⌃⌥S")
+        case .timerLap: Shortcut(keyCode: UInt32(kVK_ANSI_L), mods: UInt32(controlKey | optionKey), label: "⌃⌥L")
+        case .timerStop: Shortcut(keyCode: UInt32(kVK_ANSI_R), mods: UInt32(controlKey | optionKey), label: "⌃⌥R")
         }
     }
 

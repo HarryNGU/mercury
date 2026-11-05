@@ -5,7 +5,7 @@
 //   --studioshot <recording> <out.png> [tool] [plan.json] [selection]   draws the editor window into a picture
 //   --brandshot <out.png>   draws Mercury's logo pieces (chat picture, menu bar planet, themes) into a picture
 //
-// <recording> is a file in Bubble Recordings or a full path. A plan given here is never saved over the
+// <recording> is a file in Mercury Recordings or a full path. A plan given here is never saved over the
 // recording's own edit unless the recording is a copy.
 
 import AppKit
@@ -150,6 +150,45 @@ enum StudioTests {
                let png = rep.representation(using: .png, properties: [:]) {
                 try? png.write(to: URL(fileURLWithPath: args[i + 1]))
                 log("brandshot: wrote \(args[i + 1]), planet image \(Brand.planet == nil ? "missing" : "found")")
+            }
+            NSApp.terminate(nil)
+            return true
+        }
+        if let i = args.firstIndex(of: "--drillshot"), i + 1 < args.count {
+            // The text box with the + button and a running stopwatch, and the + menu. Reads settings, never writes them.
+            let over = DrillTimer(), under = DrillTimer(), idle = DrillTimer()
+            over.fakeForTesting(laps: [41, 63], split: 72)
+            under.fakeForTesting(laps: [], split: 12)
+            let bar = { (t: DrillTimer, text: String) in
+                VStack(alignment: .leading, spacing: 7) {
+                    DrillStrip(timer: t)
+                    HStack(spacing: 8) {
+                        ChatToolsButton(timer: t)
+                        Text(text).font(.system(size: 13.5)).foregroundStyle(.white.opacity(0.45))
+                        Spacer()
+                        Image(systemName: "arrow.up").font(.system(size: 12, weight: .bold)).foregroundStyle(.black)
+                            .frame(width: 26, height: 26).background(Circle().fill(.white))
+                    }
+                }
+                .padding(.horizontal, 12).padding(.vertical, 9)
+                .background(RoundedRectangle(cornerRadius: 11, style: .continuous).fill(.white.opacity(0.1)))
+                .frame(width: 420)
+            }
+            let view = HStack(alignment: .top, spacing: 30) {
+                VStack(spacing: 18) {
+                    bar(idle, "Ask, or press ⌥⇧\\ and say it…")
+                    bar(under, "Ask, or press ⌥⇧\\ and say it…")
+                    bar(over, "Q3 I think it's x = 2, is that right?")
+                }
+                ChatToolsButton(timer: idle).menu.background(PanelCard.fill).environment(\.colorScheme, .dark)
+            }
+            .padding(30).background(Color(red: 0.14, green: 0.15, blue: 0.18))
+            let r = ImageRenderer(content: view)
+            r.scale = 2
+            if let img = r.nsImage, let tiff = img.tiffRepresentation, let rep = NSBitmapImageRep(data: tiff),
+               let png = rep.representation(using: .png, properties: [:]) {
+                try? png.write(to: URL(fileURLWithPath: args[i + 1]))
+                log("drillshot: wrote \(args[i + 1])")
             }
             NSApp.terminate(nil)
             return true

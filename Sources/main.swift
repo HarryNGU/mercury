@@ -45,7 +45,7 @@ final class AppDelegate: NSObject, NSApplicationDelegate, NSMenuDelegate, NSWind
     private let bubble = CameraBubble()
     private let recorder = Recorder()
     private let dictation = DictationController()
-    private lazy var assistant = AssistantController()
+    lazy var assistant = AssistantController()
     private var controls: ControlBar!
     private let draw = DrawController()
     private var recording = false { didSet { if oldValue != recording { buildMainMenu(); keepAwake(recording) } } }
@@ -135,7 +135,7 @@ final class AppDelegate: NSObject, NSApplicationDelegate, NSMenuDelegate, NSWind
             case .area: self.pickAreaAndRecord()
             case .dictate: self.dictation.toggle()
             case .assist: self.assistant.toggle()
-            case .assistAsk: break  // handled by the panel while it is open
+            case .assistAsk, .timerStart, .timerLap, .timerStop: break  // handled by the panel while it is open
             case .assistVoice:
                 if !self.assistant.isShown { self.assistant.show() }
                 self.assistant.model.toggleTalk()
@@ -482,7 +482,7 @@ final class AppDelegate: NSObject, NSApplicationDelegate, NSMenuDelegate, NSWind
 
     @objc func showSettings() { showPageNamed(Page.settings.rawValue) }
     @objc func showPage(_ sender: NSMenuItem) { if let p = sender.representedObject as? String { showPageNamed(p) } }
-    private func showPageNamed(_ p: String) {
+    func showPageNamed(_ p: String) {
         UserDefaults.standard.set(p, forKey: "page")
         showLauncher()
     }
@@ -962,7 +962,7 @@ final class AppDelegate: NSObject, NSApplicationDelegate, NSMenuDelegate, NSWind
         pb.writeObjects([url as NSURL])
     }
 
-    /// Opens Bubble Recordings in Finder with the new video selected, and brings Finder to
+    /// Opens Mercury Recordings in Finder with the new video selected, and brings Finder to
     /// the front even if you were in a full-screen app (which is its own Space).
     private func revealInFinder(_ url: URL) {
         let cfg = NSWorkspace.OpenConfiguration()

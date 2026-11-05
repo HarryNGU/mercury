@@ -82,7 +82,7 @@ final class RecentRecording: ObservableObject, Identifiable {
 
     init(url: URL, date: Date) { self.url = url; self.date = date }
 
-    /// Made by the reel editor (saved in Bubble Recordings/Reels).
+    /// Made by the reel editor (saved in Mercury Recordings/Reels).
     var isReel: Bool { url.deletingLastPathComponent().standardizedFileURL == Settings.reelsFolder.standardizedFileURL }
 
     func load() {
@@ -494,5 +494,39 @@ struct ChatTextView: NSViewRepresentable {
             context.coordinator.lastFocus = focusRequest
             DispatchQueue.main.async { tv.window?.makeFirstResponder(tv) }
         }
+    }
+}
+
+// MARK: - Dark panels and their popovers
+//
+// Mercury's floating panels (Ask Mercury, the dictation pill, recording controls, the drawing
+// toolbar) are always dark. Setting SwiftUI's colour scheme to dark isn't enough on its own:
+// popovers, menus and tooltips are drawn by macOS from the *window's* appearance, which follows
+// the Mac's light or dark mode. In light mode that gave pale frosted popovers holding white text
+// from the panel, which was unreadable. So: every always-dark panel calls `alwaysDark()`, and
+// every popover from one uses `panelPopover`, never plain `.popover`.
+
+extension NSWindow {
+    /// Draw this window, and everything macOS adds to it, in dark mode whatever the Mac is set to.
+    func alwaysDark() { appearance = NSAppearance(named: .darkAqua) }
+}
+
+enum PanelCard {
+    static let fill = Color(red: 0.11, green: 0.11, blue: 0.12)
+    static let text = Color.white
+    static let subtle = Color.white.opacity(0.62)
+    static let line = Color.white.opacity(0.12)
+    static let field = Color.white.opacity(0.1)
+}
+
+extension View {
+    /// A solid dark card with white text, readable over anything behind the see-through panel.
+    func solidPopover() -> some View {
+        presentationBackground(PanelCard.fill).environment(\.colorScheme, .dark)
+    }
+
+    /// The only popover to use from a dark panel: always a solid dark card.
+    func panelPopover<Content: View>(isPresented: Binding<Bool>, arrowEdge: Edge = .bottom, @ViewBuilder content: @escaping () -> Content) -> some View {
+        popover(isPresented: isPresented, arrowEdge: arrowEdge) { content().solidPopover() }
     }
 }

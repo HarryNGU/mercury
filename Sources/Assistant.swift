@@ -467,6 +467,7 @@ final class AssistantModel: ObservableObject {
 
     @Published var exchanges: [Exchange] = []
     @Published var input = ""
+    let drill = DrillTimer()
     @Published var thinking = false
     @Published var error: String?
     @Published var listening = false
@@ -601,7 +602,7 @@ final class AssistantModel: ObservableObject {
     }
 
     func ask(_ preset: String? = nil) {
-        let q = (preset ?? input).trimmingCharacters(in: .whitespacesAndNewlines)
+        var q = (preset ?? input).trimmingCharacters(in: .whitespacesAndNewlines)
         if approval != nil, preset == nil, !q.isEmpty {
             input = ""
             spokenOrTyped(q)
@@ -609,6 +610,8 @@ final class AssistantModel: ObservableObject {
         }
         guard !q.isEmpty, !thinking else { return }
         if preset == nil { input = "" }
+        // The drill timer's laps go on the end of what you typed; untouched if it never started.
+        if preset == nil, let laps = drill.takeSummary() { q += "\n\n" + laps }
         error = nil
         thinking = true
         let note = contextNote()
@@ -793,12 +796,6 @@ final class AssistantModel: ObservableObject {
     }
 }
 
-extension View {
-    /// Popovers from the see-through panel: a solid dark card with white text, readable over anything.
-    func solidPopover() -> some View {
-        presentationBackground(Color(red: 0.11, green: 0.11, blue: 0.12)).environment(\.colorScheme, .dark)
-    }
-}
 
 /// Where the chat is scrolled to, to tell your scrolling apart from new content arriving.
 struct ScrollSpot: Equatable { var offset: CGFloat; var content: CGFloat; var visible: CGFloat }
@@ -814,6 +811,10 @@ struct WindowDragHandle: NSViewRepresentable {
 
 final class AssistantPanel: NSPanel {
     override var canBecomeKey: Bool { true }
+    override init(contentRect: NSRect, styleMask: NSWindow.StyleMask, backing: NSWindow.BackingStoreType, defer flag: Bool) {
+        super.init(contentRect: contentRect, styleMask: styleMask, backing: backing, defer: flag)
+        alwaysDark()
+    }
     var onEscape: (() -> Void)?
     override func cancelOperation(_ sender: Any?) { onEscape?() }
 
@@ -836,7 +837,7 @@ final class AssistantController: NSObject, NSWindowDelegate {
     let model = AssistantModel()
     private var panel: AssistantPanel?
     private var top: CGFloat = 0          // the bar stays put while the card grows below it
-    private static let keyIDs: [UInt32] = [20, 21, 22, 23, 24]
+    private static let keyIDs: [UInt32] = [20, 21, 22, 23, 24, 25, 26, 27]
 
     var isShown: Bool { panel?.isVisible == true }
 
@@ -962,6 +963,15 @@ final class AssistantController: NSObject, NSWindowDelegate {
             (23, kVK_DownArrow, m, { [weak self] in self?.move(dx: 0, dy: -1, key: kVK_DownArrow) }),
             (24, Int(ask.keyCode), Int(ask.mods), { [weak self] in self?.quickAsk() }),
         ])
+        // The drill timer's keys exist only while it's switched on and set to start with a key.
+        if Settings.drillTimerOn {
+            let c = ShortcutCenter.shared, drill = model.drill
+            ShortcutCenter.shared.holdTemporary([
+                (25, Int(c[.timerStart].keyCode), Int(c[.timerStart].mods), { drill.start() }),
+                (26, Int(c[.timerLap].keyCode), Int(c[.timerLap].mods), { drill.lap() }),
+                (27, Int(c[.timerStop].keyCode), Int(c[.timerStop].mods), { drill.reset() }),
+            ])
+        }
     }
 
     private var glide: Timer?
@@ -1138,7 +1148,7 @@ struct AssistantView: View {
                 .padding(.leading, 14).padding(.trailing, 6)
             barButton(model.listening ? "Listening" : "Listen", dot: model.listening ? .red : .white.opacity(0.35)) { listenInfo = false; model.toggleListening() }
                 .onHover { inside in hoverCard(inside, item: &listenHover) { listenInfo = $0 } }
-                .popover(isPresented: $listenInfo, arrowEdge: .bottom) { listenCard }
+                .panelPopover(isPresented: $listenInfo, arrowEdge: .bottom) { listenCard }
             divider
             barButton(model.talking ? "Done" : "Talk", keys: keys.label(.assistVoice), dot: model.talking ? .red : nil) { model.toggleTalk() }
             divider
@@ -1163,7 +1173,7 @@ struct AssistantView: View {
             .buttonStyle(.plain)
             .accessibilityLabel(inCaptures ? "Visibility on: shows in recordings and screen shares" : "Visibility off: only you can see Mercury")
             .onHover { inside in hoverCard(inside, item: &visibilityHover) { visibilityInfo = $0 } }
-            .popover(isPresented: $visibilityInfo, arrowEdge: .bottom) { visibilityCard }
+            .panelPopover(isPresented: $visibilityInfo, arrowEdge: .bottom) { visibilityCard }
             Spacer(minLength: 4)
             Button { eyeInfo = false; model.seeScreen.toggle() } label: {
                 Image(systemName: model.seeScreen ? "eye" : "eye.slash").font(.system(size: 12, weight: .medium))
@@ -1172,7 +1182,7 @@ struct AssistantView: View {
             .buttonStyle(.plain)
             .accessibilityLabel(model.seeScreen ? "Screen sharing on: Mercury sees your screen when you ask" : "Screen sharing off")
             .onHover { inside in hoverCard(inside, item: &eyeHover) { eyeInfo = $0 } }
-            .popover(isPresented: $eyeInfo, arrowEdge: .bottom) { eyeCard }
+            .panelPopover(isPresented: $eyeInfo, arrowEdge: .bottom) { eyeCard }
             Menu {
                 Button("New Chat") { model.newChat() }
                 Button("Delete This Chat", role: .destructive) { model.deleteChat(model.chat) }.disabled(model.exchanges.isEmpty)
@@ -1467,7 +1477,7 @@ struct AssistantView: View {
                     }
             }
             .buttonStyle(.plain).help("Change \(name.isEmpty ? "Mercury" : name)'s picture and name")
-            .popover(isPresented: $showBuddy, arrowEdge: .bottom) { buddyPicker.solidPopover() }
+            .panelPopover(isPresented: $showBuddy, arrowEdge: .bottom) { buddyPicker.solidPopover() }
             VStack(alignment: .leading, spacing: 1) {
                 Text(name.isEmpty ? "Mercury" : name).font(.system(size: 13, weight: .semibold))
                 HStack(spacing: 4) {
@@ -1477,7 +1487,7 @@ struct AssistantView: View {
             }
             Spacer()
             headerButton("clock.arrow.circlepath", label: "Chat history", lit: showHistory) { showHistory.toggle() }
-                .popover(isPresented: $showHistory, arrowEdge: .bottom) { historyList }
+                .panelPopover(isPresented: $showHistory, arrowEdge: .bottom) { historyList }
                 .onChange(of: model.historyRequest) { showHistory = true }
             headerButton("square.and.pencil", label: "New chat (⌘N)", lit: false) { model.newChat() }
                 .keyboardShortcut("n", modifiers: .command)
@@ -1487,7 +1497,7 @@ struct AssistantView: View {
                     .frame(width: 28, height: 28).background(Circle().fill(.white.opacity(showLook ? 0.18 : 0.08)))
             }
             .buttonStyle(.plain).help("Change the chat's look").accessibilityLabel("Change the chat's look")
-            .popover(isPresented: $showLook, arrowEdge: .bottom) { lookPicker.solidPopover() }
+            .panelPopover(isPresented: $showLook, arrowEdge: .bottom) { lookPicker.solidPopover() }
         }
         .padding(.horizontal, 14).padding(.vertical, 10)
         .overlay(alignment: .bottom) { Rectangle().fill(.white.opacity(0.08)).frame(height: 1) }
@@ -1714,7 +1724,10 @@ struct AssistantView: View {
     }
 
     private var inputBar: some View {
-        HStack(spacing: 8) {
+        VStack(alignment: .leading, spacing: 7) {
+            DrillStrip(timer: model.drill)
+            HStack(spacing: 8) {
+            ChatToolsButton(timer: model.drill, onKeysChanged: { (NSApp.delegate as? AppDelegate)?.assistant.refreshKeys() })
             if model.talking {
                 Image(systemName: "mic.fill").foregroundStyle(.red).symbolEffect(.pulse)
             }
@@ -1736,6 +1749,7 @@ struct AssistantView: View {
                 }
                 .buttonStyle(.plain).help("Send").accessibilityLabel("Send")
                 .disabled(model.input.trimmingCharacters(in: .whitespaces).isEmpty)
+            }
             }
         }
         .padding(.horizontal, 12).padding(.vertical, 9)
@@ -2236,7 +2250,7 @@ struct ChatRow<Content: View>: View {
                 }
                 .buttonStyle(.plain).help("React").accessibilityLabel("React to this message")
                 .opacity(hover || picking ? 1 : 0)
-                .popover(isPresented: $picking, arrowEdge: .top) {
+                .panelPopover(isPresented: $picking, arrowEdge: .top) {
                     HStack(spacing: 4) {
                         ForEach(Self.reactionChoices, id: \.self) { e in
                             Button { onReact(e); picking = false } label: {

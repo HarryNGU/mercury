@@ -1,7 +1,7 @@
 // The reel editor: a video editor for one recording, in the spirit of VEED. Mercury cuts the pauses straight
 // away and writes captions; you trim, split and speed up clips on the timeline, cut words from the
 // transcript, add text, zoom moments, pictures and music, style the canvas and colour, or ask Claude in
-// the chat ("cut the part about pricing", "add a title"). Saving writes the videos to Bubble Recordings/Reels.
+// the chat ("cut the part about pricing", "add a title"). Saving writes the videos to Mercury Recordings/Reels.
 
 import AppKit
 import AVFoundation
@@ -845,7 +845,7 @@ final class ReelEditor: ObservableObject {
 
     // MARK: Saving
 
-    /// Writes the chosen shapes to Bubble Recordings/Reels, then (if asked) moves the original to the Bin.
+    /// Writes the chosen shapes to Mercury Recordings/Reels, then (if asked) moves the original to the Bin.
     func save() {
         guard exporting == nil, analysis != nil else { return }
         player.pause()
@@ -1761,7 +1761,7 @@ struct ExportSheet: View {
                 }
             }
             HStack {
-                Text("Saved to Bubble Recordings › Reels").font(.system(size: 11)).foregroundStyle(SC.faint)
+                Text("Saved to Mercury Recordings › Reels").font(.system(size: 11)).foregroundStyle(SC.faint)
                 Spacer()
                 GlowButton(title: ed.toSave.isEmpty ? "Pick a shape" : "Export \(ed.toSave.count == 1 ? "1 video" : "\(ed.toSave.count) videos")", icon: "square.and.arrow.down") { ed.save() }
                     .disabled(ed.exporting != nil || ed.toSave.isEmpty)
