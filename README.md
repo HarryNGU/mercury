@@ -96,8 +96,8 @@ If you use Listen on a call, the other people's voices get transcribed too. Plea
 ## Build and install
 
 ```bash
-git clone https://github.com/HarryNGU/bubble.git
-cd bubble
+git clone https://github.com/HarryNGU/mercury.git
+cd mercury
 ./tools/make-signing-cert.sh   # once: a local signing certificate (see below)
 ./build.sh                     # builds and installs ~/Applications/Mercury.app
 ```

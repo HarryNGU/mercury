@@ -473,7 +473,7 @@ final class AppDelegate: NSObject, NSApplicationDelegate, NSMenuDelegate, NSWind
         NSApp.activate(ignoringOtherApps: true)
         let credits = NSMutableAttributedString(string: "Your ultimate personal assistant, living on your Mac.\nFree and open source. No account, no tracking.\n\n",
                                                 attributes: [.font: NSFont.systemFont(ofSize: 11), .foregroundColor: NSColor.secondaryLabelColor])
-        credits.append(NSAttributedString(string: "harryngu.github.io/bubble", attributes: [.link: URL(string: "https://harryngu.github.io/bubble/")!, .font: NSFont.systemFont(ofSize: 11)]))
+        credits.append(NSAttributedString(string: "harryngu.github.io/mercury", attributes: [.link: URL(string: "https://harryngu.github.io/mercury/")!, .font: NSFont.systemFont(ofSize: 11)]))
         let para = NSMutableParagraphStyle()
         para.alignment = .center
         credits.addAttribute(.paragraphStyle, value: para, range: NSRange(location: 0, length: credits.length))
@@ -490,17 +490,17 @@ final class AppDelegate: NSObject, NSApplicationDelegate, NSMenuDelegate, NSWind
     @objc func checkForUpdates() { Updates.check(manual: true) { [weak self] in self?.buildMainMenu() } }
     @objc func openUpdate() { if let u = Updates.available { NSWorkspace.shared.open(u.page) } }
 
-    private func web(_ path: String) { NSWorkspace.shared.open(URL(string: "https://harryngu.github.io/bubble/" + path)!) }
+    private func web(_ path: String) { NSWorkspace.shared.open(URL(string: "https://harryngu.github.io/mercury/" + path)!) }
     @objc func openHelp() { web("get-started.html") }
     @objc func openShortcutsHelp() { web("get-started.html#shortcuts") }
     @objc func openPrivacy() { web("privacy.html") }
-    @objc func openTestingGuide() { NSWorkspace.shared.open(URL(string: "https://github.com/HarryNGU/bubble/blob/main/TESTING.md")!) }
-    @objc func openGitHub() { NSWorkspace.shared.open(URL(string: "https://github.com/HarryNGU/bubble")!) }
+    @objc func openTestingGuide() { NSWorkspace.shared.open(URL(string: "https://github.com/HarryNGU/mercury/blob/main/TESTING.md")!) }
+    @objc func openGitHub() { NSWorkspace.shared.open(URL(string: "https://github.com/HarryNGU/mercury")!) }
     @objc func reportProblem() {
         let v = Bundle.main.infoDictionary?["CFBundleShortVersionString"] as? String ?? "?"
         let os = ProcessInfo.processInfo.operatingSystemVersionString
         let body = "What happened:\n\nWhat you expected:\n\nSteps to try it:\n\n---\nBubble \(v), macOS \(os)"
-        var c = URLComponents(string: "https://github.com/HarryNGU/bubble/issues/new")!
+        var c = URLComponents(string: "https://github.com/HarryNGU/mercury/issues/new")!
         c.queryItems = [URLQueryItem(name: "body", value: body)]
         if let u = c.url { NSWorkspace.shared.open(u) }
     }

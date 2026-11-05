@@ -12,7 +12,7 @@ extension Settings {
 enum Updates {
     struct Release { let version: String; let page: URL }
 
-    static let feed = URL(string: "https://harryngu.github.io/bubble/release.json")!
+    static let feed = URL(string: "https://harryngu.github.io/mercury/release.json")!
     static var current: String { Bundle.main.infoDictionary?["CFBundleShortVersionString"] as? String ?? "0" }
 
     /// A newer version found by the last check, if any.
@@ -38,7 +38,7 @@ enum Updates {
                 }
                 let public_ = json["available"] as? Bool ?? true
                 if public_ && isNewer(v, than: current) {
-                    available = Release(version: v, page: URL(string: "https://harryngu.github.io/bubble/#download")!)
+                    available = Release(version: v, page: URL(string: "https://harryngu.github.io/mercury/#download")!)
                     log("updates: \(v) available")
                     changed()
                     if manual {

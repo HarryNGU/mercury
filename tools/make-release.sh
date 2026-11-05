@@ -72,6 +72,6 @@ NOTARIZED=false
 SHA=$(cut -d' ' -f1 $DMG.sha256)
 SIZE=$(stat -f%z $DMG)
 cat > docs/release.json <<JSON
-{"version": "$VERSION", "url": "https://github.com/HarryNGU/bubble/releases/download/v$VERSION/${DMG:t}", "sha256": "$SHA", "size": $SIZE, "available": ${AVAILABLE:-false}, "notarized": $NOTARIZED, "date": "$(date +%Y-%m-%d)"}
+{"version": "$VERSION", "url": "https://github.com/HarryNGU/mercury/releases/download/v$VERSION/${DMG:t}", "sha256": "$SHA", "size": $SIZE, "available": ${AVAILABLE:-false}, "notarized": $NOTARIZED, "date": "$(date +%Y-%m-%d)"}
 JSON
 echo "Updated docs/release.json. Upload ${DMG:t} and ${DMG:t}.sha256 to a GitHub release tagged v$VERSION."

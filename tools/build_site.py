@@ -7,8 +7,8 @@ the site shares nothing about the visitor.
 from pathlib import Path
 
 DOCS = Path(__file__).resolve().parent.parent / "docs"
-REPO = "https://github.com/HarryNGU/bubble"
-SITE = "https://harryngu.github.io/bubble/"
+REPO = "https://github.com/HarryNGU/mercury"
+SITE = "https://harryngu.github.io/mercury/"
 UPDATED = "3 November 2026"
 
 GLYPH = {
@@ -400,7 +400,7 @@ PRIVACY = f"""
 <p>Mercury is a free, open source Mac app that I make. This policy explains what happens to your information when you use the app and this website. In short, I don't collect anything, and Mercury only sends information to other services when you use a feature that needs them.</p>
 
 <h2>Who makes Mercury</h2>
-<p>Mercury is an independent open source project published at <a href="{REPO}">github.com/HarryNGU/bubble</a>. There are no Mercury accounts and no Mercury servers. You can reach me through <a href="{REPO}/issues">GitHub issues</a>.</p>
+<p>Mercury is an independent open source project published at <a href="{REPO}">github.com/HarryNGU/mercury</a>. There are no Mercury accounts and no Mercury servers. You can reach me through <a href="{REPO}/issues">GitHub issues</a>.</p>
 
 <h2>What I collect</h2>
 <p>Nothing. Mercury has no accounts, analytics, crash reporting, advertising or tracking. I don't receive your recordings, voice, screenshots, messages, contacts or settings, and I couldn't see them even if I wanted to.</p>

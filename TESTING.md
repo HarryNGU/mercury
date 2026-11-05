@@ -87,7 +87,7 @@ Tick these off as you go, and make a note of anything that's odd, slow, confusin
 
 ## Reporting a problem
 
-Open an issue at [github.com/HarryNGU/bubble/issues](https://github.com/HarryNGU/bubble/issues), or just message me, with:
+Open an issue at [github.com/HarryNGU/mercury/issues](https://github.com/HarryNGU/mercury/issues), or just message me, with:
 
 - what you did, what you expected, and what happened instead;
 - a screenshot or short screen recording if you can;

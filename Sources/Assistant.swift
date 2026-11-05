@@ -1863,7 +1863,7 @@ struct RichAnswer: View {
 // MARK: - Pictures Mercury finds itself
 
 enum PictureFetch {
-    static let agent = "Mercury/1.0 (https://github.com/HarryNGU/bubble)"
+    static let agent = "Mercury/1.0 (https://github.com/HarryNGU/mercury)"
 
     static func image(_ url: URL) async -> NSImage? {
         var req = URLRequest(url: url)

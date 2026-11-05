@@ -1144,7 +1144,7 @@ struct SettingsPage: View {
                     SecondaryButton(title: "Show again") { Settings.onboardScene = 0; Settings.onboarded = false }
                 }
                 SettingRow(title: "Mercury", subtitle: "Free and open source. No account, no tracking.", divider: false) {
-                    SecondaryButton(title: "GitHub", icon: "arrow.up.right") { NSWorkspace.shared.open(URL(string: "https://github.com/HarryNGU/bubble")!) }
+                    SecondaryButton(title: "GitHub", icon: "arrow.up.right") { NSWorkspace.shared.open(URL(string: "https://github.com/HarryNGU/mercury")!) }
                 }
             }
         }
