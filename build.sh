@@ -41,6 +41,9 @@ else
   codesign --force --deep --sign - -r='designated => identifier "io.github.bubble-recorder"' "$APP"
 fi
 
+# NO_INSTALL=1 leaves the app in build/ so tests can run without touching the installed copy.
+if [[ -n ${NO_INSTALL:-} ]]; then echo "Built $APP (not installed)"; exit 0; fi
+
 mkdir -p ~/Applications
 rm -rf ~/Applications/Mercury.app ~/Applications/Bubble.app  # Bubble.app is the old name of the same app
 mv "$APP" ~/Applications/  # keep a single copy so macOS permissions stay attached to one app

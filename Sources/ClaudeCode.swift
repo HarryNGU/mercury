@@ -42,7 +42,42 @@ final class ClaudeCodeSession: @unchecked Sendable {
         let home = FileManager.default.homeDirectoryForCurrentUser.path
         return [home + "/.local/bin/claude", "/opt/homebrew/bin/claude", "/usr/local/bin/claude", home + "/.claude/local/claude"]
             .first { FileManager.default.isExecutableFile(atPath: $0) }
-            .map { URL(fileURLWithPath: $0) }
+            .map { URL(fileURLWithPath: $0) } ?? desktopAppCopy
+    }
+
+    /// The Claude desktop app keeps its own copy of Claude Code. Using it means people who already have the
+    /// app don't need Terminal, Node or an installer. Newest version first.
+    static var desktopAppCopy: URL? {
+        let fm = FileManager.default
+        let root = fm.homeDirectoryForCurrentUser.appendingPathComponent("Library/Application Support/Claude/claude-code")
+        let versions = ((try? fm.contentsOfDirectory(atPath: root.path)) ?? [])
+            .sorted { $0.compare($1, options: .numeric) == .orderedDescending }
+        for v in versions {
+            for build in (try? fm.contentsOfDirectory(atPath: root.appendingPathComponent(v).path)) ?? [] {
+                let bin = root.appendingPathComponent("\(v)/\(build)/claude.app/Contents/MacOS/claude")
+                if fm.isExecutableFile(atPath: bin.path) { return bin }
+            }
+        }
+        return nil
+    }
+
+    /// Opens a Terminal window that signs Claude Code in. Your browser opens for the Claude sign in; nothing is
+    /// typed for you, and Mercury never sees your password.
+    static func openSignIn() {
+        guard let bin = binary else { return }
+        let file = FileManager.default.temporaryDirectory.appendingPathComponent("Sign in to Claude for Mercury.command")
+        let script = """
+        #!/bin/zsh
+        clear
+        echo "Signing Claude in for Mercury. Your browser will open: sign in there, then come back to Mercury."
+        echo
+        '\(bin.path.replacingOccurrences(of: "'", with: "'\\''"))' auth login
+        echo
+        echo "All done. You can close this window."
+        """
+        try? script.write(to: file, atomically: true, encoding: .utf8)
+        try? FileManager.default.setAttributes([.posixPermissions: 0o700], ofItemAtPath: file.path)
+        NSWorkspace.shared.open(file)
     }
 
     /// Ask Mercury's chat, or a reel editor job: each keeps its own conversation, instructions and rules.

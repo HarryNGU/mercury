@@ -1183,6 +1183,9 @@ struct SettingsPage: View {
                 SettingRow(title: "Welcome tour", subtitle: "Meet Mercury again: three tricks, connecting your AI and its promises.") {
                     SecondaryButton(title: "Show again") { Settings.onboardScene = 0; Settings.onboarded = false }
                 }
+                SettingRow(title: "Something not right?", subtitle: "Tell Harry in a few words, with a screenshot you can draw on or a quick recording.") {
+                    SecondaryButton(title: "Report a problem") { ReportCenter.shared.show() }
+                }
                 SettingRow(title: "Mercury", subtitle: "Free and open source. No account, no tracking.", divider: false) {
                     HStack(spacing: 8) {
                         // The licences of the open source software built into Mercury.

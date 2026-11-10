@@ -146,8 +146,8 @@ struct OnboardingView: View {
                 l += ["Good news: Claude Code is on this Mac and you're signed in.",
                       "If I use it, I'll know your notes and the apps you've connected to it, like Gmail or Calendar, from day one. Anything I do for you still needs your OK."]
             case .signedOut:
-                l += ["Claude Code is on this Mac, but it isn't signed in yet.",
-                      "Open Terminal, type claude, then /login. Or use an Anthropic API key instead."]
+                l += ["Claude is on this Mac, but it isn't signed in yet.",
+                      "Click Sign in with Claude. Your browser opens, you sign in with your Claude Pro or Max account, and I'll notice by myself."]
             case .missing:
                 l += ["I couldn't find Claude Code on this Mac. It's the best way to share your context with me.",
                       "You can install it, or use an Anthropic API key if you have one."]
@@ -365,7 +365,7 @@ struct OnboardingView: View {
                 case .signedIn:
                     ReplyChips([("Use my Claude Code", true), ("Use an API key", false), ("Decide later", false)]) { pickBrain($0) }
                 case .signedOut:
-                    ReplyChips([("I've signed in, check again", true), ("Use an API key", false), ("Decide later", false)]) { pickBrain($0) }
+                    ReplyChips([("Sign in with Claude", true), ("Use an API key", false), ("Decide later", false)]) { pickBrain($0) }
                 case .missing:
                     VStack(alignment: .leading, spacing: 10) {
                         HStack(spacing: 10) {
@@ -389,6 +389,16 @@ struct OnboardingView: View {
         case 0:
             switch brainState {
             case .signedIn: brain = .claudeCode; say("Use my Claude Code") { go(.promises) }
+            case .signedOut:
+                ClaudeCodeSession.openSignIn()
+                // Watch for the sign in finishing, for up to five minutes.
+                Task { @MainActor in
+                    for _ in 0..<150 {
+                        try? await Task.sleep(for: .seconds(2))
+                        if scene != .brain { return }
+                        if await Self.claudeSignedIn() { Haptic.big(); Sounds.tour(.granted); checkBrain(replay: true); return }
+                    }
+                }
             default: checkBrain(replay: true)
             }
         case 1: withAnimation(.spring(duration: 0.4)) { showKeyField = true }

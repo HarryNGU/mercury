@@ -363,6 +363,10 @@ final class WhisperServer: @unchecked Sendable {
     private var process: Process?
     private var port: Int = 0
     private var idle: Timer?
+    /// A secret for this launch, like the one BubbleTools uses. whisper-server can't check a key, so the
+    /// secret is the start of every address it answers; anything else, a web page included, gets 404.
+    /// (Other programs running as you can still read it from the process list, as with any local server.)
+    private let secret = UUID().uuidString.replacingOccurrences(of: "-", with: "") + UUID().uuidString.replacingOccurrences(of: "-", with: "")
 
     private var serverBinary: URL? {
         Whisper.binary.map { $0.deletingLastPathComponent().appendingPathComponent("whisper-server") }
@@ -377,7 +381,7 @@ final class WhisperServer: @unchecked Sendable {
         port = Int.random(in: 52_000...59_000)
         // Short bursts of speech are too little to detect a language from, so "work it out" means the Mac's.
         let lang = Settings.speechLanguage == "auto" ? (Locale.current.language.languageCode?.identifier ?? "en") : Settings.speechLanguage
-        let args = [bin.path, "-m", Whisper.modelURL.path, "--host", "127.0.0.1", "--port", "\(port)",
+        let args = [bin.path, "-m", Whisper.modelURL.path, "--host", "127.0.0.1", "--port", "\(port)", "--request-path", "/\(secret)",
                     "-t", "\(max(4, ProcessInfo.processInfo.activeProcessorCount - 2))", "-l", lang, "-nt"]
         // The server holds about 600 MB, so it must never outlive Mercury, even if Mercury crashes or is
         // force quit: a small shell minder runs it and stops it as soon as Mercury is gone.
@@ -412,7 +416,7 @@ final class WhisperServer: @unchecked Sendable {
         // The server may still be loading the model: try for up to ~20 seconds.
         let deadline = Date().addingTimeInterval(20)
         while Date() < deadline {
-            var req = URLRequest(url: URL(string: "http://127.0.0.1:\(port)/inference")!)
+            var req = URLRequest(url: URL(string: "http://127.0.0.1:\(port)/\(secret)/inference")!)
             req.httpMethod = "POST"
             req.timeoutInterval = 6
             req.setValue("multipart/form-data; boundary=\(boundary)", forHTTPHeaderField: "Content-Type")

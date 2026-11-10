@@ -33,12 +33,20 @@ enum CaptureSource {
     }
 }
 
+/// A sample buffer passed from the thread that made it to the writer queue, which then owns it.
+private struct SampleHandoff: @unchecked Sendable { let buffer: CMSampleBuffer }
+
 struct RecordError: LocalizedError {
     let message: String
     var errorDescription: String? { message }
 }
 
-final class Recorder: NSObject, SCStreamOutput, SCStreamDelegate {
+/// Two kinds of state live here, each owned by one thread, which is why the class can be shared
+/// across threads (`@unchecked Sendable`) without locks:
+/// the capture controls (`stream`, `windowTarget`, `overlays`, `recordedRect`, `url`) belong to the
+/// main actor, so `start`, `stop`, `setOverlays` and the mic revival never race each other;
+/// the writer state (the writer, its inputs, timestamps, pause) is only touched on `queue`.
+final class Recorder: NSObject, SCStreamOutput, SCStreamDelegate, @unchecked Sendable {
     private var stream: SCStream?
     private let mic = MicCapture()
     private var writer: AVAssetWriter?
@@ -71,7 +79,7 @@ final class Recorder: NSObject, SCStreamOutput, SCStreamDelegate {
     private var redactor: Redactor?
     private var overlays: [Int] = []
 
-    func start(source: CaptureSource, excluding: [Int], bubble: [Int], mic useMic: Bool,
+    @MainActor func start(source: CaptureSource, excluding: [Int], bubble: [Int], mic useMic: Bool,
                noiseSuppression: Bool, systemAudio: Bool) async throws {
         windowTarget = nil
         overlays = []
@@ -225,7 +233,11 @@ final class Recorder: NSObject, SCStreamOutput, SCStreamDelegate {
         // Start the mic first: voice processing takes a moment to warm up, and video only
         // begins with the first screen frame, so the audio is ready from the first second.
         if useMic {
-            mic.onSampleBuffer = { [weak self] sb in self?.queue.async { self?.append(sb, to: self?.micIn) } }
+            mic.onSampleBuffer = { [weak self] sb in
+                // The mic hands each buffer over and never touches it again, so passing it to the writer queue is safe.
+                let handoff = SampleHandoff(buffer: sb)
+                self?.queue.async { self?.append(handoff.buffer, to: self?.micIn) }
+            }
             do { try await mic.start(noiseSuppression: noiseSuppression) } catch {
                 log("mic start failed (\(error)); retrying plain mic")
                 try await mic.start(noiseSuppression: false)
@@ -269,7 +281,7 @@ final class Recorder: NSObject, SCStreamOutput, SCStreamDelegate {
 
     func stallMicForTesting() { mic.stallForTesting() }
 
-    func stop(discarding: Bool) async {
+    @MainActor func stop(discarding: Bool) async {
         if let r = queue.sync(execute: { redactor }) { log("blur: \(r.spotted) private detail\(r.spotted == 1 ? "" : "s") blurred") }
         mic.stop()
         if let stream { try? await stream.stopCapture() }
@@ -483,8 +495,10 @@ final class Recorder: NSObject, SCStreamOutput, SCStreamDelegate {
     func stream(_ stream: SCStream, didStopWithError error: Error) {
         log("stream stopped with error: \(error)")
         mic.stop()
-        self.stream = nil
         queue.async { self.finishWriting(discarding: false) { } }
-        DispatchQueue.main.async { self.onError?(error) }
+        DispatchQueue.main.async {
+            self.stream = nil  // capture controls belong to the main actor
+            self.onError?(error)
+        }
     }
 }

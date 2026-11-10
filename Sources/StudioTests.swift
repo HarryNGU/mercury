@@ -15,6 +15,9 @@ import SwiftUI
 @MainActor
 enum StudioTests {
     static func run(_ args: [String]) -> Bool {
+        if args.contains("--unittests") {
+            exit(UnitTests.run() ? 0 : 1)
+        }
         if let i = args.firstIndex(of: "--studiorender"), i + 4 < args.count {
             Task { await render(file(args[i + 1]), plan: args[i + 2], shape: args[i + 3], out: args[i + 4]) }
             return true
@@ -97,7 +100,7 @@ enum StudioTests {
         // `--studioplay <recording>`: play, pause, change the look, play again; logs whether the clock keeps up.
         if let i = args.firstIndex(of: "--studioplay"), i + 1 < args.count {
             shotWindow(file(args[i + 1]))
-            func after(_ s: Double, _ f: @escaping () -> Void) { DispatchQueue.main.asyncAfter(deadline: .now() + s, execute: f) }
+            func after(_ s: Double, _ f: @escaping @MainActor () -> Void) { DispatchQueue.main.asyncAfter(deadline: .now() + s) { MainActor.assumeIsolated(f) } }
             after(5) {
                 guard let ed = EditorPage.lastEditor else { log("studioplay: no editor"); NSApp.terminate(nil); return }
                 ed.seek(1); ed.togglePlay()
@@ -261,7 +264,7 @@ enum StudioTests {
                 hc.sizingOptions = []
                 p.contentViewController = hc
                 p.orderBack(nil)
-                let wait = { (s: Double, f: @escaping () -> Void) in DispatchQueue.main.asyncAfter(deadline: .now() + s, execute: f) }
+                let wait = { (s: Double, f: @escaping @MainActor () -> Void) in DispatchQueue.main.asyncAfter(deadline: .now() + s) { MainActor.assumeIsolated(f) } }
                 wait(1) {
                     log("panelshot: window measured the conversation at \(m.fitSize)")
                     m.panelSize = CGSize(width: 500, height: 400)
@@ -311,6 +314,44 @@ enum StudioTests {
                     try? rep.representation(using: .png, properties: [:])?.write(to: URL(fileURLWithPath: args[i + 1]))
                 }
                 log("tourshot: wrote \(args[i + 1])")
+                NSApp.terminate(nil)
+            }
+            return true
+        }
+        if let i = args.firstIndex(of: "--reportshot"), i + 1 < args.count {
+            // The report window and the drawing step, offscreen, with a drawn stand in screenshot, plus the report
+            // folder it would attach. Sends nothing and opens no email. Writes OUT.png and OUT-draw.png.
+            let pic = NSImage(size: NSSize(width: 1200, height: 750), flipped: false) { r in
+                NSColor(white: 0.93, alpha: 1).setFill(); r.fill()
+                NSColor.systemBlue.setFill(); NSBezierPath(roundedRect: NSRect(x: 420, y: 300, width: 360, height: 120), xRadius: 16, yRadius: 16).fill()
+                return true
+            }
+            let center = ReportCenter.shared, m = center.model
+            m.text = "The record button did nothing the second time I pressed it."
+            let ring = (0...40).map { k -> CGPoint in let a = Double(k) / 40 * 2 * .pi; return CGPoint(x: 0.5 + 0.18 * cos(a), y: 0.52 + 0.14 * sin(a)) }
+            let mark = MarkupView(image: pic, strokes: [ring], onDone: { _ in }, onCancel: {})
+            m.rawShot = pic
+            m.shot = MarkupView.render(pic, [ring])
+            func snap(_ v: some View, _ size: NSSize, _ path: String) {
+                let host = NSHostingView(rootView: v.frame(width: size.width, height: size.height))
+                let w = NSWindow(contentRect: NSRect(x: -30000, y: -30000, width: size.width, height: size.height), styleMask: [.borderless], backing: .buffered, defer: false)
+                w.appearance = NSAppearance(named: .aqua); w.backgroundColor = .windowBackgroundColor
+                host.wantsLayer = true; host.layer?.backgroundColor = NSColor.windowBackgroundColor.cgColor
+                w.contentView = host; w.orderBack(nil); host.layoutSubtreeIfNeeded()
+                if let rep = host.bitmapImageRepForCachingDisplay(in: host.bounds) {
+                    host.cacheDisplay(in: host.bounds, to: rep)
+                    try? rep.representation(using: .png, properties: [:])?.write(to: URL(fileURLWithPath: path))
+                }
+            }
+            DispatchQueue.main.asyncAfter(deadline: .now() + 0.5) {
+                snap(ReportView(model: m, center: center), NSSize(width: 640, height: 600), args[i + 1])
+                snap(mark, NSSize(width: 640, height: 600), args[i + 1].replacingOccurrences(of: ".png", with: "-draw.png"))
+                if let dir = try? center.package() {
+                    let names = (try? FileManager.default.contentsOfDirectory(atPath: dir.path)) ?? []
+                    let note = (try? String(contentsOf: dir.appendingPathComponent("Report.txt"), encoding: .utf8)) ?? ""
+                    log("reportshot: folder holds \(names.sorted()); note starts \(note.prefix(60).replacingOccurrences(of: "\n", with: " | ")); address set \(!Reports.address.isEmpty)")
+                    try? FileManager.default.removeItem(at: dir)
+                }
                 NSApp.terminate(nil)
             }
             return true

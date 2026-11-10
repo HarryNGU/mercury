@@ -379,6 +379,7 @@ final class AppDelegate: NSObject, NSApplicationDelegate, NSMenuDelegate, NSWind
             update ?? mine("Check for Updates…", #selector(checkForUpdates)),
             .separator(),
             mine("Settings…", #selector(showSettings), key: ","),
+            mine("Report a Problem…", #selector(reportProblem)),
             .separator(),
             services,
             .separator(),
@@ -496,14 +497,8 @@ final class AppDelegate: NSObject, NSApplicationDelegate, NSMenuDelegate, NSWind
     @objc func openPrivacy() { web("privacy.html") }
     @objc func openTestingGuide() { NSWorkspace.shared.open(URL(string: "https://github.com/HarryNGU/mercury/blob/main/TESTING.md")!) }
     @objc func openGitHub() { NSWorkspace.shared.open(URL(string: "https://github.com/HarryNGU/mercury")!) }
-    @objc func reportProblem() {
-        let v = Bundle.main.infoDictionary?["CFBundleShortVersionString"] as? String ?? "?"
-        let os = ProcessInfo.processInfo.operatingSystemVersionString
-        let body = "What happened:\n\nWhat you expected:\n\nSteps to try it:\n\n---\nBubble \(v), macOS \(os)"
-        var c = URLComponents(string: "https://github.com/HarryNGU/mercury/issues/new")!
-        c.queryItems = [URLQueryItem(name: "body", value: body)]
-        if let u = c.url { NSWorkspace.shared.open(u) }
-    }
+    /// Report a Problem: words, a screenshot to draw on, or a recording, sent as an email (see Reports.swift).
+    @objc func reportProblem() { ReportCenter.shared.show() }
 
     /// Connects the SwiftUI views to the app's behaviour.
     private func wireModel() {
@@ -672,6 +667,7 @@ final class AppDelegate: NSObject, NSApplicationDelegate, NSMenuDelegate, NSWind
         menu.addItem(.separator())
         menu.addItem(item("Show Mercury Window", #selector(showLauncherClicked)))
         menu.addItem(item("Open Recordings Folder", #selector(openFolder)))
+        menu.addItem(item("Report a Problem…", #selector(reportProblem)))
         menu.addItem(item("Quit Mercury", #selector(quit), key: "q"))
     }
 
@@ -849,7 +845,7 @@ final class AppDelegate: NSObject, NSApplicationDelegate, NSMenuDelegate, NSWind
                 model.saving = false
                 controls.show(on: screen)
                 setIcon()
-                titleTimer = Timer.scheduledTimer(withTimeInterval: 0.25, repeats: true) { [weak self] _ in self?.tick() }
+                titleTimer = Timer.scheduledTimer(withTimeInterval: 0.25, repeats: true) { [weak self] _ in MainActor.assumeIsolated { self?.tick() } }
                 if CommandLine.arguments.contains("restart"), selftestSeconds != nil, !selftestRestarted {  // restart once, 2s in
                     selftestRestarted = true
                     selftestSeconds = 4
@@ -938,6 +934,8 @@ final class AppDelegate: NSObject, NSApplicationDelegate, NSMenuDelegate, NSWind
             return
         }
         model.refreshRecents()
+        // A recording made from Report a Problem goes into that report instead.
+        if url == nil, ReportCenter.shared.recordingFinished(nil) { return }
         if restarting {
             restarting = false
             start()
@@ -952,6 +950,7 @@ final class AppDelegate: NSObject, NSApplicationDelegate, NSMenuDelegate, NSWind
                                                        recordedAt: recordingStartedAt) {
             url = named
         }
+        if ReportCenter.shared.recordingFinished(url) { return }
         if !testing {
             copyToClipboard(url)
             showSavedToast(on: NSScreen.underMouse, url: url)

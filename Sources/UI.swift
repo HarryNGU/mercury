@@ -152,8 +152,7 @@ final class RecentRecording: ObservableObject, Identifiable {
             gen.appliesPreferredTrackTransform = true
             gen.maximumSize = CGSize(width: 240, height: 160)
             if let (cg, _) = try? await gen.image(at: CMTime(seconds: 0.5, preferredTimescale: 600)) {
-                let img = NSImage(cgImage: cg, size: .zero)
-                await MainActor.run { self.thumbnail = img }
+                await MainActor.run { self.thumbnail = NSImage(cgImage: cg, size: .zero) }
             }
         }
     }
