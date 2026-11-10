@@ -1180,11 +1180,17 @@ struct SettingsPage: View {
                 }
             }
             SettingsGroup(title: "About") {
-                SettingRow(title: "Welcome tour", subtitle: "Meet Mercury again: permissions, connecting your AI and its promises.") {
+                SettingRow(title: "Welcome tour", subtitle: "Meet Mercury again: three tricks, connecting your AI and its promises.") {
                     SecondaryButton(title: "Show again") { Settings.onboardScene = 0; Settings.onboarded = false }
                 }
                 SettingRow(title: "Mercury", subtitle: "Free and open source. No account, no tracking.", divider: false) {
-                    SecondaryButton(title: "GitHub", icon: "arrow.up.right") { NSWorkspace.shared.open(URL(string: "https://github.com/HarryNGU/mercury")!) }
+                    HStack(spacing: 8) {
+                        // The licences of the open source software built into Mercury.
+                        if let notices = Bundle.main.url(forResource: "Open Source Notices", withExtension: "txt") {
+                            SecondaryButton(title: "Licences") { NSWorkspace.shared.open(notices) }
+                        }
+                        SecondaryButton(title: "GitHub", icon: "arrow.up.right") { NSWorkspace.shared.open(URL(string: "https://github.com/HarryNGU/mercury")!) }
+                    }
                 }
             }
         }

@@ -22,6 +22,17 @@ if [[ -x /opt/homebrew/bin/whisper-cli && -f /opt/homebrew/opt/whisper.cpp/lib/l
     for rp in $(otool -l "$f" | awk '/LC_RPATH/ {getline; getline; print $2}'); do install_name_tool -delete_rpath "$rp" "$f" 2>/dev/null; done
   done
   if otool -L "$H"/* | grep -q /opt/homebrew; then echo "warning: whisper copy still points at Homebrew"; fi
+  # Their licences travel with them (MIT for whisper.cpp and ggml, Apache 2.0 with LLVM exceptions for libomp).
+  N="$APP/Contents/Resources/Open Source Notices.txt"
+  {
+    print "Mercury includes the open source software below. Thank you to its authors.\n"
+    print "Mercury itself is free and open source under the MIT licence: https://github.com/HarryNGU/mercury\n"
+    print "The speech model Mercury downloads on first use is OpenAI's Whisper (MIT licence), in the format made by whisper.cpp.\n"
+    for name lic in "whisper.cpp" /opt/homebrew/opt/whisper.cpp/LICENSE "ggml" /opt/homebrew/opt/ggml/LICENSE "LLVM OpenMP runtime (libomp)" /opt/homebrew/opt/libomp/LICENSE.TXT; do
+      print "\n================================================================\n$name\n================================================================\n"
+      cat "$lic"
+    done
+  } > "$N"
 else
   echo "note: whisper.cpp not found, so this build has no built in voice (brew install whisper-cpp)"
 fi
