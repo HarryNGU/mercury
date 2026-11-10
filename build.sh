@@ -24,10 +24,16 @@ fi
 swiftc -O -swift-version 5 -target arm64-apple-macos15.0 "${FLAGS[@]}" \
   Sources/*.swift -o "$APP/Contents/MacOS/Mercury"
 
+# Voice: carry whisper.cpp inside the app so dictation and captions work on Macs without Homebrew.
+H="$APP/Contents/Helpers/whisper"
+./tools/bundle-whisper.sh "$APP"
+
 # Sign with the local "Bubble Local Signing" certificate (login keychain) so macOS sees the
 # same app on every rebuild and keeps its Screen Recording, camera and mic permissions.
 # Falls back to ad-hoc signing if the certificate isn't there.
 IDENTITY=$(security find-identity -p codesigning | awk '/"Bubble Local Signing"/ {print $2; exit}')
+# The voice helpers are signed first, one by one, so the app's signature covers them.
+if [[ -d $H ]]; then for f in "$H"/*; do codesign --force --sign "${IDENTITY:--}" "$f"; done; fi
 if [[ -n $IDENTITY ]]; then
   codesign --force --deep --sign "$IDENTITY" "$APP"
 else

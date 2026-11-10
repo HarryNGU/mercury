@@ -1,7 +1,8 @@
-// First-run welcome, told as a short conversation with Mercury. Mercury introduces itself, asks
-// what to call you (optional, kept on this Mac), lets you pick what it helps with, asks for each
-// permission one at a time with the reason, offers to use the Claude you already have, and makes
-// its promises before Ask Mercury can see or hear anything. You can run it again from Settings.
+// First-run welcome, told as a short conversation with Mercury. Instead of describing itself, Mercury
+// shows three tricks live: it writes down what you say and tidies it, puts you in the camera bubble,
+// and names what you were working on. Each trick asks for its macOS permission only at the moment
+// it needs it. Then it connects the Claude you already have and makes its promises before Ask
+// Mercury can see or hear anything. Nothing seen or heard here is saved. Run it again from Settings.
 
 import AppKit
 import AVFoundation
@@ -25,7 +26,7 @@ struct OnboardingView: View {
     @ObservedObject var permissions: Permissions
     let onDone: () -> Void
 
-    enum Scene: Int, CaseIterable { case hello, name, help, permissions, brain, promises, ready }
+    enum Scene: Int, CaseIterable { case hello, name, talk, camera, screen, permissions, brain, promises, ready }
     enum BrainState { case checking, signedIn, signedOut, missing }
 
     // Testing: `--onboard N` opens scene N.
@@ -59,6 +60,8 @@ struct OnboardingView: View {
     var body: some View {
         ZStack {
             OnboardBackdrop()
+            Stars().allowsHitTesting(false)
+            if scene == .ready { Starburst().allowsHitTesting(false) }
             VStack(spacing: 0) {
                 topBar
                 GeometryReader { geo in
@@ -66,6 +69,7 @@ struct OnboardingView: View {
                     ScrollView {
                         VStack(alignment: .leading, spacing: 10) {
                             if scene == .ready { ReadyOrb().frame(maxWidth: .infinity).padding(.bottom, 14) }
+                            if scene == .hello { BirthOrb().frame(maxWidth: .infinity).padding(.bottom, 10) }
                             ForEach(Array(lines.prefix(revealed).enumerated()), id: \.offset) { i, text in
                                 BubbleLine(text: text, avatar: i == 0)
                                     .transition(.asymmetric(insertion: .scale(scale: 0.92, anchor: .bottomLeading).combined(with: .opacity), removal: .opacity))
@@ -93,7 +97,7 @@ struct OnboardingView: View {
                             Color.clear.frame(height: 1).id("end")
                         }
                         .frame(maxWidth: 680, alignment: .leading)
-                        .padding(.horizontal, 40).padding(.top, max(28, geo.size.height * (scene == .ready ? 0.04 : 0.13))).padding(.bottom, 48)
+                        .padding(.horizontal, 40).padding(.top, max(28, geo.size.height * (scene == .ready || scene == .hello ? 0.04 : 0.13))).padding(.bottom, 48)
                         .frame(maxWidth: .infinity)
                     }
                     .scrollIndicators(.never)
@@ -103,7 +107,13 @@ struct OnboardingView: View {
             }
         }
         .environment(\.colorScheme, .dark)
-        .onAppear { permissions.refresh(); play(animated: true) }
+        .onAppear {
+            permissions.refresh()
+            if scene == .hello { Sounds.tour(.hello) }
+            play(animated: true)
+        }
+        // A little chime each time you allow something, the moment macOS confirms it.
+        .onChange(of: asks.filter(\.granted).count) { old, new in if new > old, scene == .permissions { Sounds.tour(new % 2 == 0 ? .granted2 : .granted) } }
     }
 
     // MARK: What Mercury says
@@ -114,13 +124,15 @@ struct OnboardingView: View {
         switch scene {
         case .hello:
             return ["Hi, I'm Mercury 👋",
-                    "I'm the ultimate personal assistant, and I live on your Mac. Whatever you're working on, I can help: answer questions about what's on your screen, write and reply for you, type what you say, record and edit videos, and get tasks done.",
-                    "Let's get to know each other. It takes about two minutes."]
+                    "Three quick tricks and you're set. What should I call you?"]
         case .name:
-            return ["First, what should I call you?"]
-        case .help:
-            return ["Lovely to meet you\(you)! Here's what I can do.",
-                    "Keep the ones you'd like. You can change this any time."]
+            return []
+        case .talk:
+            return ["Trick one\(you): click the mic and say anything, in any language, ums and all."]
+        case .camera:
+            return ["Trick two: you, in a bubble."]
+        case .screen:
+            return ["Trick three: I'll tell you what you were working on."]
         case .permissions:
             if neededKinds.isEmpty { return ["Nothing to allow for what you picked. Easy."] }
             if alreadyAllowed { return ["You've already allowed everything I need. Thank you for trusting me 💙"] }
@@ -142,66 +154,65 @@ struct OnboardingView: View {
             }
             return l
         case .promises:
-            return ["Before we start, a few promises from me.",
-                    "And one thing I'll ask of you: if I'm listening to a call, let the other people know."]
+            return ["Last thing: my promises to you."]
         case .ready:
-            return ["That's it\(you)! I'm ready when you are.",
-                    "Here's how to find me. Click a shortcut to change it."]
+            return ["You're all set\(you)! Here's how to find me."]
         }
     }
 
     // MARK: What you can do
 
+    private var nameEntry: some View {
+        VStack(alignment: .trailing, spacing: 12) {
+            HStack(spacing: 10) {
+                Spacer(minLength: 0)
+                TextField("", text: $name, prompt: Text("Your first name").foregroundColor(.white.opacity(0.35)))
+                    .textFieldStyle(.plain).font(.system(size: 17)).foregroundStyle(.white)
+                    .focused($nameFocused)
+                    .onSubmit { saveName() }
+                    .padding(.horizontal, 16).frame(width: 280, height: 46)
+                    .background(glass(14))
+                Chip(title: "That's me", primary: true) { saveName() }
+                    .disabled(clean(name).isEmpty).opacity(clean(name).isEmpty ? 0.4 : 1)
+            }
+            // Mercury reacts as you type, so it already feels like someone's there.
+            if !clean(name).isEmpty {
+                Text("Hi, \(clean(name).prefix(40)) 👋").font(.system(size: 13, weight: .medium)).foregroundStyle(.white.opacity(0.7))
+                    .transition(.opacity)
+            }
+            HStack(spacing: 14) {
+                Spacer(minLength: 0)
+                Chip(title: "Skip", primary: false) { name = ""; Settings.userName = ""; say("I'd rather not say") { go(.talk) } }
+            }
+            Text("Only used to greet you. It never leaves this Mac.")
+                .font(.system(size: 12.5)).foregroundStyle(.white.opacity(0.55))
+        }
+        .frame(maxWidth: .infinity, alignment: .trailing)
+        .animation(.easeOut(duration: 0.2), value: clean(name).isEmpty)
+        .onAppear { DispatchQueue.main.asyncAfter(deadline: .now() + 0.1) { nameFocused = true } }
+    }
+
     @ViewBuilder private var actions: some View {
         switch scene {
         case .hello:
-            VStack(alignment: .leading, spacing: 14) {
-                ReplyChips([("Nice to meet you!", true)]) { _ in say("Nice to meet you!") { go(.name) } }
-                Label("Everything stays on this Mac unless you use something that needs the internet. No account, no tracking.", systemImage: "lock.fill")
-                    .font(.system(size: 12.5)).foregroundStyle(.white.opacity(0.55))
-            }
+            nameEntry
 
         case .name:
-            VStack(alignment: .trailing, spacing: 12) {
-                HStack(spacing: 10) {
-                    Spacer(minLength: 0)
-                    TextField("", text: $name, prompt: Text("Your first name").foregroundColor(.white.opacity(0.35)))
-                        .textFieldStyle(.plain).font(.system(size: 17)).foregroundStyle(.white)
-                        .focused($nameFocused)
-                        .onSubmit { saveName() }
-                        .padding(.horizontal, 16).frame(width: 280, height: 46)
-                        .background(glass(14))
-                    Chip(title: "That's me", primary: true) { saveName() }
-                        .disabled(clean(name).isEmpty).opacity(clean(name).isEmpty ? 0.4 : 1)
-                }
-                HStack(spacing: 14) {
-                    Spacer(minLength: 0)
-                    Chip(title: "Skip", primary: false) { name = ""; Settings.userName = ""; say("I'd rather not say") { go(.help) } }
-                }
-                Text("Only used to greet you. It never leaves this Mac.")
-                    .font(.system(size: 12.5)).foregroundStyle(.white.opacity(0.55))
-            }
-            .frame(maxWidth: .infinity, alignment: .trailing)
-            .onAppear { DispatchQueue.main.asyncAfter(deadline: .now() + 0.1) { nameFocused = true } }
+            nameEntry
 
-        case .help:
-            VStack(alignment: .leading, spacing: 18) {
-                HStack(alignment: .top, spacing: 12) {
-                    FeatureCard(on: $assist, glyph: .assist, title: "Ask me anything", keys: ShortcutCenter.shared.label(.assist),
-                                detail: "I see your screen when you ask, answer questions, write emails, find pictures and videos, and do tasks with your OK.",
-                                example: "“Reply to this and say I'll be there at 6.”")
-                    FeatureCard(on: $dictate, glyph: .dictate, title: "Talk instead of typing", keys: ShortcutCenter.shared.label(.dictate),
-                                detail: "Double-tap Option in any app and just speak. I'll type a tidy version where your cursor is.",
-                                example: "“Running ten minutes late, sorry!”")
-                    FeatureCard(on: $record, glyph: .record, title: "Record and share", keys: ShortcutCenter.shared.label(.record),
-                                detail: "Record your screen with your face in a bubble, then turn it into captioned reels in one click.",
-                                example: "Tutorials, demos, quick updates")
-                }
-                let none = !(record || dictate || assist)
-                ReplyChips([(none ? "Pick at least one" : "Sounds good", true)]) { _ in
-                    say("Sounds good") { go(.permissions) }
-                }
-                .disabled(none).opacity(none ? 0.4 : 1)
+        case .talk:
+            TalkTrick(permissions: permissions) { worked in
+                say(worked ? "Whoa" : "Next trick") { go(.camera) }
+            }
+
+        case .camera:
+            CameraTrick(permissions: permissions) { worked in
+                say(worked ? "That's so cool" : "Maybe later") { go(.screen) }
+            }
+
+        case .screen:
+            ScreenTrick(permissions: permissions, pane: "Privacy_ScreenCapture") { worked in
+                say(worked ? "Okay, that's impressive" : "Maybe later") { go(.permissions) }
             }
 
         case .permissions:
@@ -216,7 +227,6 @@ struct OnboardingView: View {
                     promise("eye", "I only look at your screen when you ask.", "One screenshot per question. Turn the eye off in the chat for private things, like banking.")
                     promise("waveform", "I only listen when you turn it on.", "A red dot shows whenever I am. Voices are turned into text on this Mac.")
                     promise("paperplane", "I never send anything without your yes.", "Emails wait for your Approve. Messages are typed in, and you press Enter.")
-                    promise("lock", "Your private files stay private.", "I ask before opening passwords, keys or history, or links that carry data.")
                     promise("person.2", "I'm never a secret.", "I show up in screen shares like any window. Please don't use me to cheat in exams or interviews.")
                 }
                 .padding(20)
@@ -285,7 +295,7 @@ struct OnboardingView: View {
                         }
                         HStack(spacing: 10) {
                             Chip(title: "Allow", primary: true) { request(a) }
-                            Chip(title: "Not now", primary: false) { withAnimation(.spring(duration: 0.4)) { _ = skipped.insert(a.title) } }
+                            Chip(title: "Not now", primary: false) { Sounds.tour(.off); withAnimation(.spring(duration: 0.4)) { _ = skipped.insert(a.title) } }
                         }
                         .padding(.top, 8)
                     }
@@ -357,7 +367,16 @@ struct OnboardingView: View {
                 case .signedOut:
                     ReplyChips([("I've signed in, check again", true), ("Use an API key", false), ("Decide later", false)]) { pickBrain($0) }
                 case .missing:
-                    ReplyChips([("Get Claude Code", true), ("Use an API key", false), ("Decide later", false)]) { pickBrain($0) }
+                    VStack(alignment: .leading, spacing: 10) {
+                        HStack(spacing: 10) {
+                            Text("curl -fsSL https://claude.ai/install.sh | bash").font(.system(size: 13, design: .monospaced)).foregroundStyle(.white)
+                                .textSelection(.enabled).padding(.horizontal, 14).frame(height: 40).background(glass(12))
+                            Chip(title: "Copy", primary: false) { copy("curl -fsSL https://claude.ai/install.sh | bash") }
+                        }
+                        Text("Paste that into Terminal, press Return, then type claude and sign in with your Claude Pro or Max account. Free Claude accounts can't use Claude Code; an API key works instead.")
+                            .font(.system(size: 12.5)).foregroundStyle(.white.opacity(0.6)).fixedSize(horizontal: false, vertical: true)
+                    }
+                    ReplyChips([("I've installed it, check again", true), ("Use an API key", false), ("Decide later", false)]) { pickBrain($0) }
                 }
             }
             Text("Use ChatGPT? You can bring over what it knows about you later, in Settings → Assistant.")
@@ -370,7 +389,6 @@ struct OnboardingView: View {
         case 0:
             switch brainState {
             case .signedIn: brain = .claudeCode; say("Use my Claude Code") { go(.promises) }
-            case .missing: NSWorkspace.shared.open(URL(string: "https://claude.com/claude-code")!)
             default: checkBrain(replay: true)
             }
         case 1: withAnimation(.spring(duration: 0.4)) { showKeyField = true }
@@ -540,10 +558,12 @@ struct OnboardingView: View {
             for i in lines.indices {
                 guard playID == id else { return }
                 withAnimation(.easeOut(duration: 0.15)) { typing = true }
-                let wait = min(0.35 + Double(lines[i].count) * 0.006, 1.0)
+                let wait = min(0.25 + Double(lines[i].count) * 0.004, 0.7)
                 try? await Task.sleep(nanoseconds: UInt64(wait * 1_000_000_000))
                 guard playID == id else { return }
                 withAnimation(.spring(duration: 0.4, bounce: 0.25)) { typing = false; revealed = i + 1 }
+                Sounds.tourMessage(scene.rawValue + i)
+                Haptic.soft()
                 try? await Task.sleep(nanoseconds: 120_000_000)
             }
         }
@@ -552,6 +572,7 @@ struct OnboardingView: View {
     /// Shows your reply as a blue message, then moves on.
     private func say(_ text: String, then next: @escaping () -> Void) {
         withAnimation(.spring(duration: 0.35, bounce: 0.3)) { reply = text }
+        Sounds.tourStep(scene.rawValue)
         DispatchQueue.main.asyncAfter(deadline: .now() + 0.55) { next() }
     }
 
@@ -560,20 +581,27 @@ struct OnboardingView: View {
         guard !n.isEmpty else { return }
         name = String(n.prefix(40))
         Settings.userName = name
-        say("Call me \(name)") { go(.help) }
+        Haptic.big()
+        say("Call me \(name)") { go(.talk) }
     }
 
-    private func go(_ s: Scene) {
+    private func go(_ target: Scene) {
+        var s = target
+        // Every permission already given in the tricks: no checklist to sit through.
+        permissions.refresh()
+        if s == .permissions, asks.allSatisfy({ $0.granted }) { s = .brain }
         save()
         withAnimation(.easeInOut(duration: 0.25)) { revealed = 0; reply = nil }
         scene = s
         Settings.onboardScene = s.rawValue
         permissions.refresh()
+        if s == .ready { Sounds.tour(.ready); Haptic.big() }
         play(animated: true)
     }
 
     private func back() {
         guard let prev = Scene(rawValue: scene.rawValue - 1) else { return }
+        Sounds.tour(.off)
         save()
         scene = prev
         Settings.onboardScene = prev.rawValue
@@ -589,6 +617,7 @@ struct OnboardingView: View {
     }
 
     private func finish() {
+        Sounds.tour(.finish)
         save()
         Settings.onboardScene = 0
         Settings.onboarded = true
@@ -714,7 +743,7 @@ private struct FeatureCard: View {
     let example: String
     @State private var hover = false
     var body: some View {
-        Button { withAnimation(.spring(duration: 0.3)) { on.toggle() } } label: {
+        Button { Sounds.tour(on ? .off : .on); withAnimation(.spring(duration: 0.3)) { on.toggle() } } label: {
             VStack(alignment: .leading, spacing: 10) {
                 HStack {
                     BubbleGlyph(kind: glyph, tinted: false, lineWidth: 2).foregroundStyle(.white)
@@ -762,5 +791,347 @@ private struct ReadyOrb: View {
         }
         .frame(height: 170)
         .onAppear { go = true }
+    }
+}
+
+
+// MARK: - The three tricks
+
+/// A tap you feel on the trackpad at the moments that matter. Does nothing on a mouse.
+enum Haptic {
+    static func soft() { NSHapticFeedbackManager.defaultPerformer.perform(.alignment, performanceTime: .now) }
+    static func big() { NSHapticFeedbackManager.defaultPerformer.perform(.levelChange, performanceTime: .now) }
+}
+
+private func trickCard<C: View>(@ViewBuilder _ c: () -> C) -> some View {
+    c().padding(20).frame(maxWidth: .infinity, alignment: .leading)
+        .background(RoundedRectangle(cornerRadius: 20, style: .continuous).fill(.white.opacity(0.07)))
+        .overlay(RoundedRectangle(cornerRadius: 20, style: .continuous).stroke(.white.opacity(0.12)))
+}
+
+/// Trick one: say anything, see it appear live, then watch the ums disappear.
+private struct TalkTrick: View {
+    @ObservedObject var permissions: Permissions
+    let onDone: (Bool) -> Void
+    enum Phase { case ready, listening, tidying, done, failed(String) }
+    @State private var phase = Phase.ready
+    @State private var heard = ""
+    @State private var tidy = ""
+    @State private var level: Float = 0
+    @State private var session: SpeechSession?
+    @State private var fetching: Double?
+
+    private func fetchModel() {
+        fetching = 0
+        Task {
+            do { try await Whisper.downloadModel { p in Task { @MainActor in fetching = p } } } catch { log("tour: model download failed") }
+            fetching = nil
+        }
+    }
+
+    private var dropped: [String] {
+        let keep = Set(tidy.lowercased().split(whereSeparator: { !$0.isLetter && $0 != "'" }).map(String.init))
+        return heard.lowercased().split(whereSeparator: { !$0.isLetter && $0 != "'" }).map(String.init).filter { !keep.contains($0) }
+    }
+
+    var body: some View {
+        VStack(alignment: .leading, spacing: 16) {
+            trickCard {
+                VStack(alignment: .leading, spacing: 14) {
+                    HStack(spacing: 14) {
+                        Button(action: toggle) {
+                            ZStack {
+                                Circle().fill(isListening ? Color.red : Theme.accent).frame(width: 64, height: 64)
+                                    .shadow(color: (isListening ? Color.red : Theme.accent).opacity(0.6), radius: 18)
+                                Circle().stroke(.white.opacity(0.35), lineWidth: 2).frame(width: 64, height: 64)
+                                    .scaleEffect(1 + CGFloat(level) * 0.6).opacity(isListening ? 1 : 0)
+                                Image(systemName: isListening ? "stop.fill" : "mic.fill").font(.system(size: 24, weight: .semibold)).foregroundStyle(.white)
+                            }
+                        }
+                        .buttonStyle(.plain).accessibilityLabel(isListening ? "Stop" : "Start talking")
+                        .keyboardShortcut(isDone ? nil : .defaultAction)
+                        Text(prompt).font(.system(size: 14)).foregroundStyle(.white.opacity(0.7))
+                    }
+                    if !heard.isEmpty {
+                        Text(heard).font(.system(size: 22, weight: .medium)).foregroundStyle(.white.opacity(isDone ? 0.45 : 1))
+                            .strikethrough(isDone && !dropped.isEmpty, color: .white.opacity(0.3))
+                            .fixedSize(horizontal: false, vertical: true)
+                            .transition(.opacity)
+                    }
+                    if isDone, !tidy.isEmpty {
+                        VStack(alignment: .leading, spacing: 8) {
+                            Label("Tidied, ready to type anywhere", systemImage: "sparkles").font(.system(size: 12.5, weight: .semibold)).foregroundStyle(Theme.accent)
+                            Text(tidy).font(.system(size: 24, weight: .semibold)).foregroundStyle(.white).fixedSize(horizontal: false, vertical: true)
+                            if !dropped.isEmpty {
+                                Text("Took out: " + dropped.prefix(6).joined(separator: ", ")).font(.system(size: 12.5)).foregroundStyle(.white.opacity(0.55))
+                            }
+                        }
+                        .transition(.move(edge: .bottom).combined(with: .opacity))
+                    }
+                    if Whisper.binary != nil, !Whisper.hasModel {
+                        HStack(spacing: 10) {
+                            Text("For Vietnamese and other languages, I need my sharper ears (\(Whisper.modelSize), once).")
+                                .font(.system(size: 12.5)).foregroundStyle(.white.opacity(0.6)).fixedSize(horizontal: false, vertical: true)
+                            Spacer(minLength: 6)
+                            if let p = fetching { ProgressView(value: p).frame(width: 110).tint(.white) }
+                            else { Chip(title: "Get them", primary: false) { fetchModel() } }
+                        }
+                    }
+                    if case .failed(let why) = phase {
+                        Text(why).font(.system(size: 13)).foregroundStyle(.orange).fixedSize(horizontal: false, vertical: true)
+                    }
+                }
+            }
+            if isDone { ReplyChips([("Whoa", true)]) { _ in onDone(true) } }
+            else { HStack { Spacer(); Chip(title: "Skip this trick", primary: false) { session?.cancel(); onDone(false) } } }
+        }
+        .animation(.spring(duration: 0.45, bounce: 0.25), value: phaseKey)
+        .onDisappear { session?.cancel() }
+    }
+
+    private var isListening: Bool { if case .listening = phase { return true }; return false }
+    private var isDone: Bool { if case .done = phase { return true }; return false }
+    private var phaseKey: Int { switch phase { case .ready: 0; case .listening: 1; case .tidying: 2; case .done: 3; case .failed: 4 } }
+    private var prompt: String {
+        switch phase {
+        case .ready, .failed: "Try: “um, so, remind me to, like, call mum tonight”"
+        case .listening: "Listening… stop talking and I'll finish"
+        case .tidying: "Tidying…"
+        case .done: "Double tap Option in any app to do this anywhere."
+        }
+    }
+
+    private func toggle() {
+        if isListening { finish(); return }
+        Task { @MainActor in
+            let micOK = await AVCaptureDevice.requestAccess(for: .audio)
+            permissions.refresh()
+            guard micOK else { phase = .failed("I need the microphone for this. You can allow it in System Settings."); return }
+            if let problem = await SpeechSession.checkAvailability() { permissions.refresh(); phase = .failed(problem); return }
+            permissions.refresh()
+            let s = SpeechSession()
+            s.onPartial = { t in heard = t }
+            s.onLevel = { l in level = l }
+            s.onSilence = { finish() }
+            do { try s.start(hints: []) } catch { phase = .failed(error.localizedDescription); return }
+            session = s
+            heard = ""; tidy = ""
+            phase = .listening
+            Haptic.soft()
+        }
+    }
+
+    private func finish() {
+        guard let s = session, isListening else { return }
+        phase = .tidying
+        level = 0
+        s.stop { final in
+            Task { @MainActor in
+                session = nil
+                // Apple's live words only know the Mac's language; Whisper hears Vietnamese, English or both mixed.
+                let whisper = await Whisper.quickText(pcm16: s.recorded)
+                let raw = whisper ?? (final.isEmpty ? heard : final)
+                heard = raw
+                tidy = Cleaner.clean(raw)
+                if raw.trimmingCharacters(in: .whitespaces).isEmpty { phase = .failed("I didn't catch anything. Try again a little closer to the mic."); return }
+                phase = .done
+                Sounds.tour(.granted)
+                Haptic.big()
+            }
+        }
+    }
+}
+
+/// Trick two: your camera bubble, with the room behind you taken away. Nothing is saved.
+private struct CameraTrick: View {
+    @ObservedObject var permissions: Permissions
+    let onDone: (Bool) -> Void
+    @State private var showing = false
+    @State private var problem: String?
+    @State private var wasVisible = false
+
+    var body: some View {
+        VStack(alignment: .leading, spacing: 16) {
+            trickCard {
+                VStack(alignment: .leading, spacing: 10) {
+                    if showing {
+                        Text("That's you, in a bubble, with the room behind you gone.").font(.system(size: 20, weight: .semibold)).foregroundStyle(.white)
+                        Text("Drag it anywhere. It sits in the corner of everything you record, and you can resize it or change its background in Settings.")
+                            .font(.system(size: 13.5)).foregroundStyle(.white.opacity(0.7)).fixedSize(horizontal: false, vertical: true)
+                    } else {
+                        Text("I'll pop your camera into a small round bubble on your screen.").font(.system(size: 16, weight: .medium)).foregroundStyle(.white)
+                        Text("Nothing is recorded or saved. It's only shown to you.").font(.system(size: 13)).foregroundStyle(.white.opacity(0.6))
+                    }
+                    if let problem { Text(problem).font(.system(size: 13)).foregroundStyle(.orange) }
+                }
+            }
+            if showing { ReplyChips([("That's so cool", true)]) { _ in onDone(true) } }
+            else {
+                HStack(spacing: 10) {
+                    Chip(title: "Show me", primary: true) { show() }.keyboardShortcut(.defaultAction)
+                    Spacer()
+                    Chip(title: "Skip this trick", primary: false) { onDone(false) }
+                }
+            }
+        }
+        .animation(.spring(duration: 0.45, bounce: 0.25), value: showing)
+        .onDisappear { if !wasVisible { (NSApp.delegate as? AppDelegate)?.bubble.hide() } }
+    }
+
+    private func show() {
+        Task { @MainActor in
+            let ok = await AVCaptureDevice.requestAccess(for: .video)
+            permissions.refresh()
+            guard ok, let app = NSApp.delegate as? AppDelegate else { problem = "I need the camera for this. You can allow it in System Settings."; return }
+            let tour = NSApp.keyWindow
+            wasVisible = app.bubble.panel.isVisible
+            app.bubble.show(on: tour?.screen ?? NSScreen.main)
+            try? await Task.sleep(for: .milliseconds(500))
+            if let f = tour?.frame {
+                let size = app.bubble.panel.frame.size
+                app.bubble.panel.setFrameOrigin(NSPoint(x: f.maxX - size.width - 70, y: f.minY + 90))
+            }
+            showing = true
+            Sounds.tour(.granted)
+            Haptic.big()
+        }
+    }
+}
+
+/// Trick three: with your OK, Mercury names the window you were just working in. It only reads window
+/// titles here, on this Mac, and sends nothing anywhere.
+private struct ScreenTrick: View {
+    @ObservedObject var permissions: Permissions
+    let pane: String
+    let onDone: (Bool) -> Void
+    @State private var seen: (app: String, title: String)?
+    @State private var waiting = false
+    @State private var noWindow = false
+
+    var body: some View {
+        VStack(alignment: .leading, spacing: 16) {
+            trickCard {
+                VStack(alignment: .leading, spacing: 10) {
+                    if let seen {
+                        Text("You were in \(seen.app)").font(.system(size: 14, weight: .medium)).foregroundStyle(.white.opacity(0.65))
+                        Text("“\(seen.title)”").font(.system(size: 24, weight: .semibold)).foregroundStyle(.white).fixedSize(horizontal: false, vertical: true)
+                        Text("Ask me about it any time with \(ShortcutCenter.shared.label(.assist)), and I'll already know what you mean. I only look when you ask.")
+                            .font(.system(size: 13.5)).foregroundStyle(.white.opacity(0.7)).fixedSize(horizontal: false, vertical: true)
+                    } else if noWindow {
+                        Text("I can see your screen now, but there's nothing open behind me yet.").font(.system(size: 16, weight: .medium)).foregroundStyle(.white)
+                        Text("Open any app or web page later and ask me about it with \(ShortcutCenter.shared.label(.assist)).").font(.system(size: 13.5)).foregroundStyle(.white.opacity(0.7))
+                    } else {
+                        Text(waiting ? "Allow Mercury under Screen Recording in System Settings, then come back here." : "Let me take a peek, and I'll tell you what you were working on before you opened me.")
+                            .font(.system(size: 16, weight: .medium)).foregroundStyle(.white).fixedSize(horizontal: false, vertical: true)
+                        Text("I'll only read the names of your windows, here on this Mac.").font(.system(size: 13)).foregroundStyle(.white.opacity(0.6))
+                    }
+                }
+            }
+            if seen != nil || noWindow { ReplyChips([("Okay, that's impressive", true)]) { _ in onDone(true) } }
+            else {
+                HStack(spacing: 10) {
+                    Chip(title: waiting ? "Waiting for your OK…" : "Take a peek", primary: true) { peek() }.disabled(waiting).keyboardShortcut(.defaultAction)
+                    Spacer()
+                    Chip(title: "Skip this trick", primary: false) { onDone(false) }
+                }
+            }
+        }
+        .animation(.spring(duration: 0.45, bounce: 0.25), value: seen?.title)
+    }
+
+    private func peek() {
+        if CGPreflightScreenCaptureAccess() { look(); return }
+        CGRequestScreenCaptureAccess()
+        Permissions.open(pane)
+        waiting = true
+        Task { @MainActor in
+            for _ in 0..<120 {
+                try? await Task.sleep(for: .seconds(1))
+                if CGPreflightScreenCaptureAccess() { permissions.refresh(); waiting = false; look(); return }
+            }
+            waiting = false
+        }
+    }
+
+    private func look() {
+        let me = getpid()
+        let info = CGWindowListCopyWindowInfo([.optionOnScreenOnly, .excludeDesktopElements], kCGNullWindowID) as? [[String: Any]] ?? []
+        let named = info.first { w in
+            (w[kCGWindowLayer as String] as? Int) == 0 && (w[kCGWindowOwnerPID as String] as? pid_t) != me
+                && !((w[kCGWindowName as String] as? String) ?? "").trimmingCharacters(in: .whitespaces).isEmpty
+        }
+        if let w = named, let app = w[kCGWindowOwnerName as String] as? String, let title = w[kCGWindowName as String] as? String {
+            seen = (app, String(title.prefix(80)))
+        } else {
+            noWindow = true
+        }
+        Sounds.tour(.granted)
+        Haptic.big()
+    }
+}
+
+// MARK: - Magic in the look
+
+/// Mercury's planet being born: a point of light that blooms into the planet, with rings rolling out.
+private struct BirthOrb: View {
+    @State private var on = false
+    var body: some View {
+        ZStack {
+            ForEach(0..<2) { i in
+                Circle().stroke(Theme.accent.opacity(0.55), lineWidth: 1.5).frame(width: 88, height: 88)
+                    .scaleEffect(on ? 2.4 : 0.3).opacity(on ? 0 : 0.9)
+                    .animation(.easeOut(duration: 1.8).delay(0.25 + Double(i) * 0.35), value: on)
+            }
+            Avatar(emoji: "", size: 88)
+                .scaleEffect(on ? 1 : 0.15).opacity(on ? 1 : 0).blur(radius: on ? 0 : 14)
+                .shadow(color: Theme.accent.opacity(0.75), radius: on ? 30 : 4)
+                .animation(.spring(duration: 1.1, bounce: 0.35), value: on)
+        }
+        .frame(height: 150)
+        .onAppear { on = true; Haptic.big() }
+    }
+}
+
+/// A sky of faint stars that twinkle slowly.
+private struct Stars: View {
+    @State private var seeds: [(CGFloat, CGFloat, Double, CGFloat)] = (0..<110).map { _ in
+        (CGFloat.random(in: 0...1), CGFloat.random(in: 0...1), Double.random(in: 0...6.28), CGFloat.random(in: 0.7...1.9))
+    }
+    var body: some View {
+        TimelineView(.animation(minimumInterval: 1.0 / 20)) { ctx in
+            Canvas { g, size in
+                let t = ctx.date.timeIntervalSinceReferenceDate
+                for s in seeds {
+                    let a = 0.18 + 0.4 * (sin(t * 0.7 + s.2) + 1) / 2
+                    g.fill(Path(ellipseIn: CGRect(x: s.0 * size.width, y: s.1 * size.height, width: s.3, height: s.3)), with: .color(.white.opacity(a)))
+                }
+            }
+        }
+        .ignoresSafeArea()
+    }
+}
+
+/// The finale: sparks fly out from the planet once, then settle.
+private struct Starburst: View {
+    @State private var start = Date()
+    private let sparks: [(Double, Double, CGFloat)] = (0..<70).map { _ in (Double.random(in: 0...(2 * .pi)), Double.random(in: 160...420), CGFloat.random(in: 2...4.5)) }
+    var body: some View {
+        TimelineView(.animation) { ctx in
+            Canvas { g, size in
+                let t = ctx.date.timeIntervalSince(start)
+                guard t < 2.2 else { return }
+                let origin = CGPoint(x: size.width / 2, y: size.height * 0.16)
+                let k = 1 - pow(1 - min(1, t / 1.6), 3)
+                for s in sparks {
+                    let d = s.1 * k
+                    let p = CGPoint(x: origin.x + cos(s.0) * d, y: origin.y + sin(s.0) * d * 0.8 + 60 * t * t)
+                    let fade = max(0, 1 - t / 2.2)
+                    g.fill(Path(ellipseIn: CGRect(x: p.x, y: p.y, width: s.2, height: s.2)),
+                           with: .color((Int(s.1) % 3 == 0 ? Color(red: 1, green: 0.85, blue: 0.4) : Theme.accent).opacity(fade)))
+                }
+            }
+        }
+        .ignoresSafeArea()
+        .onAppear { start = Date() }
     }
 }

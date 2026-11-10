@@ -8,6 +8,7 @@
 import AppKit
 import AVFoundation
 import Carbon.HIToolbox
+import Combine
 import CryptoKit
 import ScreenCaptureKit
 import Speech
@@ -23,16 +24,23 @@ import WebKit
 enum AppPresence {
     private static var reasons = Set<String>()
     private static var windowOpen = false
+    private static var windowFullScreen = false
     static func need(_ reason: String, _ on: Bool) {
         if on { reasons.insert(reason) } else { reasons.remove(reason) }
         apply()
     }
     static func mainWindow(_ open: Bool) {
         windowOpen = open
+        if !open { windowFullScreen = false }
+        apply()
+    }
+    /// A full screen window must keep the menu bar and its title bar buttons, or there is no way out of it.
+    static func mainWindowFullScreen(_ on: Bool) {
+        windowFullScreen = on
         apply()
     }
     private static func apply() {
-        let want: NSApplication.ActivationPolicy = windowOpen && reasons.isEmpty ? .regular : .accessory
+        let want: NSApplication.ActivationPolicy = windowOpen && (reasons.isEmpty || windowFullScreen) ? .regular : .accessory
         if NSApp.activationPolicy() != want { NSApp.setActivationPolicy(want) }
     }
 }
@@ -310,7 +318,8 @@ several matching pictures from Wikimedia Commons (diagrams, anatomy, maps, place
 apparatus). For any chemical compound or molecule, always put [[molecule: compound name]] on its own line \
 (for example [[molecule: caffeine]]) and Mercury shows its 2D and 3D structure from PubChem. Use these \
 whenever a picture would help someone learn or decide. Prefer them to markdown image links; you don't need \
-to search the web for pictures yourself. To show a picture file on this Mac (one you made, such as a chart \
+to search the web for pictures yourself. To show a video file you made or the user has (MP4, MOV or M4V), put \
+[[video: /full/path/to/file.mp4]] on its own line and it plays right in the chat. To show a picture file on this Mac (one you made, such as a chart \
 or diagram, or one the user has), put ![short description](/full/path/to/file.png) on its own line and \
 Mercury shows it right in the chat (PNG, JPEG, GIF, HEIC, WebP, TIFF, SVG or PDF). Do this instead of \
 opening it in a browser or Preview, and never upload a picture anywhere just to show it.
@@ -463,6 +472,7 @@ final class AssistantModel: ObservableObject {
         var reactions: [Int: [String]] = [:]
         var reactionsTold = false
         var at = Date()
+        var replyTo: ChatReply? = nil
     }
 
     @Published var exchanges: [Exchange] = []
@@ -477,6 +487,20 @@ final class AssistantModel: ObservableObject {
     @Published var seeScreen = true
     @Published var cardOpen = true
     @Published var focusRequest = 0
+    /// Puts the cursor in the message box, making the panel key. Only for things you did in the panel.
+    var focusInput: () -> Void = {}
+    /// Claude is typing or clicking in other apps right now, so the panel stays off the keyboard.
+    @Published var controllingMac = false
+    var onControllingChange: (Bool) -> Void = { _ in }
+    /// The message your next text will reply to.
+    @Published var replyingTo: ChatReply?
+    /// The size you've made the panel. Nil means it grows to fit the conversation.
+    @Published var panelSize: CGSize?
+    @Published var panelFull = false
+    /// How big the conversation wants the panel to be when you haven't set a size.
+    @Published var fitSize = CGSize.zero
+    enum PanelResize { case begin, frame(NSRect), end, preset(CGSize), full, automatic }
+    var panelResize: (PanelResize) -> Void = { _ in }
     /// Opens the chat list (used by tests to take screenshots).
     @Published var historyRequest = 0
     @Published var approval: ClaudeCodeSession.Approval?
@@ -496,7 +520,8 @@ final class AssistantModel: ObservableObject {
     var panelNumber: () -> [Int] = { [] }
     private var current: Task<Void, Never>?
 
-    init() {
+    /// Test renders pass true so they never touch your saved chats.
+    init(forTesting: Bool = false) {
         listener.onChange = { [weak self] in
             guard let self else { return }
             self.lines = self.listener.lines.suffix(30).map(\.text)
@@ -505,6 +530,8 @@ final class AssistantModel: ObservableObject {
             if self.listening && !self.listener.isRunning { self.listening = false }
         }
         session.onEvent = { [weak self] e in self?.handle(e) }
+        session.onControlling = { [weak self] in self?.setControlling(true) }
+        guard !forTesting else { return }
         ChatStore.prune()
         if let last = ChatStore.all().first { load(last) } else { session.switchTo(nil) }
     }
@@ -513,9 +540,10 @@ final class AssistantModel: ObservableObject {
 
     private func load(_ c: ChatRecord) {
         chat = c
+        replyingTo = nil
         exchanges = c.turns.map {
             Exchange(question: $0.question, answer: $0.answer, withScreen: $0.withScreen, activity: nil,
-                     reactions: $0.reactions, reactionsTold: true, at: $0.at)
+                     reactions: $0.reactions, reactionsTold: true, at: $0.at, replyTo: $0.replyTo)
         }
         session.switchTo(c.claudeSession)
     }
@@ -523,7 +551,7 @@ final class AssistantModel: ObservableObject {
     /// Saves the chat on screen (only finished answers).
     func persist() {
         let turns = exchanges.filter { !$0.answer.isEmpty }.map {
-            ChatRecord.Turn(question: $0.question, answer: $0.answer, withScreen: $0.withScreen, at: $0.at, reactions: $0.reactions)
+            ChatRecord.Turn(question: $0.question, answer: $0.answer, withScreen: $0.withScreen, at: $0.at, reactions: $0.reactions, replyTo: $0.replyTo)
         }
         guard !turns.isEmpty else { return }
         chat.turns = turns
@@ -535,12 +563,13 @@ final class AssistantModel: ObservableObject {
     func newChat() {
         stopAnswer()
         persist()
+        replyingTo = nil
         chat = ChatRecord()
         exchanges = []
         error = nil
         resumable = nil
         session.switchTo(nil)
-        focusRequest += 1
+        focusInput()
     }
 
     func open(_ c: ChatRecord) {
@@ -549,7 +578,7 @@ final class AssistantModel: ObservableObject {
         resumable = nil
         error = nil
         load(c)
-        focusRequest += 1
+        focusInput()
     }
 
     /// Gives a chat your own name (blank goes back to the first question). Its place in the list doesn't change.
@@ -614,9 +643,13 @@ final class AssistantModel: ObservableObject {
         if preset == nil, let laps = drill.takeSummary() { q += "\n\n" + laps }
         error = nil
         thinking = true
-        let note = contextNote()
+        let reply = replyingTo
+        replyingTo = nil
+        // Mercury is told which message you mean; only the quote shows in the chat.
+        let replyNote = reply.map { "(I'm replying to \($0.mine ? "something I said earlier" : "this message of yours"): \"\($0.text.prefix(1500))\")\n\n" } ?? ""
+        let note = contextNote() + replyNote
         let history = exchanges.map { AssistantClient.Turn(question: $0.question, answer: $0.answer) }
-        exchanges.append(Exchange(question: q, answer: "", withScreen: seeScreen, activity: seeScreen ? "Looking at your screen…" : "Thinking…"))
+        exchanges.append(Exchange(question: q, answer: "", withScreen: seeScreen, activity: seeScreen ? "Looking at your screen…" : "Thinking…", replyTo: reply))
         let index = exchanges.count - 1
         let transcript = listener.recent()
         let screen = seeScreen
@@ -662,6 +695,14 @@ final class AssistantModel: ObservableObject {
         return (about.isEmpty ? "" : about.trimmingCharacters(in: .newlines) + "\n\n") + (notes.isEmpty ? "" : "(" + notes.joined(separator: " ") + ")\n\n")
     }
 
+    /// Starts a reply to one message. The next thing you send is tied to it.
+    func reply(to text: String, exchange id: UUID, part: Int?) {
+        guard let n = exchanges.firstIndex(where: { $0.id == id }) else { return }
+        replyingTo = ChatReply(text: text, mine: part == nil, exchange: n, part: part)
+        cardOpen = true
+        focusInput()
+    }
+
     func toggleReaction(_ emoji: String, exchange id: UUID, part: Int) {
         guard let i = exchanges.firstIndex(where: { $0.id == id }) else { return }
         var r = exchanges[i].reactions[part] ?? []
@@ -669,6 +710,12 @@ final class AssistantModel: ObservableObject {
         exchanges[i].reactions[part] = r
         exchanges[i].reactionsTold = false
         persist()
+    }
+
+    func setControlling(_ on: Bool) {
+        guard on != controllingMac else { return }
+        controllingMac = on
+        onControllingChange(on)
     }
 
     private func handle(_ e: ClaudeCodeSession.Event) {
@@ -687,6 +734,8 @@ final class AssistantModel: ObservableObject {
         case .done(let err):
             thinking = false
             approval = nil
+            // Hands the keyboard back a moment after Claude finishes, once its last keystrokes have landed.
+            DispatchQueue.main.asyncAfter(deadline: .now() + 1) { [weak self] in if self?.thinking == false { self?.setControlling(false) } }
             exchanges[i].activity = nil
             if let err {
                 error = err
@@ -783,6 +832,7 @@ final class AssistantModel: ObservableObject {
     }
 
     func stopAnswer() {
+        setControlling(false)
         current?.cancel()
         if Settings.assistantBrain == .claudeCode && thinking { session.interrupt() }
         if let a = approval { session.answer(a, allow: false); approval = nil }
@@ -810,16 +860,33 @@ struct WindowDragHandle: NSViewRepresentable {
 }
 
 final class AssistantPanel: NSPanel {
-    override var canBecomeKey: Bool { true }
+    /// While Claude drives other apps the panel can't take the keyboard at all.
+    var keyboardLocked = false
+    override var canBecomeKey: Bool { !keyboardLocked }
     override init(contentRect: NSRect, styleMask: NSWindow.StyleMask, backing: NSWindow.BackingStoreType, defer flag: Bool) {
         super.init(contentRect: contentRect, styleMask: styleMask, backing: backing, defer: flag)
         alwaysDark()
     }
     var onEscape: (() -> Void)?
-    override func cancelOperation(_ sender: Any?) { onEscape?() }
+    /// Gives up the keyboard without hiding. Taking the window off screen for an instant makes macOS pass key
+    /// status back to the app in front; it comes straight back, unable to take the keyboard again.
+    func handBackKeyboard() {
+        guard isKeyWindow, isVisible else { return }
+        let wasLocked = keyboardLocked
+        keyboardLocked = true
+        orderOut(nil)
+        orderFrontRegardless()
+        keyboardLocked = wasLocked
+    }
+
+    /// Esc closes an open picture, then cancels a reply, before it hides the panel.
+    var onBack: (() -> Bool)?
+    override func cancelOperation(_ sender: Any?) { if onBack?() != true { onEscape?() } }
 
     /// Return sends; Shift+Return (or Option+Return) starts a new line, as in Messages.
     override func sendEvent(_ event: NSEvent) {
+        // Pinches go to the picture viewer wherever the pointer is, so one gesture can open a picture and keep zooming.
+        if event.type == .magnify, PictureViewer.shared.pinch(amount: event.magnification, at: event.locationInWindow, windowHeight: contentView?.bounds.height ?? frame.height) { return }
         if event.type == .keyDown, event.keyCode == 36 || event.keyCode == 76,
            !event.modifierFlags.intersection([.shift, .option]).isEmpty,
            let editor = firstResponder as? NSTextView {
@@ -837,6 +904,86 @@ final class AssistantController: NSObject, NSWindowDelegate {
     let model = AssistantModel()
     private var panel: AssistantPanel?
     private var top: CGFloat = 0          // the bar stays put while the card grows below it
+    private var beforeFull: NSRect?       // where to go back to from Fill the Screen; zero means grow to fit
+    private var cardWatch: AnyCancellable?
+    private var fitWatch: AnyCancellable?
+    private static let barOnly: CGFloat = 46
+    var panelWindow: NSWindow? { panel }
+
+    /// Stops the window following the conversation's size, so your size sticks.
+    private func holdSize(_ size: CGSize) { model.panelSize = size }
+
+    /// Left alone, the panel is exactly as tall as the conversation, with the bar staying put.
+    private func followConversation(_ size: CGSize) {
+        guard let p = panel, model.panelSize == nil, size.height > 40, p.frame.size != size else { return }
+        if top > 0 { p.setFrame(NSRect(x: p.frame.minX, y: top - size.height, width: size.width, height: size.height), display: true) }
+        else { p.setContentSize(size) }
+    }
+
+    private func place(_ f: NSRect) {
+        guard let p = panel else { return }
+        holdSize(f.size)
+        top = f.maxY
+        let visible = model.cardOpen ? f : NSRect(x: f.minX, y: f.maxY - Self.barOnly, width: f.width, height: Self.barOnly)
+        p.setFrame(visible, display: true)
+    }
+
+    private func remember() {
+        if let s = model.panelSize { Settings.d.set([Double(s.width), Double(s.height)], forKey: "assistantSize") }
+        else { Settings.d.removeObject(forKey: "assistantSize") }
+    }
+
+    private func growToFit() {
+        model.panelFull = false
+        beforeFull = nil
+        model.panelSize = nil
+        followConversation(model.fitSize)
+        remember()
+    }
+
+    private func handle(_ r: AssistantModel.PanelResize) {
+        guard let p = panel else { return }
+        let area = (p.screen ?? NSScreen.underMouse).visibleFrame
+        switch r {
+        case .begin:
+            if !model.cardOpen { model.cardOpen = true }
+            holdSize(p.frame.size)
+        case .frame(let f):
+            model.panelFull = false
+            place(f)
+        case .end:
+            remember()
+        case .preset(let size):
+            model.panelFull = false
+            beforeFull = nil
+            let s = PanelSizing.clamp(size, to: area)
+            let x = min(area.maxX - s.width, max(area.minX, p.frame.minX))
+            let t = max(area.minY + s.height, min(area.maxY, top))
+            model.cardOpen = true
+            place(NSRect(x: x, y: t - s.height, width: s.width, height: s.height))
+            remember()
+        case .full:
+            if model.panelFull {
+                model.panelFull = false
+                if let b = beforeFull, b != .zero { place(b); beforeFull = nil; remember() } else { growToFit() }
+            } else {
+                beforeFull = model.panelSize == nil ? .zero : NSRect(x: p.frame.minX, y: top - model.panelSize!.height, width: model.panelSize!.width, height: model.panelSize!.height)
+                model.cardOpen = true
+                place(area)
+                model.panelFull = true
+                remember()
+            }
+        case .automatic:
+            growToFit()
+        }
+    }
+
+    /// Collapsing a panel you've sized folds it to the bar; expanding brings your size back.
+    private func cardChanged(open: Bool) {
+        guard let p = panel, let s = model.panelSize else { return }
+        let h = open ? s.height : Self.barOnly
+        p.setFrame(NSRect(x: p.frame.minX, y: top - h, width: s.width, height: h), display: true)
+    }
     private static let keyIDs: [UInt32] = [20, 21, 22, 23, 24, 25, 26, 27]
 
     var isShown: Bool { panel?.isVisible == true }
@@ -896,9 +1043,13 @@ final class AssistantController: NSObject, NSWindowDelegate {
         p.sharingType = sharing
         if !p.isVisible {
             // Size to the content first, then pin the bar to the top centre of this screen.
-            if let v = p.contentViewController?.view {
-                v.layoutSubtreeIfNeeded()
-                p.setContentSize(v.fittingSize)
+            if let v = Settings.d.array(forKey: "assistantSize") as? [Double], v.count == 2 {
+                let s = PanelSizing.clamp(CGSize(width: v[0], height: v[1]), to: NSScreen.underMouse.visibleFrame)
+                holdSize(s)
+                p.setContentSize(s)
+            } else {
+                p.contentViewController?.view.layoutSubtreeIfNeeded()
+                p.setContentSize(model.fitSize.height > 40 ? model.fitSize : CGSize(width: 700, height: 460))
             }
             if let spot = savedSpot(width: p.frame.width) {
                 // Back where you left it.
@@ -909,10 +1060,15 @@ final class AssistantController: NSObject, NSWindowDelegate {
                 top = f.maxY - 10
                 p.setFrameOrigin(NSPoint(x: f.midX - p.frame.width / 2, y: top - p.frame.height))
             }
+            // A big saved size might not fit below where the panel was left.
+            if let s = model.panelSize {
+                let area = (p.screen ?? NSScreen.underMouse).visibleFrame
+                let h = min(s.height, top - area.minY)
+                if h >= PanelSizing.minimum.height, h != s.height { place(NSRect(x: p.frame.minX, y: top - h, width: s.width, height: h)) }
+            }
         }
+        // Shown, not focused: your keystrokes stay with the app you're in until you click the message box.
         p.orderFrontRegardless()
-        p.makeKey()
-        model.focusRequest += 1
         model.warmUp()
         holdKeys()
         onCaptureChange?()
@@ -940,6 +1096,8 @@ final class AssistantController: NSObject, NSWindowDelegate {
     }
 
     func hide() {
+        ChatVideos.pause()
+        MediaFullScreen.shared.close()
         panel?.orderOut(nil)
         ShortcutCenter.shared.releaseTemporary(Self.keyIDs)
         AppPresence.need("assistant", false)
@@ -1042,11 +1200,16 @@ final class AssistantController: NSObject, NSWindowDelegate {
         p.hasShadow = false
         p.hidesOnDeactivate = false
         p.isMovableByWindowBackground = false  // only the bar moves it, so you can select text in the chat
-        p.becomesKeyOnlyIfNeeded = false
+        p.becomesKeyOnlyIfNeeded = true   // only a click in the message box takes the keyboard
         p.collectionBehavior = [.canJoinAllSpaces, .fullScreenAuxiliary]
         p.onEscape = { [weak self] in
             guard let self else { return }
             if self.model.talking { self.model.cancelTalk() } else { self.hide() }
+        }
+        p.onBack = { [weak self] in
+            if PictureViewer.shared.closeIfOpen() { return true }
+            if self?.model.replyingTo != nil { self?.model.replyingTo = nil; return true }
+            return false
         }
         p.delegate = self
         p.sharingType = sharing
@@ -1054,8 +1217,26 @@ final class AssistantController: NSObject, NSWindowDelegate {
         NotificationCenter.default.addObserver(self, selector: #selector(popoverShown), name: NSPopover.willShowNotification, object: nil)
         NotificationCenter.default.addObserver(self, selector: #selector(popoverShown), name: NSPopover.didShowNotification, object: nil)
         let host = NSHostingController(rootView: AssistantView(model: model, onClose: { [weak self] in self?.hide() }))
-        host.sizingOptions = [.preferredContentSize]
+        host.sizingOptions = []   // Mercury sets the window's size itself, in both modes
         p.contentViewController = host
+        model.panelResize = { [weak self] r in self?.handle(r) }
+        model.focusInput = { [weak self, weak p] in
+            guard let self, let p, !self.model.controllingMac else { return }
+            p.makeKey()
+            self.model.focusRequest += 1
+        }
+        model.onControllingChange = { [weak p] on in
+            guard let p else { return }
+            p.keyboardLocked = on
+            if on { p.handBackKeyboard() }
+            log("assistant: \(on ? "Claude is using the Mac, panel off the keyboard" : "panel can take the keyboard again")")
+        }
+        cardWatch = model.$cardOpen.dropFirst().removeDuplicates().sink { [weak self] open in
+            DispatchQueue.main.async { self?.cardChanged(open: open) }
+        }
+        fitWatch = model.$fitSize.removeDuplicates().sink { [weak self] size in
+            DispatchQueue.main.async { self?.followConversation(size) }
+        }
         model.panelNumber = { [weak p] in p.map { [$0.windowNumber] } ?? [] }
         return p
     }
@@ -1094,6 +1275,9 @@ struct AssistantView: View {
     @ObservedObject var model: AssistantModel
     let onClose: () -> Void
     @ObservedObject private var keys = ShortcutCenter.shared
+    @ObservedObject private var viewer = PictureViewer.shared
+    @State private var jump: String?      // a message to scroll back to, from tapping a quote
+    @State private var flash: String?     // that message, lit up for a moment
     @AppStorage("assistantDarkness") private var darkness = 0.62
     @AppStorage(Settings.showInCapturesKey) private var inCaptures = true
     @AppStorage("chatMyColor") private var myColor = ChatStyle.defaultMine
@@ -1127,14 +1311,20 @@ struct AssistantView: View {
     ]
 
     private var glass: Color { Color.black.opacity(darkness) }
+    private var sized: Bool { model.panelSize != nil }
+    private var panelWidth: CGFloat { model.panelSize?.width ?? 700 }
 
     var body: some View {
         VStack(spacing: 8) {
             bar
             if model.cardOpen { card.transition(.opacity.combined(with: .move(edge: .top))) }
         }
-        .frame(width: 700)
+        .frame(width: sized ? nil : 700)
+        .frame(maxWidth: sized ? .infinity : nil, maxHeight: sized ? .infinity : nil, alignment: .top)
         .padding(.bottom, 4)
+        .fixedSize(horizontal: false, vertical: !sized)
+        .onGeometryChange(for: CGSize.self) { $0.size } action: { if !sized { model.fitSize = $0 } }
+        .frame(maxWidth: .infinity, maxHeight: .infinity, alignment: .top)
         .environment(\.colorScheme, .dark)
         .animation(.easeOut(duration: 0.15), value: model.cardOpen)
 
@@ -1143,55 +1333,8 @@ struct AssistantView: View {
     // MARK: Bar
 
     private var bar: some View {
-        HStack(spacing: 4) {
-            Image(systemName: "circle.fill").font(.system(size: 13)).foregroundStyle(Theme.accent)
-                .padding(.leading, 14).padding(.trailing, 6)
-            barButton(model.listening ? "Listening" : "Listen", dot: model.listening ? .red : .white.opacity(0.35)) { listenInfo = false; model.toggleListening() }
-                .onHover { inside in hoverCard(inside, item: &listenHover) { listenInfo = $0 } }
-                .panelPopover(isPresented: $listenInfo, arrowEdge: .bottom) { listenCard }
-            divider
-            barButton(model.talking ? "Done" : "Talk", keys: keys.label(.assistVoice), dot: model.talking ? .red : nil) { model.toggleTalk() }
-            divider
-            barButton("Ask", keys: keys.label(.assistAsk)) { model.cardOpen = true; model.focusRequest += 1 }
-            divider
-            barButton(model.cardOpen ? "Collapse" : "Expand", keys: nil) { model.cardOpen.toggle() }
-            divider
-            barButton("Hide", keys: keys.label(.assist)) { onClose() }
-            divider
-            Button { inCaptures.toggle() } label: {
-                HStack(spacing: 7) {
-                    Text("Visibility").font(.system(size: 12.5, weight: .medium)).fixedSize()
-                    // Drawn by hand so it reads clearly even when the panel isn't the active window.
-                    Capsule().fill(inCaptures ? Theme.accent : .white.opacity(0.22)).frame(width: 28, height: 16)
-                        .overlay(alignment: inCaptures ? .trailing : .leading) {
-                            Circle().fill(.white).frame(width: 12, height: 12).padding(2).shadow(color: .black.opacity(0.25), radius: 1)
-                        }
-                        .animation(.easeOut(duration: 0.15), value: inCaptures)
-                }
-                .padding(.horizontal, 10).frame(height: 30).contentShape(Rectangle())
-            }
-            .buttonStyle(.plain)
-            .accessibilityLabel(inCaptures ? "Visibility on: shows in recordings and screen shares" : "Visibility off: only you can see Mercury")
-            .onHover { inside in hoverCard(inside, item: &visibilityHover) { visibilityInfo = $0 } }
-            .panelPopover(isPresented: $visibilityInfo, arrowEdge: .bottom) { visibilityCard }
-            Spacer(minLength: 4)
-            Button { eyeInfo = false; model.seeScreen.toggle() } label: {
-                Image(systemName: model.seeScreen ? "eye" : "eye.slash").font(.system(size: 12, weight: .medium))
-                    .foregroundStyle(.white.opacity(model.seeScreen ? 0.9 : 0.45)).frame(width: 28, height: 28)
-            }
-            .buttonStyle(.plain)
-            .accessibilityLabel(model.seeScreen ? "Screen sharing on: Mercury sees your screen when you ask" : "Screen sharing off")
-            .onHover { inside in hoverCard(inside, item: &eyeHover) { eyeInfo = $0 } }
-            .panelPopover(isPresented: $eyeInfo, arrowEdge: .bottom) { eyeCard }
-            Menu {
-                Button("New Chat") { model.newChat() }
-                Button("Delete This Chat", role: .destructive) { model.deleteChat(model.chat) }.disabled(model.exchanges.isEmpty)
-                Divider()
-                Text("Move: \(Settings.assistantMove.label) + arrow keys")
-            } label: { Image(systemName: "ellipsis").foregroundStyle(.white.opacity(0.8)).frame(width: 26, height: 28).accessibilityLabel("More") }
-                .menuStyle(.borderlessButton).menuIndicator(.hidden).fixedSize()
-                .padding(.trailing, 8)
-        }
+        // Each row is a bit more compact than the last; SwiftUI shows the first that truly fits the width.
+        ViewThatFits(in: .horizontal) { barRow(0); barRow(1); barRow(2); barRow(3); barRow(4) }
         .frame(height: 42)
         // Drag the bar (anywhere that isn't a button) to move the panel.
         .background(WindowDragHandle())
@@ -1205,12 +1348,85 @@ struct AssistantView: View {
         )
         .shadow(color: .black.opacity(0.35), radius: 1)
         .overlay(Capsule().stroke(.white.opacity(0.16)))
+        .overlay { PanelGrips(model: model, edges: model.cardOpen ? [.top, .topLeft, .topRight, .left, .right] : Set(PanelEdge.allCases), capsule: true) }
         .foregroundStyle(.white)
+    }
+
+    private func barRow(_ level: Int) -> some View {
+        HStack(spacing: 4) {
+            if level < 4 {
+                Image(systemName: "circle.fill").font(.system(size: 13)).foregroundStyle(Theme.accent)
+                    .padding(.leading, 14).padding(.trailing, 6)
+            } else { Color.clear.frame(width: 4, height: 1) }
+            barButton(model.listening ? "Listening" : "Listen", tight: level == 4, dot: model.listening ? .red : .white.opacity(0.35)) { listenInfo = false; model.toggleListening() }
+                .onHover { inside in hoverCard(inside, item: &listenHover) { listenInfo = $0 } }
+                .panelPopover(isPresented: $listenInfo, arrowEdge: .bottom) { listenCard }
+            if level < 4 { divider }
+            barButton(model.talking ? "Done" : "Talk", keys: level == 0 ? keys.label(.assistVoice) : nil, tight: level == 4, dot: model.talking ? .red : nil) { model.toggleTalk() }
+            if level < 4 { divider }
+            if level < 3 {
+                barButton("Ask", keys: level == 0 ? keys.label(.assistAsk) : nil) { model.cardOpen = true; model.focusInput() }
+                if level < 4 { divider }
+                barButton(model.cardOpen ? "Collapse" : "Expand", keys: nil) { model.cardOpen.toggle() }
+                if level < 4 { divider }
+            }
+            barButton("Hide", keys: level == 0 ? keys.label(.assist) : nil, tight: level == 4) { onClose() }
+            if level < 4 { divider }
+            Button { inCaptures.toggle() } label: {
+                HStack(spacing: 7) {
+                    if level < 2 { Text("Visibility").font(.system(size: 12.5, weight: .medium)).fixedSize() }
+                    // Drawn by hand so it reads clearly even when the panel isn't the active window.
+                    Capsule().fill(inCaptures ? Theme.accent : .white.opacity(0.22)).frame(width: 28, height: 16)
+                        .overlay(alignment: inCaptures ? .trailing : .leading) {
+                            Circle().fill(.white).frame(width: 12, height: 12).padding(2).shadow(color: .black.opacity(0.25), radius: 1)
+                        }
+                        .animation(.easeOut(duration: 0.15), value: inCaptures)
+                }
+                .padding(.horizontal, level == 4 ? 6 : 10).frame(height: 30).contentShape(Rectangle())
+            }
+            .buttonStyle(.plain)
+            .accessibilityLabel(inCaptures ? "Visibility on: shows in recordings and screen shares" : "Visibility off: only you can see Mercury")
+            .onHover { inside in hoverCard(inside, item: &visibilityHover) { visibilityInfo = $0 } }
+            .panelPopover(isPresented: $visibilityInfo, arrowEdge: .bottom) { visibilityCard }
+            Spacer(minLength: 4)
+            Button { model.panelResize(.full) } label: {
+                Image(systemName: model.panelFull ? "arrow.down.right.and.arrow.up.left" : "arrow.up.left.and.arrow.down.right").font(.system(size: 11, weight: .semibold))
+                    .foregroundStyle(.white.opacity(0.85)).frame(width: 28, height: 28).contentShape(Rectangle())
+            }
+            .buttonStyle(.plain).help(model.panelFull ? "Back to your size" : "Fill the screen")
+            .accessibilityLabel(model.panelFull ? "Back to your size" : "Fill the screen")
+            Button { eyeInfo = false; model.seeScreen.toggle() } label: {
+                Image(systemName: model.seeScreen ? "eye" : "eye.slash").font(.system(size: 12, weight: .medium))
+                    .foregroundStyle(.white.opacity(model.seeScreen ? 0.9 : 0.45)).frame(width: 28, height: 28)
+            }
+            .buttonStyle(.plain)
+            .accessibilityLabel(model.seeScreen ? "Screen sharing on: Mercury sees your screen when you ask" : "Screen sharing off")
+            .onHover { inside in hoverCard(inside, item: &eyeHover) { eyeInfo = $0 } }
+            .panelPopover(isPresented: $eyeInfo, arrowEdge: .bottom) { eyeCard }
+            Menu {
+                Button("New Chat") { model.newChat() }
+                Button("Delete This Chat", role: .destructive) { model.deleteChat(model.chat) }.disabled(model.exchanges.isEmpty)
+                Divider()
+                if level >= 3 { Button(model.cardOpen ? "Collapse" : "Expand") { model.cardOpen.toggle() }; Divider() }
+                Menu("Size") {
+                    Button("Small") { model.panelResize(.preset(CGSize(width: 420, height: 440))) }
+                    Button("Medium") { model.panelResize(.preset(CGSize(width: 700, height: 640))) }
+                    Button("Large") { model.panelResize(.preset(CGSize(width: 1040, height: 820))) }
+                    Button("Fill the Screen") { model.panelResize(.full) }
+                    Divider()
+                    Button("Grow to Fit") { model.panelResize(.automatic) }
+                }
+                Divider()
+                Text("Move: \(Settings.assistantMove.label) + arrow keys")
+            } label: { Image(systemName: "ellipsis").foregroundStyle(.white.opacity(0.8)).frame(width: 26, height: 28).accessibilityLabel("More") }
+                .menuStyle(.borderlessButton).menuIndicator(.hidden).fixedSize()
+                .padding(.trailing, 8)
+        }
     }
 
     private var divider: some View { Rectangle().fill(.white.opacity(0.14)).frame(width: 1, height: 18) }
 
-    private func barButton(_ title: String, keys: String? = nil, dot: Color? = nil, action: @escaping () -> Void) -> some View {
+    private func barButton(_ title: String, keys: String? = nil, tight: Bool = false, dot: Color? = nil, action: @escaping () -> Void) -> some View {
         Button(action: action) {
             HStack(spacing: 6) {
                 if let dot { Circle().fill(dot).frame(width: 7, height: 7) }
@@ -1221,7 +1437,7 @@ struct AssistantView: View {
                         .background(RoundedRectangle(cornerRadius: 4).fill(.white.opacity(0.1)))
                 }
             }
-            .padding(.horizontal, 10).frame(height: 30)
+            .padding(.horizontal, tight ? 6 : 10).frame(height: 30)
             .contentShape(Rectangle())
         }
         .buttonStyle(.plain)
@@ -1481,8 +1697,8 @@ struct AssistantView: View {
             VStack(alignment: .leading, spacing: 1) {
                 Text(name.isEmpty ? "Mercury" : name).font(.system(size: 13, weight: .semibold))
                 HStack(spacing: 4) {
-                    Circle().fill(model.thinking ? Color.orange : Color.green).frame(width: 6, height: 6)
-                    Text(model.thinking ? "typing…" : "here for you").font(.system(size: 11)).foregroundStyle(.white.opacity(0.6))
+                    Circle().fill(model.controllingMac ? Color.yellow : model.thinking ? Color.orange : Color.green).frame(width: 6, height: 6)
+                    Text(model.controllingMac ? "using your Mac, hands off the keyboard" : model.thinking ? "typing…" : "here for you").font(.system(size: 11)).foregroundStyle(.white.opacity(0.6))
                 }
             }
             Spacer()
@@ -1520,9 +1736,14 @@ struct AssistantView: View {
                             Color.clear.frame(height: 1).id("end")
                         }
                         .padding(16)
+                        // The column can never be wider than the panel, and long lines stay readable when it's huge.
+                        .frame(width: min(880, panelWidth))
+                        .frame(maxWidth: .infinity)
+                        // Room left for media once a row's margins, avatar and hover buttons are counted.
+                        .environment(\.chatMediaWidth, max(150, min(560, panelWidth - 210)))
                     }
-                    .frame(maxHeight: 460)
-                    .fixedSize(horizontal: false, vertical: true)
+                    .frame(maxHeight: sized ? .infinity : 460)
+                    .fixedSize(horizontal: false, vertical: !sized)
                     // Follow new content as it arrives (text, or a picture that finishes loading), unless you
                     // scrolled up yourself to read something; then offer Jump to present instead.
                     .onScrollGeometryChange(for: ScrollSpot.self) { g in
@@ -1536,6 +1757,14 @@ struct AssistantView: View {
                     }
                     .onChange(of: model.exchanges.last?.answer) { if !awayFromEnd { proxy.scrollTo("end", anchor: .bottom) } }
                     .onChange(of: model.exchanges.count) { proxy.scrollTo("end", anchor: .bottom) }
+                    .onChange(of: jump) {
+                        guard let j = jump else { return }
+                        awayFromEnd = true
+                        withAnimation(.easeOut(duration: 0.25)) { proxy.scrollTo(j, anchor: .center) }
+                        flash = j
+                        jump = nil
+                        DispatchQueue.main.asyncAfter(deadline: .now() + 1.2) { if flash == j { flash = nil } }
+                    }
                     .overlay(alignment: .bottom) {
                         if awayFromEnd || farFromEnd {
                             Button { withAnimation(.easeOut(duration: 0.25)) { proxy.scrollTo("end", anchor: .bottom) } } label: {
@@ -1571,11 +1800,23 @@ struct AssistantView: View {
                 .buttonStyle(.plain)
                 .padding(.horizontal, 12).padding(.top, 12)
             }
+            if sized, model.exchanges.isEmpty, model.error == nil { Spacer(minLength: 0) }
             if model.exchanges.isEmpty { chipRow }
-            inputBar
+            inputBar.frame(maxWidth: 908).frame(maxWidth: .infinity)
         }
+        // A short chat grows while a picture is open, so there's room to look at it.
+        .frame(minHeight: !sized && viewer.item != nil ? 560 : nil, maxHeight: sized ? .infinity : nil, alignment: .top)
         .background(RoundedRectangle(cornerRadius: 16, style: .continuous).fill(glass))
+        .overlay {
+            if let item = viewer.item, !viewer.fullScreen {
+                PictureViewerOverlay(viewer: viewer, item: item)
+                    .clipShape(RoundedRectangle(cornerRadius: 16, style: .continuous))
+                    .transition(.opacity)
+            }
+        }
+        .animation(.easeOut(duration: 0.15), value: viewer.item?.id)
         .overlay(RoundedRectangle(cornerRadius: 16, style: .continuous).stroke(.white.opacity(0.16)))
+        .overlay { if viewer.item == nil || viewer.fullScreen { PanelGrips(model: model, edges: [.left, .right, .bottom, .bottomLeft, .bottomRight]) } }
         .foregroundStyle(.white)
         .shadow(color: .black.opacity(0.5), radius: 0.5)  // keeps text readable over busy backgrounds
     }
@@ -1652,22 +1893,33 @@ struct AssistantView: View {
         let live = model.thinking && ex.id == model.exchanges.last?.id
         let (bubbleReacts, answer) = Self.splitReactions(ex.answer)
         return VStack(spacing: 4) {
-            ChatRow(mine: true, style: style, reactions: bubbleReacts) {
+            ChatRow(mine: true, style: style, reactions: bubbleReacts, onReply: { model.reply(to: ex.question, exchange: ex.id, part: nil) }) {
                 VStack(alignment: .trailing, spacing: 3) {
+                    if let r = ex.replyTo { ReplyQuote(reply: r, name: r.mine ? "You" : name) { jumpBack(to: r) } }
                     Text(ex.question).textSelection(.enabled)
                     if ex.withScreen {
                         Label("saw your screen", systemImage: "eye").font(.system(size: 10.5)).opacity(0.7)
                     }
                 }
             }
+            .background(flashBack(rowID(ex.id, nil)))
+            .id(rowID(ex.id, nil))
+            .contextMenu {
+                Button("Reply") { model.reply(to: ex.question, exchange: ex.id, part: nil) }
+                Button("Copy this message") { copy(ex.question) }
+            }
             // Like texts from a friend: each short message is its own bubble; the avatar sits by the last.
             let parts = Self.messages(answer)
             ForEach(Array(parts.enumerated()), id: \.offset) { i, part in
                 ChatRow(mine: false, style: style, showAvatar: i == parts.count - 1 && !(live && ex.activity != nil),
-                        reactions: ex.reactions[i] ?? [], onReact: { model.toggleReaction($0, exchange: ex.id, part: i) }) {
+                        reactions: ex.reactions[i] ?? [], onReact: { model.toggleReaction($0, exchange: ex.id, part: i) },
+                        onReply: { model.reply(to: part, exchange: ex.id, part: i) }) {
                     RichAnswer(text: part, size: style.textSize)
                 }
+                .background(flashBack(rowID(ex.id, i)))
+                .id(rowID(ex.id, i))
                 .contextMenu {
+                    Button("Reply") { model.reply(to: part, exchange: ex.id, part: i) }
                     Menu("React") { ForEach(ChatRow<EmptyView>.reactionChoices, id: \.self) { e in Button(e) { model.toggleReaction(e, exchange: ex.id, part: i) } } }
                     Button("Copy this message") { copy(part) }
                     Button("Copy whole reply") { copy(answer) }
@@ -1677,6 +1929,18 @@ struct AssistantView: View {
                 ChatRow(mine: false, style: style, compact: true, showAvatar: true) { TypingDots(label: act) }
             }
         }
+    }
+
+    private func rowID(_ id: UUID, _ part: Int?) -> String { "\(id.uuidString)-\(part.map(String.init) ?? "you")" }
+
+    private func jumpBack(to r: ChatReply) {
+        guard model.exchanges.indices.contains(r.exchange) else { return }
+        jump = rowID(model.exchanges[r.exchange].id, r.part)
+    }
+
+    private func flashBack(_ id: String) -> some View {
+        RoundedRectangle(cornerRadius: 14).fill(Theme.accent.opacity(flash == id ? 0.3 : 0)).padding(-4)
+            .animation(.easeOut(duration: 0.3), value: flash)
     }
 
     /// Claude wants to do something that changes things: you decide.
@@ -1723,9 +1987,26 @@ struct AssistantView: View {
         .padding(.top, 10)
     }
 
+    private func replyStrip(_ r: ChatReply) -> some View {
+        HStack(spacing: 8) {
+            Capsule().fill(Theme.accent).frame(width: 3, height: 30)
+            VStack(alignment: .leading, spacing: 1) {
+                Text("Replying to \(r.mine ? "yourself" : name)").font(.system(size: 11.5, weight: .semibold))
+                Text(ReplyQuote.preview(r.text)).font(.system(size: 12)).foregroundStyle(.white.opacity(0.65)).lineLimit(1)
+            }
+            Spacer(minLength: 6)
+            Button { model.replyingTo = nil } label: {
+                Image(systemName: "xmark").font(.system(size: 10, weight: .bold)).foregroundStyle(.white.opacity(0.8))
+                    .frame(width: 22, height: 22).background(Circle().fill(.white.opacity(0.12)))
+            }
+            .buttonStyle(.plain).help("Cancel reply").accessibilityLabel("Cancel reply")
+        }
+    }
+
     private var inputBar: some View {
         VStack(alignment: .leading, spacing: 7) {
             DrillStrip(timer: model.drill)
+            if let r = model.replyingTo { replyStrip(r) }
             HStack(spacing: 8) {
             ChatToolsButton(timer: model.drill, onKeysChanged: { (NSApp.delegate as? AppDelegate)?.assistant.refreshKeys() })
             if model.talking {
@@ -1770,6 +2051,7 @@ struct RichAnswer: View {
         case code(lang: String, body: String)
         case image(URL)
         case video(URL, thumb: URL)
+        case localVideo(URL)
         case imageSearch(String)
         case molecule(String)
     }
@@ -1805,6 +2087,8 @@ struct RichAnswer: View {
                     MoleculeCard(name: name)
                 case .video(let url, let thumb):
                     VideoBlock(url: url, thumb: thumb)
+                case .localVideo(let url):
+                    ChatVideo(url: url)
                 }
             }
         }
@@ -1834,6 +2118,9 @@ struct RichAnswer: View {
             if let q = Self.capture(#"^\[\[\s*molecule\s*:\s*(.+?)\s*\]\]$"#, in: line) {
                 flush(); out.append(.molecule(q)); continue
             }
+            if let v = LocalVideo.line(line) {
+                flush(); out.append(.localVideo(v)); continue
+            }
             if let u = Self.pictureLine(line) {
                 flush(); out.append(.image(u)); continue
             }
@@ -1843,6 +2130,10 @@ struct RichAnswer: View {
                let thumb = URL(string: "https://img.youtube.com/vi/\(id)/hqdefault.jpg"),
                let url = URL(string: "https://www.youtube.com/watch?v=\(id)") {
                 flush(); out.append(.video(url, thumb: thumb))
+            }
+            // A video file named in a sentence gets a player under that sentence.
+            if let v = LocalVideo.mention(in: raw), !out.contains(.localVideo(v)) {
+                flush(); out.append(.localVideo(v))
             }
         }
         if let c = code { out.append(.code(lang: lang, body: c.joined(separator: "\n"))) }
@@ -1889,7 +2180,7 @@ enum PictureFetch {
 
     /// Up to six pictures for `query` from Wikimedia Commons (free, no account): (thumbnail, page).
     /// Long searches often match nothing, so it retries with fewer words.
-    static func commons(_ query: String) async -> [(URL, URL)] {
+    static func commons(_ query: String) async -> [(URL, URL, URL?)] {
         let words = query.split(separator: " ")
         for n in [words.count, min(words.count, 3), min(words.count, 2), 1] where n > 0 {
             let found = await commonsOnce(words.prefix(n).joined(separator: " "))
@@ -1898,7 +2189,7 @@ enum PictureFetch {
         return []
     }
 
-    private static func commonsOnce(_ query: String) async -> [(URL, URL)] {
+    private static func commonsOnce(_ query: String) async -> [(URL, URL, URL?)] {
         var c = URLComponents(string: "https://commons.wikimedia.org/w/api.php")!
         c.queryItems = [
             .init(name: "action", value: "query"), .init(name: "format", value: "json"),
@@ -1917,7 +2208,7 @@ enum PictureFetch {
                   let mime = info["mime"] as? String, mime.hasPrefix("image/"),
                   let thumb = (info["thumburl"] as? String).flatMap(URL.init(string:)),
                   let page = (info["descriptionurl"] as? String).flatMap(URL.init(string:)) else { return nil }
-            return (thumb, page)
+            return (thumb, page, (info["url"] as? String).flatMap(URL.init(string:)))
         }
         .prefix(6).map { $0 }
     }
@@ -1926,7 +2217,7 @@ enum PictureFetch {
 /// A row of pictures for a search, from Wikimedia Commons. Click one to open its page.
 struct ImageSearchStrip: View {
     let query: String
-    @State private var items: [(NSImage, URL)] = []
+    @State private var items: [(NSImage, URL, URL?)] = []
     @State private var done = false
 
     var body: some View {
@@ -1942,8 +2233,8 @@ struct ImageSearchStrip: View {
                             Image(nsImage: it.0).resizable().scaledToFill()
                                 .frame(width: 150, height: 120).background(Color.white).clipped()
                                 .clipShape(RoundedRectangle(cornerRadius: 10))
-                                .onTapGesture { NSWorkspace.shared.open(it.1) }
-                                .help("Open on Wikimedia Commons")
+                                .opensInViewer(it.0, fullSize: it.2, open: it.1, openLabel: "Open on Wikimedia Commons")
+                                .contextMenu { Button("Open on Wikimedia Commons") { NSWorkspace.shared.open(it.1) } }
                         }
                     }
                 }
@@ -1951,8 +2242,8 @@ struct ImageSearchStrip: View {
         }
         .task(id: query) {
             let found = await PictureFetch.commons(query)
-            var loaded: [(NSImage, URL)] = []
-            for (thumb, page) in found { if let img = await PictureFetch.image(thumb) { loaded.append((img, page)); items = loaded } }
+            var loaded: [(NSImage, URL, URL?)] = []
+            for (thumb, page, full) in found { if let img = await PictureFetch.image(thumb) { loaded.append((img, page, full)); items = loaded } }
             done = true
         }
     }
@@ -1961,6 +2252,7 @@ struct ImageSearchStrip: View {
 /// A compound's 2D and 3D structure from PubChem.
 struct MoleculeCard: View {
     let name: String
+    @Environment(\.chatMediaWidth) private var mediaWidth
     @State private var flat: NSImage?
     @State private var solid: NSImage?
     @State private var done = false
@@ -1978,11 +2270,7 @@ struct MoleculeCard: View {
                 tile(flat, "2D")
                 tile(solid, "3D")
             }
-            .onTapGesture {
-                let q = name.addingPercentEncoding(withAllowedCharacters: .urlQueryAllowed) ?? name
-                if let u = URL(string: "https://pubchem.ncbi.nlm.nih.gov/#query=\(q)") { NSWorkspace.shared.open(u) }
-            }
-            .help("Open on PubChem")
+            .contextMenu { if let u = pubchem { Button("Open on PubChem") { NSWorkspace.shared.open(u) } } }
         }
         .task(id: name) {
             if let u = url(false) { flat = await PictureFetch.image(u) }
@@ -1991,7 +2279,19 @@ struct MoleculeCard: View {
         }
     }
 
+    private var pubchem: URL? {
+        let q = name.addingPercentEncoding(withAllowedCharacters: .urlQueryAllowed) ?? name
+        return URL(string: "https://pubchem.ncbi.nlm.nih.gov/#query=\(q)")
+    }
+
     private func tile(_ img: NSImage?, _ label: String) -> some View {
+        Group {
+            if let img { tileBody(img, label).opensInViewer(img, open: pubchem, openLabel: "Open on PubChem") }
+            else { tileBody(nil, label) }
+        }
+    }
+
+    private func tileBody(_ img: NSImage?, _ label: String) -> some View {
         ZStack(alignment: .topLeading) {
             RoundedRectangle(cornerRadius: 10).fill(.white)
             if let img { Image(nsImage: img).resizable().scaledToFit().padding(6) }
@@ -1999,7 +2299,7 @@ struct MoleculeCard: View {
             else { ProgressView().controlSize(.small).frame(maxWidth: .infinity, maxHeight: .infinity) }
             Text(label).font(.system(size: 10, weight: .bold)).foregroundStyle(.black.opacity(0.5)).padding(6)
         }
-        .frame(width: 170, height: 150)
+        .frame(width: min(170, (mediaWidth - 8) / 2), height: 150)
     }
 }
 
@@ -2007,14 +2307,15 @@ struct MoleculeCard: View {
 /// requests without one). Shows a note instead of spinning forever if it can't load.
 struct LinkedPicture: View {
     let url: URL
+    @Environment(\.chatMediaWidth) private var mediaWidth
     @State private var img: NSImage?
     @State private var failed = false
     var body: some View {
         Group {
             if let img {
-                Image(nsImage: img).resizable().scaledToFit().frame(maxWidth: 480, maxHeight: 420, alignment: .leading)
+                Image(nsImage: img).resizable().scaledToFit().frame(maxWidth: min(480, mediaWidth), maxHeight: 420, alignment: .leading)
                     .clipShape(RoundedRectangle(cornerRadius: 10))
-                    .help(url.isFileURL ? "Click to open in Preview" : "Click to open")
+                    .opensInViewer(img, open: url.isFileURL ? LocalPicture.existing(url) : url, openLabel: url.isFileURL ? "Open in Preview" : "Open in Browser")
             } else if failed {
                 Label(url.isFileURL ? "This picture is no longer on your Mac." : "Couldn't load this picture. Click to open it.",
                       systemImage: "photo").font(.system(size: 12)).opacity(0.65)
@@ -2022,7 +2323,7 @@ struct LinkedPicture: View {
                 RoundedRectangle(cornerRadius: 10).fill(.white.opacity(0.06)).frame(height: 120).overlay(ProgressView().controlSize(.small))
             }
         }
-        .onTapGesture { open() }
+        .onTapGesture { if img == nil { open() } }
         .contextMenu {
             Button(url.isFileURL ? "Open in Preview" : "Open in Browser") { open() }
             if let img { Button("Copy Picture") { NSPasteboard.general.clearContents(); NSPasteboard.general.writeObjects([img]) } }
@@ -2145,13 +2446,14 @@ struct VideoBlock: View {
     let thumb: URL
     @State private var playing = false
     @State private var img: NSImage?
+    @Environment(\.chatMediaWidth) private var mediaWidth
 
     private var videoID: String? { URLComponents(url: url, resolvingAgainstBaseURL: false)?.queryItems?.first { $0.name == "v" }?.value }
 
     var body: some View {
         VStack(alignment: .leading, spacing: 6) {
             if playing, let id = videoID {
-                YouTubePlayer(id: id).frame(width: 560, height: 315).clipShape(RoundedRectangle(cornerRadius: 10))
+                YouTubePlayer(id: id).frame(width: mediaWidth, height: mediaWidth * 9 / 16).clipShape(RoundedRectangle(cornerRadius: 10))
             } else {
                 Button { playing = true } label: {
                     ZStack {
@@ -2167,6 +2469,16 @@ struct VideoBlock: View {
                 Label("Open on YouTube", systemImage: "arrow.up.right").font(.system(size: 11))
             }
             .buttonStyle(.plain).opacity(0.6)
+            if let id = videoID {
+                Button {
+                    // YouTube's player can't be moved, so this one starts fresh and the small one stops.
+                    playing = false
+                    MediaFullScreen.shared.show(AnyView(ZStack(alignment: .topTrailing) { YouTubePlayer(id: id); FullScreenClose() }))
+                } label: {
+                    Label("Full screen", systemImage: "arrow.up.left.and.arrow.down.right").font(.system(size: 11))
+                }
+                .buttonStyle(.plain).opacity(0.6)
+            }
         }
         .task(id: thumb) { img = await PictureFetch.image(thumb) }
     }
@@ -2230,6 +2542,8 @@ struct ChatRow<Content: View>: View {
     var reactions: [String] = []
     /// Set to let you react to this message (hover for the button, or right-click).
     var onReact: ((String) -> Void)? = nil
+    /// Set to let you reply to this message (hover for the button, or right-click).
+    var onReply: (() -> Void)? = nil
     @ViewBuilder let content: Content
     @AppStorage("chatAvatar") private var avatar = ""
     @State private var hover = false
@@ -2239,10 +2553,11 @@ struct ChatRow<Content: View>: View {
 
     var body: some View {
         HStack(alignment: .bottom, spacing: 8) {
-            if mine { Spacer(minLength: 70) }
+            if mine { Spacer(minLength: 70); replyButton }
             else if showAvatar { Avatar(emoji: avatar, size: 24) }
             else { Color.clear.frame(width: 24, height: 1) }
             bubble
+            if !mine { replyButton }
             if let onReact, !mine {
                 Button { picking.toggle() } label: {
                     Image(systemName: "face.smiling").font(.system(size: 13)).foregroundStyle(.white.opacity(0.75))
@@ -2271,6 +2586,17 @@ struct ChatRow<Content: View>: View {
         .animation(.spring(duration: 0.3, bounce: 0.4), value: reactions)
     }
 
+    @ViewBuilder private var replyButton: some View {
+        if let onReply {
+            Button(action: onReply) {
+                Image(systemName: "arrowshape.turn.up.left").font(.system(size: 12)).foregroundStyle(.white.opacity(0.75))
+                    .frame(width: 24, height: 24).background(Circle().fill(.white.opacity(0.12)))
+            }
+            .buttonStyle(.plain).help("Reply").accessibilityLabel("Reply to this message")
+            .opacity(hover ? 1 : 0)
+        }
+    }
+
     private var bubble: some View {
         content
                 .font(.system(size: style.textSize))
@@ -2293,6 +2619,49 @@ struct ChatRow<Content: View>: View {
                             .transition(.scale.combined(with: .opacity))
                     }
                 }
+    }
+}
+
+/// The small quote at the top of a bubble that replies to an earlier message. Tap it to go back there.
+struct ReplyQuote: View {
+    let reply: ChatReply
+    let name: String
+    let onTap: () -> Void
+
+    /// One tidy line for a message that may hold markdown, code or pictures.
+    static func preview(_ text: String) -> String {
+        var words: [String] = []
+        var other: String?
+        for b in RichAnswer.blocks(text) {
+            switch b {
+            case .prose(let s): words.append(s)
+            case .code: other = other ?? "Code"
+            case .video, .localVideo: other = other ?? "Video"
+            default: other = other ?? "Picture"
+            }
+        }
+        let plain = words.joined(separator: " ").replacingOccurrences(of: "\n", with: " ")
+            .replacingOccurrences(of: #"[*_`#]+"#, with: "", options: .regularExpression)
+            .trimmingCharacters(in: .whitespaces)
+        return plain.isEmpty ? (other ?? "Message") : plain
+    }
+
+    var body: some View {
+        Button(action: onTap) {
+            HStack(spacing: 7) {
+                Capsule().fill(.white.opacity(0.75)).frame(width: 3)
+                VStack(alignment: .leading, spacing: 1) {
+                    Text(name).font(.system(size: 11, weight: .semibold))
+                    Text(Self.preview(reply.text)).font(.system(size: 12)).opacity(0.8).lineLimit(2).multilineTextAlignment(.leading)
+                }
+            }
+            .fixedSize(horizontal: false, vertical: true)
+            .padding(.horizontal, 8).padding(.vertical, 6)
+            .frame(maxWidth: 420, alignment: .leading)
+            .background(RoundedRectangle(cornerRadius: 9).fill(.black.opacity(0.2)))
+            .contentShape(Rectangle())
+        }
+        .buttonStyle(.plain).help("Go to this message")
     }
 }
 

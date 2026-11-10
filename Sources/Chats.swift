@@ -9,6 +9,17 @@ extension Settings {
     static var chatKeepDays: Int { get { d.object(forKey: "chatKeepDays") as? Int ?? 30 } set { d.set(newValue, forKey: "chatKeepDays") } }
 }
 
+/// The earlier message you pointed at when replying, like a quoted reply in a messaging app.
+struct ChatReply: Codable, Equatable {
+    var text: String
+    /// True when you're replying to something you said yourself.
+    var mine: Bool
+    /// Where the message sits in the chat, so tapping the quote can jump back to it.
+    var exchange: Int
+    /// Which of Mercury's bubbles in that reply; nil means your own message.
+    var part: Int?
+}
+
 struct ChatRecord: Codable, Identifiable, Equatable {
     struct Turn: Codable, Equatable {
         var question: String
@@ -16,6 +27,8 @@ struct ChatRecord: Codable, Identifiable, Equatable {
         var withScreen: Bool
         var at: Date
         var reactions: [Int: [String]] = [:]
+        /// The message this one answers, when you replied to something specific.
+        var replyTo: ChatReply? = nil
     }
 
     var id = UUID()

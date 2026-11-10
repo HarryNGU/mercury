@@ -146,7 +146,7 @@ final class ReelEditor: ObservableObject {
             refreshTimeline()
             rebuild()
             refreshAudio()
-            if a.words == nil || (a.engine != "whisper" && Whisper.ready) { await transcribe() }
+            if a.words == nil || (a.engine != Whisper.engineTag && Whisper.ready) { await transcribe() }
         }
     }
 
@@ -171,13 +171,13 @@ final class ReelEditor: ObservableObject {
         if Whisper.ready {
             do {
                 a.words = try await Whisper.transcribe(url, voiced: Cutter.voiced(a), progress: report)
-                a.engine = "whisper"
+                a.engine = Whisper.engineTag
             } catch {
                 log("whisper: \(error.localizedDescription)")
                 self.error = "Whisper couldn't transcribe this one, so captions use Apple's recognition."
             }
         }
-        if a.engine != "whisper" {
+        if a.engine?.hasPrefix("whisper") != true {
             let snapshot = a
             a.words = await Task.detached { await Analyzer.words(of: url, analysis: snapshot, progress: report) }.value
             a.engine = "apple"
@@ -207,7 +207,7 @@ final class ReelEditor: ObservableObject {
 
     func checkWhisper() {
         whisperReady = Whisper.ready
-        if whisperReady, analysis?.engine != "whisper" { Task { await transcribe() } }
+        if whisperReady, analysis?.engine != Whisper.engineTag { Task { await transcribe() } }
     }
 
     // MARK: Keeping the preview current
@@ -625,6 +625,54 @@ final class ReelEditor: ObservableObject {
         }
     }
 
+    // MARK: Placing things in time
+
+    /// Where the picked text, zoom, picture, video or blur sits on the edited timeline.
+    var selectionSpan: TimeSpan? {
+        func out(_ a: Double, _ b: Double) -> TimeSpan? { timeline.outputSpan(of: TimeSpan(start: a, end: b)) }
+        switch selection {
+        case .text(let id): return plan.texts.first { $0.id == id }.flatMap { out($0.start, $0.end) }
+        case .zoom(let id): return plan.zooms.first { $0.id == id }.flatMap { out($0.start, $0.end) }
+        case .image(let id): return plan.images.first { $0.id == id }.flatMap { out($0.start, $0.end) }
+        case .video(let id): return plan.videos.first { $0.id == id }.flatMap { out($0.start, $0.end) }
+        case .blur(let id): return plan.blurs.first { $0.id == id }.flatMap { out($0.start, $0.end) }
+        default: return nil
+        }
+    }
+
+    /// Puts the picked item at an exact start and length, kept inside the video.
+    func placeSelection(start: Double, length: Double) {
+        guard selectionSpan != nil else { return }
+        let len = max(0.2, min(length, timeline.duration))
+        let a = max(0, min(start, timeline.duration - len))
+        beginChange()
+        setSpan(selection, from: a, to: a + len)
+    }
+
+    /// Moves the picked item to the playhead, keeping its length.
+    func moveSelectionHere() {
+        guard let sp = selectionSpan else { return }
+        placeSelection(start: time, length: sp.end - sp.start)
+    }
+
+    /// The picked item starts at the playhead and still ends where it did, if that leaves anything.
+    func startSelectionHere() {
+        guard let sp = selectionSpan else { return }
+        if time < sp.end - 0.2 { placeSelection(start: time, length: sp.end - time) } else { moveSelectionHere() }
+    }
+
+    /// The picked item ends at the playhead.
+    func endSelectionHere() {
+        guard let sp = selectionSpan, time > sp.start + 0.2 else { return }
+        placeSelection(start: sp.start, length: time - sp.start)
+    }
+
+    /// Small steps with the comma and full stop keys.
+    func nudgeSelection(by dt: Double) {
+        guard let sp = selectionSpan else { return }
+        placeSelection(start: sp.start + dt, length: sp.end - sp.start)
+    }
+
     // MARK: Adding things
 
     static let textPresets: [(name: String, item: TextItem)] = [
@@ -664,9 +712,13 @@ final class ReelEditor: ObservableObject {
         }
     }
 
+    /// A picture starts at the playhead for five seconds, like everything else you add.
     func addImage(_ file: URL) {
-        guard let kept = keep(file), let a = analysis else { return }
-        let item = ImageItem(file: kept.path, name: file.deletingPathExtension().lastPathComponent, start: 0, end: a.duration)
+        guard let kept = keep(file) else { return }
+        let start = timeline.source(at: time)
+        var end = timeline.source(at: min(timeline.duration, time + 5), preferEnd: true)
+        if end - start < 0.5 { end = start + 5 }
+        let item = ImageItem(file: kept.path, name: file.deletingPathExtension().lastPathComponent, start: start, end: end)
         change { $0.images.append(item) }
         select(.image(item.id))
     }
@@ -863,7 +915,14 @@ final class ReelEditor: ObservableObject {
             let sizes = ReelSize.allCases.filter { toSave.contains($0) }
             for size in sizes {
                 exporting = (size, 0)
-                let out = Settings.reelsFolder.appendingPathComponent("\(safe.isEmpty ? "Reel" : safe) · \(size.fileTag).mp4")
+                let name = "\(safe.isEmpty ? "Reel" : safe) · \(size.fileTag)"
+                var out = Settings.reelsFolder.appendingPathComponent("\(name).mp4")
+                var copy = 2
+                // Re-editing a saved reel: never write over the video it's being read from.
+                while out.standardizedFileURL == url.standardizedFileURL {
+                    out = Settings.reelsFolder.appendingPathComponent("\(name) \(copy).mp4")
+                    copy += 1
+                }
                 do {
                     let b = try await ReelBuilder.build(url: url, timeline: timeline, plan: plan, size: size, resolution: resolution, words: words, voiced: voiced, levels: levels, hop: hop)
                     try await ReelBuilder.export(b, to: out) { p in Task { @MainActor in self.exporting = (size, p) } }
@@ -1466,6 +1525,11 @@ struct EditorPage: View {
             case (_, "d") where cmd: ed.duplicateSelection()
             case (_, "a") where cmd: ed.selectRange(0, ed.editedLength)
             case (_, "s") where !cmd: ed.split()
+            case (_, "m") where !cmd && ed.selectionSpan != nil: ed.moveSelectionHere()
+            case (_, "[") where !cmd && ed.selectionSpan != nil: ed.startSelectionHere()
+            case (_, "]") where !cmd && ed.selectionSpan != nil: ed.endSelectionHere()
+            case (_, ",") where !cmd && ed.selectionSpan != nil: ed.nudgeSelection(by: shift ? -1 : -0.1)
+            case (_, ".") where !cmd && ed.selectionSpan != nil: ed.nudgeSelection(by: shift ? 1 : 0.1)
             case (_, "b") where cmd: ed.split()
             case (_, "t") where !cmd: ed.addText(ReelEditor.textPresets[0].item)
             case (_, "z") where !cmd: ed.addZoom()

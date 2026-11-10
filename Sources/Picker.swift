@@ -79,12 +79,14 @@ final class Picker {
     private func refreshWindows() {
         guard Date().timeIntervalSince(lastRefresh) > 0.25 else { return }
         lastRefresh = Date()
-        let me = getpid()
+        // Mercury's own main window counts too, so you can record its editor or settings. Its floating
+        // pieces (this picker, the pill, the camera bubble, the chat) sit above normal windows and are skipped.
+        let mine = Set(overlays.map { CGWindowID($0.windowNumber) })
         let info = CGWindowListCopyWindowInfo([.optionOnScreenOnly, .excludeDesktopElements], kCGNullWindowID) as? [[String: Any]] ?? []
         windows = info.compactMap { w in
             guard (w[kCGWindowLayer as String] as? Int) == 0,
-                  let id = w[kCGWindowNumber as String] as? CGWindowID,
-                  let pid = w[kCGWindowOwnerPID as String] as? pid_t, pid != me,
+                  let id = w[kCGWindowNumber as String] as? CGWindowID, !mine.contains(id),
+                  let pid = w[kCGWindowOwnerPID as String] as? pid_t,
                   (w[kCGWindowAlpha as String] as? Double ?? 1) > 0.05,
                   let bd = w[kCGWindowBounds as String] as? NSDictionary,
                   let b = CGRect(dictionaryRepresentation: bd), b.width >= 60, b.height >= 30 else { return nil }

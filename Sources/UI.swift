@@ -4,6 +4,7 @@
 import AppKit
 import AVFoundation
 import SwiftUI
+import UniformTypeIdentifiers
 
 // MARK: - Shared state
 
@@ -28,6 +29,7 @@ final class UIModel: ObservableObject {
     @Published var recents: [RecentRecording] = []
     /// The recording open in the reel editor, if any.
     @Published var editing: URL?
+    @Published var importing = false
 
     // Recording pill
     @Published var paused = false
@@ -59,11 +61,64 @@ final class UIModel: ObservableObject {
         return s >= 3600 ? String(format: "%d:%02d:%02d", s / 3600, s / 60 % 60, s % 60) : String(format: "%02d:%02d", s / 60, s % 60)
     }
 
+    private static let videoExtensions: Set<String> = ["mp4", "mov", "m4v"]
+
+    struct ImportFailure: LocalizedError {
+        var errorDescription: String? { "Mercury can't open this kind of video. MP4, MOV and M4V files work." }
+    }
+
+    /// Asks for a video, keeps a copy in Mercury Recordings so the original is never touched, and opens the editor.
+    func importVideo() {
+        let panel = NSOpenPanel()
+        panel.allowedContentTypes = [.movie]
+        panel.allowsMultipleSelection = false
+        panel.prompt = "Import"
+        panel.message = "Choose a video to edit. Mercury keeps its own copy in Mercury Recordings."
+        guard panel.runModal() == .OK, let source = panel.url else { return }
+        importing = true
+        Task { @MainActor in
+            defer { importing = false }
+            do {
+                let copy = try await Self.importedCopy(of: source)
+                refreshRecents()
+                editing = copy
+            } catch {
+                log("import failed: \(error)")
+                let alert = NSAlert()
+                alert.messageText = "Couldn't import that video"
+                alert.informativeText = error.localizedDescription
+                alert.runModal()
+            }
+        }
+    }
+
+    static func importedCopy(of source: URL) async throws -> URL {
+        let asset = AVURLAsset(url: source)
+        let playable = (try? await asset.load(.isPlayable)) ?? false
+        let tracks = (try? await asset.loadTracks(withMediaType: .video)) ?? []
+        guard playable, !tracks.isEmpty, videoExtensions.contains(source.pathExtension.lowercased()) else { throw ImportFailure() }
+        let here = source.deletingLastPathComponent().standardizedFileURL
+        if here == Settings.folder.standardizedFileURL || here == Settings.reelsFolder.standardizedFileURL { return source }
+        let ext = source.pathExtension
+        let stem = source.deletingPathExtension().lastPathComponent
+        let fm = FileManager.default
+        var dest = Settings.folder.appendingPathComponent(stem).appendingPathExtension(ext)
+        var n = 2
+        while fm.fileExists(atPath: dest.path) {
+            dest = Settings.folder.appendingPathComponent("\(stem) \(n)").appendingPathExtension(ext)
+            n += 1
+        }
+        let target = dest
+        try await Task.detached(priority: .userInitiated) { try FileManager.default.copyItem(at: source, to: target) }.value
+        log("imported: \(target.lastPathComponent)")
+        return target
+    }
+
     func refreshRecents() {
         let fm = FileManager.default
         func videos(in dir: URL) -> [URL] {
             ((try? fm.contentsOfDirectory(at: dir, includingPropertiesForKeys: [.creationDateKey])) ?? [])
-                .filter { $0.pathExtension == "mp4" && !$0.lastPathComponent.hasPrefix(".") }
+                .filter { Self.videoExtensions.contains($0.pathExtension.lowercased()) && !$0.lastPathComponent.hasPrefix(".") }
         }
         let files = videos(in: Settings.folder) + videos(in: Settings.reelsFolder)
         let dated = files.map { ($0, (try? $0.resourceValues(forKeys: [.creationDateKey]).creationDate) ?? .distantPast) }
@@ -492,7 +547,8 @@ struct ChatTextView: NSViewRepresentable {
         if tv.placeholder != placeholder { tv.placeholder = placeholder }
         if focusRequest != context.coordinator.lastFocus {
             context.coordinator.lastFocus = focusRequest
-            DispatchQueue.main.async { tv.window?.makeFirstResponder(tv) }
+            // Never pulls the keyboard to the panel by itself; it only moves the cursor in a window you're already typing in.
+            DispatchQueue.main.async { if tv.window?.isKeyWindow == true { tv.window?.makeFirstResponder(tv) } }
         }
     }
 }

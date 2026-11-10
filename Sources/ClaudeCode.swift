@@ -18,6 +18,19 @@ final class ClaudeCodeSession: @unchecked Sendable {
         var appName: String { ClaudeCodeSession.friendlyTool(tool) }
     }
 
+    /// Told when Claude starts driving the Mac's keyboard or mouse (System Events, synthetic key events,
+    /// computer use), so Mercury's panel can keep its hands off the keyboard until the answer finishes.
+    var onControlling: (() -> Void)?
+
+    /// True for a tool call that types, clicks or switches apps on the Mac.
+    static func controlsComputer(_ tool: String, _ input: [String: Any]) -> Bool {
+        let t = tool.lowercased()
+        if t.contains("computer-use") || t.contains("computer_use") || t.hasSuffix("__computer") { return true }
+        guard t == "bash", let cmd = (input["command"] as? String)?.lowercased() else { return false }
+        return ["system events", "keystroke", "key code", "cgevent", "cliclick", "pyautogui", "osascript -e 'tell application",
+                "osascript -e \"tell application", "click at", "quartz"].contains { cmd.contains($0) }
+    }
+
     enum Event {
         case text(String)
         case activity(String)            // "Searching Gmail…"
@@ -263,6 +276,7 @@ final class ClaudeCodeSession: @unchecked Sendable {
             let blocks = (m["message"] as? [String: Any])?["content"] as? [[String: Any]] ?? []
             for b in blocks where b["type"] as? String == "tool_use" {
                 let tool = b["name"] as? String ?? "", input = b["input"] as? [String: Any] ?? [:]
+                if Self.controlsComputer(tool, input), let f = onControlling { DispatchQueue.main.async { f() } }
                 emit(.activity(profile.isJob ? Self.jobActivity(tool, input) : Self.activity(tool, input)))
             }
         case "control_request":

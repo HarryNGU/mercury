@@ -34,12 +34,20 @@ done
 lipo -create -output $APP/Contents/MacOS/Mercury $OUT/Mercury-arm64 $OUT/Mercury-x86_64
 rm $OUT/Mercury-arm64 $OUT/Mercury-x86_64
 
+# Voice built in (Apple silicon only; Intel Macs fall back to Apple's dictation).
+./tools/bundle-whisper.sh $APP
+
+# Without a Developer ID, the local "Bubble Local Signing" certificate keeps the app's identity the same
+# from release to release, so people's camera, mic and screen permissions survive updates.
+LOCAL=$(security find-identity -p codesigning | awk '/"Bubble Local Signing"/ {print $2; exit}')
+SIGNER=${DEVELOPER_ID:-${LOCAL:--}}
+[[ -z ${DEVELOPER_ID:-} ]] && echo "note: no DEVELOPER_ID, so macOS will ask friends to click Open Anyway the first time"
+if [[ -d $APP/Contents/Helpers/whisper ]]; then for f in $APP/Contents/Helpers/whisper/*; do codesign --force --sign "$SIGNER" "$f"; done; fi
 SIGN=(--force --options runtime --entitlements tools/Bubble.entitlements)
 if [[ -n ${DEVELOPER_ID:-} ]]; then
   codesign "${SIGN[@]}" --timestamp --sign "$DEVELOPER_ID" $APP
 else
-  echo "warning: no DEVELOPER_ID, signing ad hoc (macOS will warn when friends open it)"
-  codesign "${SIGN[@]}" --sign - $APP
+  codesign "${SIGN[@]}" --sign "$SIGNER" $APP
 fi
 codesign --verify --deep --strict $APP
 

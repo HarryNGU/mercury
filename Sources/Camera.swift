@@ -38,8 +38,6 @@ final class CameraBubble: NSObject, AVCaptureVideoDataOutputSampleBufferDelegate
     private var pixelSize: CGFloat = Settings.bubbleSize * 2
     private var showThings = Settings.showThings
     private var lastMask: CIImage?  // camera queue only: the eased mask from the previous frame
-    private var lastThings: CIImage?  // camera queue only: what you're holding, from the last time Vision looked
-    private var maskFrame = 0
 
     override init() {
         let size = Settings.bubbleSize
@@ -76,32 +74,6 @@ final class CameraBubble: NSObject, AVCaptureVideoDataOutputSampleBufferDelegate
         badge.frame = NSRect(x: size / 2 - 66, y: size * 0.14, width: 132, height: 18)
         pixelSize = size * (panel.screen?.backingScaleFactor ?? 2)
         applyStyle()
-        if configured { matchPreset() }
-    }
-
-    /// Battery: ask the camera for no more than the bubble shows. 480p covers bubbles up to
-    /// 480 pixels across; only bigger ones need 720p.
-    private func matchPreset() {
-        let want: AVCaptureSession.Preset = pixelSize > 480 ? .hd1280x720 : .vga640x480
-        let px = pixelSize
-        frameQueue.async {
-            guard self.session.sessionPreset != want, self.session.canSetSessionPreset(want) else { return }
-            self.session.beginConfiguration()
-            self.session.sessionPreset = want
-            self.session.commitConfiguration()
-            self.capFrameRate()
-            log("camera: \(want == .vga640x480 ? "480p" : "720p") for a \(Int(px)) px bubble")
-        }
-    }
-
-    /// 24 pictures a second is smooth for a face and saves a fifth of the work of 30.
-    private func capFrameRate() {
-        guard let device = (session.inputs.first as? AVCaptureDeviceInput)?.device,
-              device.activeFormat.videoSupportedFrameRateRanges.contains(where: { $0.minFrameRate <= 24 && $0.maxFrameRate >= 24 }),
-              (try? device.lockForConfiguration()) != nil else { return }
-        device.activeVideoMinFrameDuration = CMTime(value: 1, timescale: 24)
-        device.activeVideoMaxFrameDuration = CMTime(value: 1, timescale: 24)
-        device.unlockForConfiguration()
     }
 
     func refreshStyle() { applyStyle() }
@@ -120,14 +92,14 @@ final class CameraBubble: NSObject, AVCaptureVideoDataOutputSampleBufferDelegate
 
     func setBackground(_ bg: CameraBackground) {
         Settings.background = bg
-        frameQueue.async { self.background = bg; self.lastMask = nil; self.lastThings = nil }
+        frameQueue.async { self.background = bg; self.lastMask = nil }
         background = bg
         applyStyle()
     }
 
     func setShowThings(_ on: Bool) {
         Settings.showThings = on
-        frameQueue.async { self.showThings = on; self.lastMask = nil; self.lastThings = nil }
+        frameQueue.async { self.showThings = on; self.lastMask = nil }
         flash(on ? "Showing things too" : "Just you")
     }
 
@@ -188,7 +160,7 @@ final class CameraBubble: NSObject, AVCaptureVideoDataOutputSampleBufferDelegate
         if !configured {
             configured = true
             session.beginConfiguration()
-            session.sessionPreset = pixelSize > 480 ? .hd1280x720 : .vga640x480
+            session.sessionPreset = .hd1280x720
             if let device = AVCaptureDevice.default(for: .video),
                let input = try? AVCaptureDeviceInput(device: device), session.canAddInput(input) {
                 session.addInput(input)
@@ -199,9 +171,7 @@ final class CameraBubble: NSObject, AVCaptureVideoDataOutputSampleBufferDelegate
             if session.canAddOutput(output) { session.addOutput(output) }
             session.commitConfiguration()
         }
-        frameQueue.async {
-            if !self.session.isRunning { self.lastFrame = Date(); self.session.startRunning(); self.capFrameRate() }
-        }
+        frameQueue.async { if !self.session.isRunning { self.lastFrame = Date(); self.session.startRunning() } }
     }
 
     /// Testing: stops the camera, as a sleeping Mac does.
@@ -263,30 +233,26 @@ final class CameraBubble: NSObject, AVCaptureVideoDataOutputSampleBufferDelegate
 
     /// How much of you (and, if asked, what you're holding) is in each pixel, from 0 to 1.
     private func personMask(for img: CIImage) -> CIImage? {
-        // Battery: Vision is the expensive part, so it looks at every other frame and the frames
-        // in between reuse the last mask (which is eased over frames anyway, so it looks the same).
-        // Finding things you're holding is heavier still, so that runs on every third look.
-        maskFrame &+= 1
-        if maskFrame % 2 == 1, let last = lastMask { return finish(last, img) }
-        let findThings = showThings && (lastThings == nil || maskFrame % 6 == 0)
         let handler = VNImageRequestHandler(ciImage: img, options: [:])
-        guard (try? handler.perform(findThings ? [segmentation, things] : [segmentation])) != nil,
+        guard (try? handler.perform(showThings ? [segmentation, things] : [segmentation])) != nil,
               let buf = segmentation.results?.first?.pixelBuffer else { return nil }
+        if !showThings {
+            // Just you: Vision's mask as it comes, scaled to the frame with a slightly soft edge. The
+            // easing and cut off below are only for things you hold up; on you alone they faded out
+            // parts Vision was less sure of, like a dark shirt at the edge of the picture.
+            let m = CIImage(cvPixelBuffer: buf)
+            return m.transformed(by: CGAffineTransform(scaleX: img.extent.width / m.extent.width,
+                                                       y: img.extent.height / m.extent.height))
+                .clampedToExtent().applyingGaussianBlur(sigma: 1.5).cropped(to: img.extent)
+        }
         let side = Self.maskSide
         var mask = Self.fit(CIImage(cvPixelBuffer: buf, options: Self.raw), side)
-        if findThings {
-            lastThings = (things.results?.first?.instanceMask).flatMap { labels in
-                // Each object has its own number in the label map; any number above zero counts.
-                let any = Self.fit(CIImage(cvPixelBuffer: labels, options: Self.raw), side)
-                    .applyingFilter("CIColorMatrix", parameters: ["inputRVector": CIVector(x: 255, y: 0, z: 0, w: 0),
-                        "inputGVector": CIVector(x: 255, y: 0, z: 0, w: 0), "inputBVector": CIVector(x: 255, y: 0, z: 0, w: 0)])
-                    .applyingFilter("CIColorClamp")
-                let box = CGRect(x: 0, y: 0, width: side, height: side)
-                return maskContext.createCGImage(any, from: box, format: .L8, colorSpace: CGColorSpaceCreateDeviceGray())
-                    .map { CIImage(cgImage: $0, options: Self.raw) }
-            }
-        }
-        if showThings, let any = lastThings {
+        if showThings, let labels = things.results?.first?.instanceMask {
+            // Each object has its own number in the label map; any number above zero counts.
+            let any = Self.fit(CIImage(cvPixelBuffer: labels, options: Self.raw), side)
+                .applyingFilter("CIColorMatrix", parameters: ["inputRVector": CIVector(x: 255, y: 0, z: 0, w: 0),
+                    "inputGVector": CIVector(x: 255, y: 0, z: 0, w: 0), "inputBVector": CIVector(x: 255, y: 0, z: 0, w: 0)])
+                .applyingFilter("CIColorClamp")
             mask = any.applyingFilter("CIMaximumCompositing", parameters: [kCIInputBackgroundImageKey: mask])
         }
         // Things fade in over a few frames, so a chair Vision keeps changing its mind about can't
@@ -299,13 +265,9 @@ final class CameraBubble: NSObject, AVCaptureVideoDataOutputSampleBufferDelegate
         let box = CGRect(x: 0, y: 0, width: side, height: side)
         guard let kept = maskContext.createCGImage(mask, from: box, format: .L8, colorSpace: CGColorSpaceCreateDeviceGray()) else { return nil }
         lastMask = CIImage(cgImage: kept, options: Self.raw)
-        return finish(lastMask!, img)
-    }
-
-    /// Leave out what's only there now and then, scale up to the frame and soften the edge slightly.
-    private func finish(_ eased: CIImage, _ img: CIImage) -> CIImage {
-        let k = img.extent.width / Self.maskSide
-        return eased.applyingFilter("CIColorMatrix", parameters: ["inputRVector": CIVector(x: 2, y: 0, z: 0, w: 0),
+        // Leave out what's only there now and then, scale up to the frame and soften the edge slightly.
+        let k = img.extent.width / side
+        return lastMask!.applyingFilter("CIColorMatrix", parameters: ["inputRVector": CIVector(x: 2, y: 0, z: 0, w: 0),
                 "inputGVector": CIVector(x: 0, y: 2, z: 0, w: 0), "inputBVector": CIVector(x: 0, y: 0, z: 2, w: 0),
                 "inputBiasVector": CIVector(x: -0.5, y: -0.5, z: -0.5, w: 0)])
             .applyingFilter("CIColorClamp").clampedToExtent()

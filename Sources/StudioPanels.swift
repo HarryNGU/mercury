@@ -675,6 +675,16 @@ struct CaptionsPanel: View {
             }
         }
         if !ed.whisperReady { WhisperCard(ed: ed) }
+        if ed.whisperReady {
+            PanelSection(title: "Language spoken") {
+                SwiftUI.Picker("", selection: Binding(get: { Settings.speechLanguage }, set: { Settings.speechLanguage = $0; Task { await ed.transcribe() } })) {
+                    ForEach(Whisper.languages, id: \.0) { Text($0.1).tag($0.0) }
+                }
+                .labelsHidden().disabled(ed.transcribing != nil)
+                Button(ed.transcribing != nil ? "Listening again…" : "Write the words again") { Task { await ed.transcribe() } }
+                    .controlSize(.small).disabled(ed.transcribing != nil)
+            }
+        }
         CueList(ed: ed)
     }
 }

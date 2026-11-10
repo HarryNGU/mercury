@@ -48,6 +48,9 @@ final class Recorder: NSObject, SCStreamOutput, SCStreamDelegate {
     private let queue = DispatchQueue(label: "bubble.writer")
     private var sessionStarted = false
     private var lastVideo: CMSampleBuffer?
+    /// The latest screen frame as captured, so it can be written again blurred if a check spots something late.
+    private var lastRaw: CMSampleBuffer?
+    private var lastVideoPTS = CMTime.invalid
     private var lastTime = CMTime.invalid
     private(set) var url: URL?
 
@@ -160,9 +163,9 @@ final class Recorder: NSObject, SCStreamOutput, SCStreamDelegate {
         cfg.height = height
         cfg.pixelFormat = kCVPixelFormatType_420YpCbCr8BiPlanarVideoRange
         cfg.colorSpaceName = CGColorSpace.sRGB
-        cfg.minimumFrameInterval = CMTime(value: 1, timescale: 30)
+        cfg.minimumFrameInterval = CMTime(value: 1, timescale: 60)
         cfg.showsCursor = true
-        cfg.queueDepth = 6
+        cfg.queueDepth = 8
         cfg.capturesAudio = systemAudio
         cfg.excludesCurrentProcessAudio = true
         cfg.sampleRate = 48_000
@@ -173,15 +176,15 @@ final class Recorder: NSObject, SCStreamOutput, SCStreamDelegate {
         fmt.dateFormat = "yyyy-MM-dd 'at' HH.mm.ss"
         let url = Settings.folder.appendingPathComponent("Mercury \(fmt.string(from: Date())).mp4")
         let writer = try AVAssetWriter(outputURL: url, fileType: .mp4)
-        let bitrate = max(2_000_000, Int(Double(width * height) * 30 * 0.06))
+        let bitrate = max(3_000_000, Int(Double(width * height) * 60 * 0.04))
         let videoIn = AVAssetWriterInput(mediaType: .video, outputSettings: [
             AVVideoCodecKey: AVVideoCodecType.h264,
             AVVideoWidthKey: width,
             AVVideoHeightKey: height,
             AVVideoCompressionPropertiesKey: [
                 AVVideoAverageBitRateKey: bitrate,
-                AVVideoExpectedSourceFrameRateKey: 30,
-                AVVideoMaxKeyFrameIntervalKey: 60,
+                AVVideoExpectedSourceFrameRateKey: 60,
+                AVVideoMaxKeyFrameIntervalKey: 120,
                 AVVideoProfileLevelKey: AVVideoProfileLevelH264HighAutoLevel,
             ],
         ])
@@ -212,7 +215,10 @@ final class Recorder: NSObject, SCStreamOutput, SCStreamDelegate {
             self.lastVideo = nil
             self.lastTime = .invalid
             self.micNext = .invalid
-            self.redactor = Settings.blurPrivate ? Redactor() : nil
+            self.lastRaw = nil
+            self.lastVideoPTS = .invalid
+            self.redactor = Settings.blurPrivate ? Redactor(queue: queue) : nil
+            self.redactor?.onNewFinds = { [weak self] in self?.rewriteStill() }
         }
         self.url = url
 
@@ -315,6 +321,23 @@ final class Recorder: NSObject, SCStreamOutput, SCStreamDelegate {
 
     // MARK: Writing (all on `queue`)
 
+    /// A check spotted something private in a frame that was already written. Write the latest frame
+    /// again, blurred, a moment after the last one, so a still screen doesn't keep showing it.
+    private func rewriteStill() {
+        guard sessionStarted, !paused, writer?.status == .writing, let raw = lastRaw, let redactor,
+              let videoIn, videoIn.isReadyForMoreMediaData, lastVideoPTS.isValid else { return }
+        let at = lastVideoPTS + CMTime(value: 1, timescale: 600)
+        var timing = CMSampleTimingInfo(duration: .invalid, presentationTimeStamp: at, decodeTimeStamp: .invalid)
+        var copy: CMSampleBuffer?
+        CMSampleBufferCreateCopyWithNewTiming(allocator: nil, sampleBuffer: redactor.blurOnly(raw), sampleTimingEntryCount: 1,
+                                              sampleTimingArray: &timing, sampleBufferOut: &copy)
+        guard let copy else { return }
+        videoIn.append(copy)
+        lastVideo = copy
+        lastVideoPTS = at
+        if !lastTime.isValid || at > lastTime { lastTime = at }
+    }
+
     private func append(_ raw: CMSampleBuffer, to input: AVAssetWriterInput?) {
         guard sessionStarted, !paused, let input, input.isReadyForMoreMediaData else { return }
         let sb = shifted(raw)
@@ -356,11 +379,15 @@ final class Recorder: NSObject, SCStreamOutput, SCStreamDelegate {
                 sessionStarted = true
             }
             if paused { return }
+            lastRaw = sb
             if let videoIn, videoIn.isReadyForMoreMediaData {
                 let sb = shifted(redactor?.process(sb) ?? sb)
+                let pts = CMSampleBufferGetPresentationTimeStamp(sb)
+                // A frame written again after a late find can sit just after this one; never go backwards.
+                if lastVideoPTS.isValid, pts <= lastVideoPTS { return }
                 videoIn.append(sb)
                 lastVideo = sb
-                let pts = CMSampleBufferGetPresentationTimeStamp(sb)
+                lastVideoPTS = pts
                 if !lastTime.isValid || pts > lastTime { lastTime = pts }
             }
         case .audio:
@@ -420,7 +447,7 @@ final class Recorder: NSObject, SCStreamOutput, SCStreamDelegate {
 
     private func reset() {
         writer = nil; videoIn = nil; micIn = nil; sysIn = nil
-        sessionStarted = false; startTime = nil; lastVideo = nil; lastTime = .invalid
+        sessionStarted = false; startTime = nil; lastVideo = nil; lastRaw = nil; lastVideoPTS = .invalid; lastTime = .invalid
         paused = false; pausedAt = nil; pauseOffset = .zero
     }
 

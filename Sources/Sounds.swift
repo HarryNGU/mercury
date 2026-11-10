@@ -1,5 +1,6 @@
 // Mercury's own sound effects, synthesised at launch (no audio files): a rising "bloop" when
-// recording starts, a falling one when it ends, and a soft tick for each countdown number.
+// recording starts, a falling one when it ends, a soft tick for each countdown number, and the
+// gentle pops and chimes of the welcome tour.
 
 import AVFoundation
 
@@ -15,7 +16,8 @@ enum Sounds {
         players["start"]?.volume = 0.55
         players["stop"]?.volume = 0.55
         players["tick"]?.volume = 0.35
-        log("sounds ready: \(players.values.count)/5")
+        loadTourSounds()
+        log("sounds ready: \(players.values.count)")
     }
 
     static func start() { play("start") }
@@ -24,6 +26,73 @@ enum Sounds {
     /// Dictation starts listening / stops listening.
     static func listen() { play("listen") }
     static func heard() { play("heard") }
+
+    /// The welcome tour, which plays out like a chat. Across the tour the sounds make a low, wandering
+    /// melody that rises and falls, and each step ends with its own sound, so it never just climbs.
+    enum Tour: String, CaseIterable {
+        case hello, m0, m1, m2, m3, step0, step1, step2, step3, step4, step5, on, off, granted, granted2, ready, finish
+        fileprivate var volume: Float {
+            switch self {
+            case .hello: 0.5
+            case .m0, .m1, .m2, .m3: 0.7
+            case .step0, .step2, .step4: 0.6        // wood and mallet
+            case .step1, .step3, .step5: 0.75       // pops are softer, so a little more
+            case .on, .off: 0.6
+            case .granted, .granted2: 0.5
+            case .ready: 0.55
+            case .finish: 0.6
+            }
+        }
+    }
+
+    static func tour(_ t: Tour) { play("tour." + t.rawValue) }
+
+    /// Mercury's message number `n`: rises, falls, does both, then sinks low, starting somewhere different each step.
+    static func tourMessage(_ n: Int) { tour([Tour.m0, .m1, .m2, .m3][n % 4]) }
+    /// The sound for finishing tour step `n`.
+    static func tourStep(_ n: Int) { tour([Tour.step0, .step1, .step2, .step3, .step4, .step5][max(0, n) % 6]) }
+
+    private static let c4 = 261.6, d4 = 293.7, e4 = 329.6, f4 = 349.2, g4 = 392.0, a4 = 440.0, c5 = 523.3
+
+    private static func samples(_ t: Tour) -> [Float] {
+        switch t {
+        case .hello: return mallets([e4, g4, c5, g4], gap: 0.13, length: 1.3, decay: 0.32)               // up, then settles
+        case .m0: return pops([(290, 390)])
+        case .m1: return pops([(380, 280)])
+        case .m2: return pops([(300, 390), (390, 300)])
+        case .m3: return pops([(300, 225)])
+        case .step0: return chime([c4, e4])                                                              // wood, up
+        case .step1: return pops([(370, 300), (300, 240)])                                               // pops, down
+        case .step2: return mallets([d4, g4, e4], gap: 0.1, length: 0.8, decay: 0.16)                     // up and back
+        case .step3: return chime([f4, d4])                                                              // wood, down
+        case .step4: return pops([(250, 340), (340, 430), (390, 300)])                                   // climbs, then drops
+        case .step5: return mallets([g4, e4, a4, g4], gap: 0.09, length: 0.9, decay: 0.16)                // down, up, down
+        case .on: return pops([(260, 360)])
+        case .off: return pops([(350, 250)])
+        case .granted: return mallets([g4, c5], gap: 0.09, length: 0.7, decay: 0.18)
+        case .granted2: return mallets([a4, f4], gap: 0.09, length: 0.7, decay: 0.18)
+        case .ready: return mallets([c4, g4, e4, a4, g4, c5], gap: 0.14, length: 2.2, decay: 0.5)         // wanders up and down, lands home
+        case .finish: return chime([g4, c4])
+        }
+    }
+
+    private static func loadTourSounds() {
+        for t in Tour.allCases {
+            let key = "tour." + t.rawValue
+            players[key] = player(samples(t))
+            players[key]?.volume = t.volume
+        }
+    }
+
+    /// For the offscreen check: length and loudness of each tour sound. Plays nothing.
+    static func tourLevels() -> [String] {
+        Tour.allCases.map { t in
+            let x = samples(t)
+            let peak = x.map { abs($0) }.max() ?? 0
+            let rms = (x.map { $0 * $0 }.reduce(0, +) / Float(max(1, x.count))).squareRoot()
+            return String(format: "%@ %.2fs peak %.2f rms %.3f", t.rawValue, Double(x.count) / rate, peak, rms)
+        }
+    }
 
     /// The voice sounds you can pick in Dictation settings.
     enum VoiceStyle: String, CaseIterable, Identifiable {
@@ -133,6 +202,36 @@ enum Sounds {
         // One-pole low-pass takes the edge off.
         var y = 0.0
         return wet.map { x in y += 0.35 * (x - y); return Float(y) }
+    }
+
+    /// A rising run of soft mallet notes that ring into each other, for the tour's bigger moments.
+    private static func mallets(_ notes: [Double], gap: Double, length: Double, decay: Double) -> [Float] {
+        let n = Int(rate * length)
+        var dry = [Double](repeating: 0, count: n)
+        for (k, f) in notes.enumerated() {
+            let offset = Int(rate * gap) * k
+            var p1 = 0.0, p2 = 0.0, p4 = 0.0
+            for i in 0..<(n - offset) {
+                let t = Double(i) / rate
+                p1 += 2 * .pi * f * (1 + 0.01 * exp(-t / 0.012)) / rate
+                p2 += 2 * .pi * f * 2 / rate
+                p4 += 2 * .pi * f * 3.9 / rate
+                let tone = sin(p1) * exp(-t / decay) + sin(p2) * 0.14 * exp(-t / (decay * 0.4)) + sin(p4) * 0.12 * exp(-t / 0.018)
+                dry[offset + i] += tone * min(1, t / 0.005)
+            }
+        }
+        var wet = dry
+        for (ms, g) in [(23.0, 0.22), (41.0, 0.16), (67.0, 0.11), (97.0, 0.07), (140.0, 0.05)] {
+            let d = Int(rate * ms / 1000)
+            for i in d..<n { wet[i] += dry[i - d] * g }
+        }
+        var y = 0.0
+        var out = wet.map { x -> Double in y += 0.35 * (x - y); return y }
+        // Level it, then fade the very end so it can never click.
+        let peak = out.map(abs).max() ?? 1
+        let tail = Int(rate * 0.12)
+        for i in out.indices { out[i] *= 0.8 / peak * min(1, Double(n - i) / Double(tail)) }
+        return out.map(Float.init)
     }
 
     /// A short, soft wooden tick.

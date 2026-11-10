@@ -1,6 +1,6 @@
 // Blurs private details in a recording as it's made: passwords, email addresses, phone and card
 // numbers, API keys and the like. Apple's Vision reads the text on screen a few times a second, on
-// this Mac; nothing it reads is sent anywhere, kept or written to the log. Password managers are
+// this Mac, beside the recording so it never holds up a frame; nothing it reads is sent anywhere, kept or written to the log. Password managers are
 // left out of screen recordings altogether (see Recorder).
 //
 // It catches most things, not everything: something can show for a moment before it's spotted,
@@ -25,8 +25,18 @@ final class Redactor {
 
     private struct Region { var rect: CGRect; var until: CFAbsoluteTime }  // rect: 0...1, bottom-left origin
 
-    // Everything below runs on the recorder's writer queue.
+    // Everything below runs on the recorder's writer queue, except the text reading itself, which runs
+    // on its own queue so frames never wait for it.
     private var regions: [Region] = []
+    private let writerQueue: DispatchQueue
+    private let scanQueue = DispatchQueue(label: "bubble.redactor", qos: .userInitiated)
+    private var scanning = false
+    /// Called on the writer queue when a check finds something new. The frame it was found in has
+    /// usually been written already, and macOS sends no new frames while the screen is still, so the
+    /// recorder writes that frame again with it blurred.
+    var onNewFinds: (() -> Void)?
+
+    init(queue: DispatchQueue) { writerQueue = queue }
     private var lastScan: CFAbsoluteTime = 0
     private let ci = CIContext(options: [.cacheIntermediates: false])
     private var pool: CVPixelBufferPool?
@@ -44,16 +54,29 @@ final class Redactor {
         _ = try? VNImageRequestHandler(ciImage: img).perform([request()])
     }
 
-    /// Called with each video frame (on the writer queue). Returns the frame with private details blurred.
-    /// A frame that's due a check is checked before it's written, never after: macOS sends no new frames
-    /// while the screen is still, so an unchecked frame could otherwise stay in the video for seconds.
+    /// Called with each video frame (on the writer queue). Returns the frame with what's been spotted so
+    /// far blurred, and starts a new check in the background when one is due.
     func process(_ sb: CMSampleBuffer) -> CMSampleBuffer {
         guard let px = CMSampleBufferGetImageBuffer(sb) else { return sb }
         let now = CFAbsoluteTimeGetCurrent()
-        if now - lastScan > Self.scanEvery {
+        if !scanning, now - lastScan > Self.scanEvery {
             lastScan = now
-            scan(px)
+            scanning = true
+            scanQueue.async { [self] in
+                let found = find(in: px)
+                writerQueue.async { [self] in
+                    scanning = false
+                    if merge(found) { onNewFinds?() }
+                }
+            }
         }
+        return blurOnly(sb)
+    }
+
+    /// The frame with what's been spotted so far blurred, without starting a check.
+    func blurOnly(_ sb: CMSampleBuffer) -> CMSampleBuffer {
+        guard let px = CMSampleBufferGetImageBuffer(sb) else { return sb }
+        let now = CFAbsoluteTimeGetCurrent()
         regions.removeAll { $0.until < now }
         guard !regions.isEmpty else { return sb }
         return blurred(sb, px, regions.map(\.rect)) ?? sb
@@ -68,24 +91,33 @@ final class Redactor {
         return req
     }
 
-    private func scan(_ px: CVPixelBuffer) {
+    /// Reads the frame's text and returns the private parts (on the scan queue; touches no shared state).
+    private func find(in px: CVPixelBuffer) -> [CGRect] {
         // Half size is still sharp on a Retina screen and reads several times faster.
         var img = CIImage(cvPixelBuffer: px)
         if img.extent.width > 1800 { img = img.transformed(by: CGAffineTransform(scaleX: 0.5, y: 0.5)) }
         let req = request()
         guard (try? VNImageRequestHandler(ciImage: img, options: [.ciContext: ci]).perform([req])) != nil,
-              let lines = req.results, !lines.isEmpty else { return }
-        let found = Self.privateRects(in: lines)
+              let lines = req.results, !lines.isEmpty else { return [] }
+        return Self.privateRects(in: lines)
+    }
+
+    /// Adds what a check found (on the writer queue). True if something new turned up.
+    private func merge(_ found: [CGRect]) -> Bool {
         let until = CFAbsoluteTimeGetCurrent() + Self.hold
+        var new = false
         for r in found {
             if let i = regions.firstIndex(where: { Self.similar($0.rect, r) }) {
+                if !regions[i].rect.contains(r) { new = true }
                 regions[i].rect = regions[i].rect.union(r)
                 regions[i].until = until
             } else {
                 regions.append(Region(rect: r, until: until))
                 spotted += 1
+                new = true
             }
         }
+        return new
     }
 
     private static func similar(_ a: CGRect, _ b: CGRect) -> Bool {

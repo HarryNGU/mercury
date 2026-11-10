@@ -154,6 +154,66 @@ enum StudioTests {
             NSApp.terminate(nil)
             return true
         }
+        if args.contains("--redacttest") {
+            // Made up 1440x900 frames, the second half showing a fake email address, fed through the blur
+            // at 60 frames a second the way the recorder does. Checks no frame waits for the text reading
+            // and the address still gets caught. Never touches the screen or the real recordings.
+            let q = DispatchQueue(label: "bubble.writer.test")
+            let r = Redactor(queue: q)
+            r.warmUp()
+            func frame(_ text: String) -> CMSampleBuffer? {
+                let w = 1440, h = 900
+                var px: CVPixelBuffer?
+                CVPixelBufferCreate(nil, w, h, kCVPixelFormatType_32BGRA, [kCVPixelBufferIOSurfacePropertiesKey: [:]] as CFDictionary, &px)
+                guard let px else { return nil }
+                CVPixelBufferLockBaseAddress(px, [])
+                let ctx = CGContext(data: CVPixelBufferGetBaseAddress(px), width: w, height: h, bitsPerComponent: 8,
+                                    bytesPerRow: CVPixelBufferGetBytesPerRow(px), space: CGColorSpaceCreateDeviceRGB(),
+                                    bitmapInfo: CGImageAlphaInfo.premultipliedFirst.rawValue | CGBitmapInfo.byteOrder32Little.rawValue)!
+                ctx.setFillColor(.white); ctx.fill(CGRect(x: 0, y: 0, width: w, height: h))
+                NSGraphicsContext.saveGraphicsState()
+                NSGraphicsContext.current = NSGraphicsContext(cgContext: ctx, flipped: false)
+                (text as NSString).draw(at: NSPoint(x: 120, y: 420), withAttributes: [.font: NSFont.systemFont(ofSize: 40), .foregroundColor: NSColor.black])
+                NSGraphicsContext.restoreGraphicsState()
+                CVPixelBufferUnlockBaseAddress(px, [])
+                var fd: CMVideoFormatDescription?
+                CMVideoFormatDescriptionCreateForImageBuffer(allocator: nil, imageBuffer: px, formatDescriptionOut: &fd)
+                var timing = CMSampleTimingInfo(duration: .invalid, presentationTimeStamp: CMClockGetTime(CMClockGetHostTimeClock()), decodeTimeStamp: .invalid)
+                var sb: CMSampleBuffer?
+                CMSampleBufferCreateReadyWithImageBuffer(allocator: nil, imageBuffer: px, formatDescription: fd!, sampleTiming: &timing, sampleBufferOut: &sb)
+                return sb
+            }
+            let plain = frame("Meeting notes for Thursday"), secret = frame("Contact: jane.doe@example.com")
+            var waits: [Double] = [], late = 0, blurredFrames = 0
+            r.onNewFinds = { late += 1 }
+            for n in 0..<180 {
+                let sb = (n < 60 ? plain : secret)!
+                q.sync {
+                    let t = CFAbsoluteTimeGetCurrent()
+                    let out = r.process(sb)
+                    waits.append((CFAbsoluteTimeGetCurrent() - t) * 1000)
+                    if CMSampleBufferGetImageBuffer(out) !== CMSampleBufferGetImageBuffer(sb) { blurredFrames += 1 }
+                }
+                Thread.sleep(forTimeInterval: 1.0 / 60)
+            }
+            q.sync {}
+            let top = waits.enumerated().sorted { $0.element > $1.element }.prefix(4).map { String(format: "#%d %.1fms", $0.offset, $0.element) }
+            log("redacttest: slowest frames \(top.joined(separator: ", "))")
+            let sorted = waits.sorted()
+            log(String(format: "redacttest: 180 frames, wait per frame median %.2f ms, worst %.2f ms; late finds %d; blurred frames %d of 120 with the address; spotted %d",
+                       sorted[90], sorted.last ?? 0, late, blurredFrames, r.spotted))
+            NSApp.terminate(nil)
+            return true
+        }
+        if let i = args.firstIndex(of: "--importtest"), i + 1 < args.count {
+            // Imports a file exactly as the Import video button does, without the file picker.
+            Task { @MainActor in
+                do { log("importtest: \(try await UIModel.importedCopy(of: URL(fileURLWithPath: args[i + 1])).path)") }
+                catch { log("importtest: refused: \(error.localizedDescription)") }
+                NSApp.terminate(nil)
+            }
+            return true
+        }
         if let i = args.firstIndex(of: "--mainshot"), i + 1 < args.count {
             // The main window offscreen, in the theme passed as -windowTheme (light or dark) and the page passed
             // as -page. Both come from the command line only, so the real settings are never changed.
@@ -169,6 +229,189 @@ enum StudioTests {
                 }
                 log("mainshot: wrote \(args[i + 1])")
                 NSApp.terminate(nil)
+            }
+            return true
+        }
+        if let i = args.firstIndex(of: "--panelshot"), i + 2 < args.count {
+            // The chat at three sizes with a video in it, plus checks of the resizing maths and video detection.
+            // Made up messages only; never reads or writes saved chats. Writes OUT-small, OUT-medium and OUT-large.
+            let area = NSRect(x: 0, y: 0, width: 1600, height: 1000), s = NSRect(x: 300, y: 300, width: 700, height: 500)
+            for (e, dx, dy) in [(PanelEdge.right, CGFloat(100), CGFloat(0)), (.left, 100, 0), (.bottom, 0, -50), (.top, 0, 2000), (.bottomRight, -900, 900), (.topLeft, -2000, -900)] {
+                log("panelshot: \(e) \(dx),\(dy) -> \(PanelSizing.resized(s, edge: e, dx: dx, dy: dy, within: area))")
+            }
+            for line in ["/Users/me/Desktop/a b.mp4", "[[video: ~/Movies/x.mov]]", "![clip](/tmp/y.m4v)", "https://example.com/z.mp4?x=1", "/tmp/not.png", "Saved it to `/Users/me/Desktop/My Clip (final).mp4` for you", "It is at /tmp/q.mov.", "the mp4 is done"] {
+                log("panelshot: blocks of '\(line)' -> \(RichAnswer.blocks(line))")
+            }
+            let model = AssistantModel(forTesting: true)
+            model.seeScreen = false
+            model.exchanges = [AssistantModel.Exchange(question: "make me a clip", answer: "Here you go.\n\n[[video: \(args[i + 2])]]\n\nA longer message so the wrapping shows at each panel size, which matters most when the panel is small.", withScreen: false, activity: nil)]
+            let sizes: [(String, CGSize)] = [("small", CGSize(width: 400, height: 420)), ("mid", CGSize(width: 500, height: 420)), ("medium", CGSize(width: 640, height: 500)), ("large", CGSize(width: 1500, height: 900))]
+            model.panelSize = sizes[0].1
+            let host = NSHostingView(rootView: AssistantView(model: model, onClose: {}))
+            host.sizingOptions = []   // as in the real panel, so the window really is the size asked for
+            let w = NSWindow(contentRect: NSRect(x: -30000, y: -30000, width: 400, height: 420), styleMask: [.borderless], backing: .buffered, defer: false)
+            w.appearance = NSAppearance(named: .darkAqua); w.backgroundColor = NSColor(white: 0.25, alpha: 1)
+            w.contentView = host; w.orderBack(nil)
+            // The real panel type, far off screen: your size must stick, and Grow to Fit must let go of it.
+            func windowCheck() {
+                let p = AssistantPanel(contentRect: NSRect(x: -30000, y: -30000, width: 700, height: 60), styleMask: [.borderless, .nonactivatingPanel], backing: .buffered, defer: false)
+                let m = AssistantModel(forTesting: true)
+                m.exchanges = model.exchanges
+                let hc = NSHostingController(rootView: AssistantView(model: m, onClose: {}))
+                hc.sizingOptions = []
+                p.contentViewController = hc
+                p.orderBack(nil)
+                let wait = { (s: Double, f: @escaping () -> Void) in DispatchQueue.main.asyncAfter(deadline: .now() + s, execute: f) }
+                wait(1) {
+                    log("panelshot: window measured the conversation at \(m.fitSize)")
+                    m.panelSize = CGSize(width: 500, height: 400)
+                    p.setFrame(NSRect(x: -30000, y: -30000, width: 500, height: 400), display: true)
+                    wait(1) {
+                        log("panelshot: window held at 500x400 -> \(p.frame.size)")
+                        m.panelSize = CGSize(width: 900, height: 700)
+                        p.setFrame(NSRect(x: -30000, y: -30000, width: 900, height: 700), display: true)
+                        wait(1) {
+                            log("panelshot: window held at 900x700 -> \(p.frame.size)")
+                            m.panelSize = nil
+                            wait(1) {
+                                log("panelshot: window measured again after letting go \(m.fitSize), inside a window of \(p.frame.size)")
+                                NSApp.terminate(nil)
+                            }
+                        }
+                    }
+                }
+            }
+            func step(_ n: Int) {
+                guard n < sizes.count else { windowCheck(); return }
+                model.panelSize = sizes[n].1
+                w.setContentSize(sizes[n].1)
+                DispatchQueue.main.asyncAfter(deadline: .now() + 2.5) {
+                    host.layoutSubtreeIfNeeded()
+                    log("panelshot: asked \(sizes[n].1) got \(host.bounds.size)")
+                    if let rep = host.bitmapImageRepForCachingDisplay(in: host.bounds) {
+                        host.cacheDisplay(in: host.bounds, to: rep)
+                        try? rep.representation(using: .png, properties: [:])?.write(to: URL(fileURLWithPath: args[i + 1].replacingOccurrences(of: ".png", with: "-\(sizes[n].0).png")))
+                    }
+                    step(n + 1)
+                }
+            }
+            step(0)
+            return true
+        }
+        if let i = args.firstIndex(of: "--tourshot"), i + 1 < args.count {
+            // One welcome tour scene offscreen (pick it with --onboard N), after its messages have typed in.
+            // Starts no camera, mic or screen access; those only happen when you press a button.
+            let host = NSHostingView(rootView: OnboardingView(permissions: Permissions(), onDone: {}).frame(width: 1000, height: 720))
+            let w = NSWindow(contentRect: NSRect(x: -30000, y: -30000, width: 1000, height: 720), styleMask: [.borderless], backing: .buffered, defer: false)
+            w.appearance = NSAppearance(named: .darkAqua)
+            w.contentView = host; w.orderBack(nil)
+            DispatchQueue.main.asyncAfter(deadline: .now() + 4.5) {
+                if let rep = host.bitmapImageRepForCachingDisplay(in: host.bounds) {
+                    host.cacheDisplay(in: host.bounds, to: rep)
+                    try? rep.representation(using: .png, properties: [:])?.write(to: URL(fileURLWithPath: args[i + 1]))
+                }
+                log("tourshot: wrote \(args[i + 1])")
+                NSApp.terminate(nil)
+            }
+            return true
+        }
+        if args.contains("--focustest") {
+            // The panel's keyboard rules, offscreen: it only takes the keyboard on request, never while locked,
+            // and Claude's computer driving tools are recognised. Touches no settings or chats.
+            for (tool, cmd) in [("Bash", "osascript -e 'tell application \"System Events\" to keystroke \"hi\"'"), ("Bash", "ls -la ~/Desktop"),
+                                ("mcp__computer-use__left_click", ""), ("Bash", "python3 -c 'import Quartz; Quartz.CGEventPost(0, e)'"), ("Read", "")] {
+                log("focustest: \(tool) \(cmd.prefix(40)) -> controls Mac \(ClaudeCodeSession.controlsComputer(tool, ["command": cmd]))")
+            }
+            let p = AssistantPanel(contentRect: NSRect(x: -30000, y: -30000, width: 400, height: 300), styleMask: [.borderless, .nonactivatingPanel], backing: .buffered, defer: false)
+            p.becomesKeyOnlyIfNeeded = true
+            p.contentView = NSView()
+            p.orderFrontRegardless()
+            DispatchQueue.main.asyncAfter(deadline: .now() + 0.5) {
+                log("focustest: shown, key \(p.isKeyWindow)")
+                p.makeKey()
+                DispatchQueue.main.asyncAfter(deadline: .now() + 0.5) {
+                    log("focustest: after you click the box, key \(p.isKeyWindow)")
+                    p.keyboardLocked = true
+                    p.handBackKeyboard()
+                    DispatchQueue.main.asyncAfter(deadline: .now() + 0.5) {
+                        log("focustest: Claude driving: key \(p.isKeyWindow), visible \(p.isVisible), can take keyboard \(p.canBecomeKey)")
+                        p.makeKey()
+                        DispatchQueue.main.asyncAfter(deadline: .now() + 0.5) {
+                            log("focustest: asked for the keyboard while locked, key \(p.isKeyWindow)")
+                            NSApp.terminate(nil)
+                        }
+                    }
+                }
+            }
+            return true
+        }
+        if args.contains("--tourlevels") {
+            // Measures the welcome tour's sounds without playing any of them.
+            for line in Sounds.tourLevels() { log("tourlevels: \(line)") }
+            NSApp.terminate(nil)
+            return true
+        }
+        if let i = args.firstIndex(of: "--chatshot"), i + 1 < args.count {
+            // The chat with a reply being written, a quoted reply, and a picture open in the viewer. Uses made up
+            // messages and a drawn picture, and never reads or writes saved chats. Writes OUT.png and OUT-zoom.png.
+            let model = AssistantModel(forTesting: true)
+            model.seeScreen = false
+            var a = AssistantModel.Exchange(question: "What's the derivative of x squared?", answer: "It's 2x.\n\nThat comes from the power rule: bring the 2 down and drop the power by one.", withScreen: false, activity: nil)
+            a.reactionsTold = true
+            let b = AssistantModel.Exchange(question: "why does the power drop by one?", answer: "Because of how the limit expands.", withScreen: false, activity: nil,
+                                            replyTo: ChatReply(text: "That comes from the **power rule**: bring the 2 down and drop the power by one.", mine: false, exchange: 0, part: 1))
+            model.exchanges = [a, b]
+            model.replyingTo = ChatReply(text: "Because of how the limit expands.", mine: false, exchange: 1, part: 0)
+            let host = NSHostingView(rootView: AssistantView(model: model, onClose: {}).frame(width: 700, height: 680, alignment: .top))
+            let w = NSWindow(contentRect: NSRect(x: -30000, y: -30000, width: 700, height: 680), styleMask: [.borderless], backing: .buffered, defer: false)
+            w.appearance = NSAppearance(named: .darkAqua); w.backgroundColor = NSColor(white: 0.25, alpha: 1)
+            w.contentView = host; w.orderBack(nil)
+            func snap(_ name: String) {
+                host.layoutSubtreeIfNeeded()
+                if let rep = host.bitmapImageRepForCachingDisplay(in: host.bounds) {
+                    host.cacheDisplay(in: host.bounds, to: rep)
+                    try? rep.representation(using: .png, properties: [:])?.write(to: URL(fileURLWithPath: name))
+                }
+            }
+            let pic = NSImage(size: NSSize(width: 1600, height: 1000), flipped: false) { r in
+                NSColor(calibratedRed: 0.95, green: 0.95, blue: 0.9, alpha: 1).setFill(); r.fill()
+                NSColor.systemBlue.setStroke()
+                for x in stride(from: 0, to: 1600, by: 100) { NSBezierPath.strokeLine(from: NSPoint(x: x, y: 0), to: NSPoint(x: x, y: 1000)) }
+                for y in stride(from: 0, to: 1000, by: 100) { NSBezierPath.strokeLine(from: NSPoint(x: 0, y: y), to: NSPoint(x: 1600, y: y)) }
+                NSColor.systemRed.setFill(); NSBezierPath(ovalIn: NSRect(x: 700, y: 400, width: 200, height: 200)).fill()
+                return true
+            }
+            DispatchQueue.main.asyncAfter(deadline: .now() + 1) {
+                snap(args[i + 1])
+                let viewer = PictureViewer.shared
+                // A pinch over a picture on screen opens it; a pinch elsewhere does nothing.
+                viewer.mark(UUID(), rect: CGRect(x: 100, y: 100, width: 200, height: 150), item: .init(image: pic, fullSize: nil, open: nil, openLabel: "Open"))
+                let missed = viewer.pinch(amount: 0.2, at: NSPoint(x: 600, y: 60), windowHeight: 680)
+                let hit = viewer.pinch(amount: 0.2, at: NSPoint(x: 200, y: 680 - 170), windowHeight: 680)
+                log("chatshot: pinch outside used=\(missed) open=\(viewer.item == nil ? false : missed), pinch on picture used=\(hit) open=\(viewer.item != nil)")
+                DispatchQueue.main.asyncAfter(deadline: .now() + 1) {
+                    guard let s = viewer.scroll else { log("chatshot: viewer did not appear"); NSApp.terminate(nil); return }
+                    log("chatshot: after opening pinch \(viewer.percent)% fit=\(s.fit) size=\(s.frame.size)")
+                    snap(args[i + 1].replacingOccurrences(of: ".png", with: "-open.png"))
+                    _ = viewer.pinch(amount: 1.0, at: NSPoint(x: 350, y: 300), windowHeight: 680)
+                    let a = viewer.percent
+                    _ = viewer.pinch(amount: -0.5, at: NSPoint(x: 350, y: 300), windowHeight: 680)
+                    DispatchQueue.main.asyncAfter(deadline: .now() + 0.3) {
+                        log("chatshot: zoom in \(a)% then out \(viewer.percent)%")
+                        s.zoom(by: 2, at: nil)
+                        let shown = viewer
+                        DispatchQueue.main.asyncAfter(deadline: .now() + 0.4) {
+                            snap(args[i + 1].replacingOccurrences(of: ".png", with: "-zoom.png"))
+                            s.showWhole()
+                            DispatchQueue.main.asyncAfter(deadline: .now() + 0.3) {
+                                log("chatshot: fit button \(shown.percent)%")
+                                shown.close()
+                                log("chatshot: closed \(shown.item == nil)")
+                                NSApp.terminate(nil)
+                            }
+                        }
+                    }
+                }
             }
             return true
         }
@@ -224,7 +467,7 @@ enum StudioTests {
     private static func analysis(_ url: URL) async -> Analysis? {
         if let a = Analyzer.load(Analysis.self, Analyzer.cacheURL(for: url, "analysis")), a.words != nil { return a }
         guard var a = try? await Analyzer.levels(of: url) else { return nil }
-        if Whisper.ready { a.words = try? await Whisper.transcribe(url, voiced: Cutter.voiced(a)) { _ in }; a.engine = "whisper" }
+        if Whisper.ready { a.words = try? await Whisper.transcribe(url, voiced: Cutter.voiced(a)) { _ in }; a.engine = Whisper.engineTag }
         Analyzer.save(a, Analyzer.cacheURL(for: url, "analysis"))
         return a
     }

@@ -18,8 +18,11 @@ enum Whisper {
         return dir.appendingPathComponent(modelName)
     }
 
+    /// Mercury carries its own copy inside the app, so voice works on Macs without Homebrew.
+    static var bundled: URL { Bundle.main.bundleURL.appendingPathComponent("Contents/Helpers/whisper/whisper-cli") }
+
     static var binary: URL? {
-        ["/opt/homebrew/bin/whisper-cli", "/usr/local/bin/whisper-cli"]
+        [bundled.path, "/opt/homebrew/bin/whisper-cli", "/usr/local/bin/whisper-cli"]
             .first { FileManager.default.isExecutableFile(atPath: $0) }
             .map { URL(fileURLWithPath: $0) }
     }
@@ -29,6 +32,39 @@ enum Whisper {
     }
 
     static var ready: Bool { binary != nil && hasModel }
+
+    /// Text for a short 16 kHz mono 16-bit clip in whatever language was spoken, Vietnamese and English
+    /// mixed included. Runs on this Mac only. Nil if Whisper isn't set up or heard nothing.
+    static func quickText(pcm16: Data) async -> String? {
+        guard ready, let bin = binary, pcm16.count > 16_000 else { return nil }
+        let file = FileManager.default.temporaryDirectory.appendingPathComponent("mercury-\(UUID().uuidString).wav")
+        guard (try? WhisperServer.wav(pcm16).write(to: file)) != nil else { return nil }
+        defer { try? FileManager.default.removeItem(at: file) }
+        return await withCheckedContinuation { c in
+            let p = Process()
+            p.executableURL = bin
+            p.arguments = ["-m", modelURL.path, "-f", file.path, "-l", "auto", "-mc", "0", "-nt", "-np",
+                           "-t", "\(max(4, ProcessInfo.processInfo.activeProcessorCount - 2))"]
+            let out = Pipe()
+            p.standardOutput = out
+            p.standardError = FileHandle.nullDevice
+            p.terminationHandler = { _ in
+                let text = String(data: out.fileHandleForReading.readDataToEndOfFile(), encoding: .utf8)?
+                    .trimmingCharacters(in: .whitespacesAndNewlines) ?? ""
+                c.resume(returning: text.isEmpty ? nil : text)
+            }
+            do { try p.run() } catch { c.resume(returning: nil) }
+        }
+    }
+
+    /// Saved with a transcript. Bumped when transcripts get better, so older ones are redone next time they're opened.
+    static let engineTag = "whisper2"
+
+    /// What the language picker offers, as (Whisper's code, name).
+    static let languages: [(String, String)] = [
+        ("auto", "Work it out"), ("en", "English"), ("vi", "Vietnamese"), ("zh", "Chinese"), ("es", "Spanish"), ("fr", "French"),
+        ("de", "German"), ("hi", "Hindi"), ("id", "Indonesian"), ("ja", "Japanese"), ("ko", "Korean"), ("th", "Thai"),
+    ]
 
     // MARK: Model download
 
@@ -90,7 +126,7 @@ enum Whisper {
         let wav = dir.appendingPathComponent("audio.wav")
         try await writeWAV(from: url, to: wav)
 
-        let lang = Locale.current.language.languageCode?.identifier ?? "auto"
+        let lang = await chooseLanguage(bin: bin, wav: wav, voiced: voiced)
         let p = Process()
         p.executableURL = bin
         // One word per segment (-ml 1 -sow), no context carried between windows (-mc 0, which stops
@@ -148,7 +184,123 @@ enum Whisper {
         let padded = voiced.map { TimeSpan(start: $0.start - 0.5, end: $0.end + 0.5) }
         if !padded.isEmpty { words = words.filter { w in padded.contains { w.start < $0.end && w.end > $0.start } } }
         log("whisper: \(words.count) words in \(Int(Date().timeIntervalSince(started)))s")
-        return mergePunctuation(words)
+        return mergePunctuation(withoutInventions(words))
+    }
+
+    // MARK: Which language
+
+    /// The Mac's language says nothing about what's spoken in a video: forcing English onto Vietnamese
+    /// speech makes Whisper translate it into nonsense. So listen to a few spots. Anyone who mixes
+    /// languages gets their other language, because that setting still writes English words as English,
+    /// while the English setting mangles everything else.
+    private static func chooseLanguage(bin: URL, wav: URL, voiced: [TimeSpan]) async -> String {
+        let chosen = Settings.speechLanguage
+        guard chosen == "auto" else { return chosen }
+        let bytes = (try? wav.resourceValues(forKeys: [.fileSizeKey]).fileSize) ?? 0
+        let length = Double(max(0, bytes - 44)) / 32_000
+        let spoken = voiced.reduce(0) { $0 + max(0, $1.end - $1.start) }
+        var spots: [Double] = []
+        for f in [0.12, 0.3, 0.5, 0.7, 0.88] {
+            var left = spoken * f
+            var at = length * f
+            for v in voiced {
+                let d = max(0, v.end - v.start)
+                if left <= d { at = v.start + left; break }
+                left -= d
+            }
+            spots.append(max(0, min(at, max(0, length - 20))))
+        }
+        var found: [(String, Double)] = []
+        for at in spots { if let r = await detect(bin: bin, wav: wav, at: at) { found.append(r) } }
+        let other = found.filter { $0.0 != "en" && $0.1 >= 0.4 }
+        var counts: [String: Int] = [:]
+        for f in other { counts[f.0, default: 0] += 1 }
+        let picked: String
+        if let top = counts.max(by: { $0.value < $1.value }), top.value >= 2 || other.contains(where: { $0.0 == top.key && $0.1 >= 0.8 }) {
+            picked = top.key
+        } else {
+            picked = found.isEmpty ? "auto" : "en"
+        }
+        log("whisper: language \(picked) from \(found.count) samples")
+        return picked
+    }
+
+    /// Whisper's guess for 30 seconds of the recording.
+    private static func detect(bin: URL, wav: URL, at: Double) async -> (String, Double)? {
+        let p = Process()
+        p.executableURL = bin
+        p.arguments = ["-m", modelURL.path, "-f", wav.path, "-l", "auto", "-dl", "-ot", "\(Int(at * 1000))", "-d", "30000",
+                       "-t", "\(max(4, ProcessInfo.processInfo.activeProcessorCount - 2))"]
+        let err = Pipe()
+        p.standardError = err
+        p.standardOutput = err
+        guard (try? p.run()) != nil else { return nil }
+        let text = await Task.detached { String(decoding: err.fileHandleForReading.readDataToEndOfFile(), as: UTF8.self) }.value
+        p.waitUntilExit()
+        guard let r = text.range(of: #"auto-detected language: (\w+) \(p = ([0-9.]+)\)"#, options: .regularExpression) else { return nil }
+        let parts = text[r].replacingOccurrences(of: "auto-detected language: ", with: "").replacingOccurrences(of: "(p = ", with: "").replacingOccurrences(of: ")", with: "").split(separator: " ")
+        guard parts.count == 2, let prob = Double(parts[1]) else { return nil }
+        return (String(parts[0]), prob)
+    }
+
+    // MARK: Things Whisper makes up
+
+    /// Whisper learned from captioned videos, so over quiet parts it writes channel plugs and gets
+    /// stuck repeating a phrase. Take those out.
+    private static func withoutInventions(_ input: [Word]) -> [Word] {
+        func key(_ w: Word) -> String { w.text.lowercased().trimmingCharacters(in: .punctuationCharacters) }
+        var words = input
+        // Plugs, from the phrase that starts one to the phrase that ends it.
+        let plugs: [([String], [String])] = [
+            (["subscribe", "cho", "kênh"], ["hấp", "dẫn"]),
+            (["đăng", "kí", "cho", "kênh"], ["hấp", "dẫn"]),
+            (["đăng", "ký", "cho", "kênh"], ["hấp", "dẫn"]),
+            (["cảm", "ơn", "các", "bạn", "đã", "theo", "dõi"], ["gặp", "lại"]),
+            (["để", "không", "bỏ", "lỡ"], ["dẫn"]),
+            (["lalaschool"], []),
+            (["thanks", "for", "watching"], []),
+            (["thank", "you", "for", "watching"], []),
+            (["subtitles", "by"], []),
+        ]
+        var keep = [Bool](repeating: true, count: words.count)
+        let keys = words.map(key)
+        func match(_ p: [String], at i: Int) -> Bool { i + p.count <= keys.count && Array(keys[i..<(i + p.count)]) == p }
+        for i in keys.indices {
+            for (start, end) in plugs where match(start, at: i) {
+                var last = i + start.count - 1
+                if !end.isEmpty, let j = (i..<min(keys.count, i + 24)).first(where: { match(end, at: $0) }) { last = j + end.count - 1 }
+                var first = i
+                if i > 0, keys[i - 1] == "hãy" || keys[i - 1] == "lalaschool" { first = i - 1 }
+                if i > 1, keys[i - 2] == "các", keys[i - 1] == "bạn" { first = i - 2 }
+                if i > 2, keys[i - 3] == "các", keys[i - 2] == "bạn", keys[i - 1] == "hãy" { first = i - 3 }
+                for k in first...last { keep[k] = false }
+            }
+        }
+        words = zip(words, keep).filter(\.1).map(\.0)
+        // A phrase of up to 8 words said over and over: keep it once.
+        var out: [Word] = []
+        var i = 0
+        let k2 = words.map(key)
+        while i < words.count {
+            var skip = 0
+            for n in 1...8 where i + n * 3 <= words.count {
+                var repeats = 1
+                while i + n * (repeats + 1) <= words.count, Array(k2[i..<(i + n)]) == Array(k2[(i + n * repeats)..<(i + n * (repeats + 1))]) { repeats += 1 }
+                if repeats >= (n == 1 ? 6 : 3) { skip = n * (repeats - 1); break }
+            }
+            if skip > 0 {
+                let unit = (1...8).first { u in
+                    guard skip % u == 0, i + u + skip <= words.count else { return false }
+                    return stride(from: 0, to: skip, by: u).allSatisfy { Array(k2[i..<(i + u)]) == Array(k2[(i + u + $0)..<(i + u + $0 + u)]) }
+                } ?? 1
+                out.append(contentsOf: words[i..<(i + unit)])
+                i += unit + skip
+            } else {
+                out.append(words[i])
+                i += 1
+            }
+        }
+        return out
     }
 
     /// Whisper sometimes gives punctuation as its own "word"; attach it to the word before.
@@ -223,7 +375,8 @@ final class WhisperServer: @unchecked Sendable {
     func warmUp() {
         guard available, process?.isRunning != true, let bin = serverBinary else { return }
         port = Int.random(in: 52_000...59_000)
-        let lang = Locale.current.language.languageCode?.identifier ?? "en"
+        // Short bursts of speech are too little to detect a language from, so "work it out" means the Mac's.
+        let lang = Settings.speechLanguage == "auto" ? (Locale.current.language.languageCode?.identifier ?? "en") : Settings.speechLanguage
         let args = [bin.path, "-m", Whisper.modelURL.path, "--host", "127.0.0.1", "--port", "\(port)",
                     "-t", "\(max(4, ProcessInfo.processInfo.activeProcessorCount - 2))", "-l", lang, "-nt"]
         // The server holds about 600 MB, so it must never outlive Mercury, even if Mercury crashes or is
@@ -301,7 +454,7 @@ final class WhisperServer: @unchecked Sendable {
         try? p.run()
     }
 
-    private static func wav(_ pcm: Data) -> Data {
+    static func wav(_ pcm: Data) -> Data {
         var h = Data()
         func u32(_ v: UInt32) { var x = v.littleEndian; h.append(Data(bytes: &x, count: 4)) }
         func u16(_ v: UInt16) { var x = v.littleEndian; h.append(Data(bytes: &x, count: 2)) }

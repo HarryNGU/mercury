@@ -35,7 +35,7 @@ struct PrimaryButton: View {
         Button(action: action) {
             HStack(spacing: 7) {
                 if let icon { Image(systemName: icon).font(.system(size: 12, weight: .semibold)) }
-                Text(title).font(.system(size: 13, weight: .semibold))
+                Text(title).font(.system(size: 13, weight: .semibold)).lineLimit(1).fixedSize()
             }
             .foregroundStyle(Palette.onInk)
             .padding(.horizontal, 16).frame(height: 34)
@@ -55,7 +55,7 @@ struct SecondaryButton: View {
         Button(action: action) {
             HStack(spacing: 6) {
                 if let icon { Image(systemName: icon).font(.system(size: 12, weight: .medium)) }
-                Text(title).font(.system(size: 13, weight: .medium))
+                Text(title).font(.system(size: 13, weight: .medium)).lineLimit(1).fixedSize()
             }
             .foregroundStyle(.primary)
             .padding(.horizontal, 14).frame(height: 32)
@@ -475,6 +475,8 @@ struct RecordingsPage: View {
         VStack(alignment: .leading, spacing: 24) {
             PageHeader(title: "Recordings", subtitle: "\(model.recents.count) video\(model.recents.count == 1 ? "" : "s") in Mercury Recordings on your Desktop") {
                 SecondaryButton(title: "Open folder", icon: "folder") { model.onOpenFolder?() }
+                SecondaryButton(title: model.importing ? "Importing…" : "Import video", icon: "square.and.arrow.down") { model.importVideo() }
+                    .disabled(model.importing)
                 PrimaryButton(title: "New recording", icon: "record.circle") { model.onStart?() }
             }
             if model.recents.isEmpty {
@@ -535,9 +537,12 @@ struct VideoTile: View {
                     Text("REEL").font(.system(size: 10, weight: .bold)).tracking(0.5).foregroundStyle(.white)
                         .padding(.horizontal, 7).padding(.vertical, 3)
                         .background(Capsule().fill(Theme.accent)).padding(8)
-                } else if hover, let onEdit {
+                }
+            }
+            .overlay(alignment: .topTrailing) {
+                if hover, let onEdit {
                     Button { onEdit(item.url) } label: {
-                        Label("Make reels", systemImage: "wand.and.stars").font(.system(size: 12, weight: .semibold))
+                        Label("Edit", systemImage: "wand.and.stars").font(.system(size: 12, weight: .semibold))
                             .foregroundStyle(Palette.ink)
                             .padding(.horizontal, 10).frame(height: 28)
                             .background(Capsule().fill(Palette.canvas))
@@ -559,7 +564,7 @@ struct VideoTile: View {
                 if !compact {
                     Menu {
                         Button("Play") { NSWorkspace.shared.open(item.url) }
-                        if !item.isReel, let onEdit { Button("Make reels…") { onEdit(item.url) } }
+                        if let onEdit { Button("Edit…") { onEdit(item.url) } }
                         Button("Show in Finder") { NSWorkspace.shared.activateFileViewerSelecting([item.url]) }
                         Button("Copy") { NSPasteboard.general.clearContents(); NSPasteboard.general.writeObjects([item.url as NSURL]) }
                         Divider()
@@ -577,6 +582,7 @@ struct VideoTile: View {
 
 struct RecorderPage: View {
     @AppStorage("blurPrivate") private var blurPrivate = true
+    @AppStorage("speechLanguage") private var speechLanguage = "auto"
     @ObservedObject var model: UIModel
 
     var body: some View {
@@ -623,6 +629,12 @@ struct RecorderPage: View {
                 SwitchRow(title: "3-2-1 countdown", isOn: $model.countdown)
                 SettingRow(title: "Start / finish shortcut", subtitle: "Works from any app. Click to change.") { ShortcutField(.record) }
                 SettingRow(title: "Record an area", subtitle: "Draw the area, then recording starts.", divider: false) { ShortcutField(.area) }
+            }
+            SettingsGroup(title: "Captions", footer: "Mercury listens to a few parts of the video. If you mix languages, it writes in the one that isn't English and keeps your English words.") {
+                SettingRow(title: "Language spoken in videos", divider: false) {
+                    SwiftUI.Picker("", selection: $speechLanguage) { ForEach(Whisper.languages, id: \.0) { Text($0.1).tag($0.0) } }
+                        .labelsHidden().frame(width: 170)
+                }
             }
             SettingsGroup(title: "Naming", footer: "Videos are saved to Mercury Recordings on your Desktop.") {
                 SwitchRow(title: "Name videos automatically", subtitle: "After the page or window you recorded.", isOn: $model.autoName)

@@ -28,6 +28,8 @@ struct StudioTimeline: View {
     @State private var drag: Drag?
     @State private var scrubbing = false
     @State private var rangeAnchor: Double?
+    @State private var hovered: Selection?
+    private static let maxZoom = 400.0
 
     struct Drag: Equatable {
         enum Kind { case move, start, end }
@@ -50,10 +52,10 @@ struct StudioTimeline: View {
             if let i = ends.firstIndex(where: { $0 <= t.start + 0.01 }) { ends[i] = t.end } else { ends.append(t.end) }
         }
         let lanes = CGFloat(min(3, max(1, ends.count)))
-        var h: CGFloat = 40 + 4 + ruler + lanes * laneH + zoomH + overlayH + videoH + capH + gap * (lanes + 5) + 12
+        var h: CGFloat = (ed.selectionSpan != nil ? 36 : 0) + 40 + 4 + ruler + lanes * laneH + zoomH + overlayH + videoH + capH + gap * (lanes + 5) + 12
         if !ed.plan.images.isEmpty && !ed.plan.videos.isEmpty { h += overlayH + gap }
         if ed.plan.music != nil { h += musicH + gap }
-        return min(h, 440)
+        return min(h, 476)
     }
 
     private var lead: CGFloat { Self.lead }
@@ -79,6 +81,7 @@ struct StudioTimeline: View {
     var body: some View {
         VStack(spacing: 0) {
             toolbar
+            placementBar
             HStack(spacing: 0) {
                 gutter
                 GeometryReader { geo in
@@ -87,6 +90,7 @@ struct StudioTimeline: View {
                             VStack(alignment: .leading, spacing: Self.gap) { tracks }
                             if let r = ed.range { rangeOverlay(r) }
                             playhead
+                            dragReadout
                         }
                         .frame(width: contentWidth, alignment: .topLeading)
                         .padding(.top, 4)
@@ -98,7 +102,7 @@ struct StudioTimeline: View {
                     .simultaneousGesture(MagnifyGesture()
                         .onChanged { v in
                             if pinchStart == nil { pinchStart = zoomLevel }
-                            zoomLevel = min(80, max(1, (pinchStart ?? 1) * v.magnification))
+                            zoomLevel = min(Self.maxZoom, max(1, (pinchStart ?? 1) * v.magnification))
                         }
                         .onEnded { _ in pinchStart = nil })
                     .onAppear { visibleWidth = geo.size.width }
@@ -109,6 +113,71 @@ struct StudioTimeline: View {
         .background(SC.bg)
         .onAppear { thumbs.setup(ed.url) }
         .onChange(of: ed.time) { follow() }
+        .onChange(of: itemCount) { old, new in if new > old { showSelection() } }
+    }
+
+    private var itemCount: Int { ed.plan.texts.count + ed.plan.zooms.count + ed.plan.images.count + ed.plan.videos.count + ed.plan.blurs.count }
+
+    /// Zooms in far enough that the picked item is easy to grab, and brings it to the middle.
+    private func showSelection() {
+        DispatchQueue.main.async {
+            guard let sp = ed.selectionSpan else { return }
+            let wanted = 180 / max(0.2, (sp.end - sp.start) * fitPPS)
+            if wanted > zoomLevel { zoomLevel = min(Self.maxZoom, wanted) }
+            DispatchQueue.main.async { position.scrollTo(x: max(0, x((sp.start + sp.end) / 2) - visibleWidth / 2)) }
+        }
+    }
+
+    /// While something is dragged towards the edge of the view, the timeline follows it.
+    private func followDrag(_ px: CGFloat) {
+        let margin: CGFloat = 50, step: CGFloat = 30
+        if px > scrollX + visibleWidth - margin { position.scrollTo(x: scrollX + step) }
+        else if px < scrollX + margin, scrollX > 0 { position.scrollTo(x: max(0, scrollX - step)) }
+    }
+
+    /// Exactly where the dragged item will land.
+    @ViewBuilder private var dragReadout: some View {
+        if let d = drag, { if case .piece = d.sel { return false }; return true }() {
+            Text("\(clock(d.a)) to \(clock(d.b)) · \(String(format: "%.1f", d.b - d.a)) s")
+                .font(.system(size: 10.5, weight: .bold, design: .monospaced)).foregroundStyle(.white)
+                .padding(.horizontal, 8).padding(.vertical, 3).background(Capsule().fill(SC.gradient))
+                .fixedSize()
+                .offset(x: max(scrollX + 8, x(d.a)), y: 2)
+                .allowsHitTesting(false)
+        }
+    }
+
+    /// For the picked item: type exactly where it goes, or send it to the playhead.
+    @ViewBuilder private var placementBar: some View {
+        if let sp = ed.selection == .none ? nil : ed.selectionSpan {
+            HStack(spacing: 8) {
+                Text("Start").font(.system(size: 11.5)).foregroundStyle(SC.dim)
+                TimeEntry(value: drag?.a ?? sp.start, seconds: false) { ed.placeSelection(start: $0, length: sp.end - sp.start) }
+                Text("Length").font(.system(size: 11.5)).foregroundStyle(SC.dim)
+                TimeEntry(value: (drag?.b ?? sp.end) - (drag?.a ?? sp.start), seconds: true) { ed.placeSelection(start: sp.start, length: $0) }
+                Spacer(minLength: 8)
+                placeChip("Move to playhead", key: "M") { ed.moveSelectionHere() }
+                placeChip("Start here", key: "[") { ed.startSelectionHere() }
+                placeChip("End here", key: "]") { ed.endSelectionHere() }
+                placeChip("Zoom to it", key: nil) { showSelection() }
+            }
+            .padding(.horizontal, 12)
+            .frame(height: 36)
+            .background(SC.panel)
+            .overlay(alignment: .bottom) { Rectangle().fill(SC.line).frame(height: 1) }
+        }
+    }
+
+    private func placeChip(_ title: String, key: String?, _ action: @escaping () -> Void) -> some View {
+        Button(action: action) {
+            HStack(spacing: 5) {
+                Text(title).font(.system(size: 11.5, weight: .medium)).foregroundStyle(SC.text).fixedSize()
+                if let key { Text(key).font(.system(size: 10, weight: .semibold)).foregroundStyle(SC.faint).fixedSize() }
+            }
+            .padding(.horizontal, 9).frame(height: 24)
+            .background(Capsule().fill(SC.wash(0.08)))
+        }
+        .buttonStyle(Springy())
     }
 
     /// Keeps the playhead on screen while the video plays.
@@ -141,7 +210,7 @@ struct StudioTimeline: View {
             Spacer(minLength: 8)
             HStack(spacing: 4) {
                 IconButton(icon: "minus.magnifyingglass", help: "Zoom out", size: 12) { setZoom(zoomLevel / 1.5) }
-                StudioSlider(value: Binding(get: { log2(zoomLevel) }, set: { setZoom(pow(2, $0)) }), range: 0...6.3).frame(width: 96)
+                StudioSlider(value: Binding(get: { log2(zoomLevel) }, set: { setZoom(pow(2, $0)) }), range: 0...log2(Self.maxZoom)).frame(width: 96)
                 IconButton(icon: "plus.magnifyingglass", help: "Zoom in", size: 12) { setZoom(zoomLevel * 1.5) }
                 Button { withAnimation(SC.spring) { setZoom(1) } } label: {
                     Text("Fit").font(.system(size: 11, weight: .semibold)).foregroundStyle(SC.text).fixedSize()
@@ -158,7 +227,7 @@ struct StudioTimeline: View {
 
     private func setZoom(_ z: Double) {
         let anchor = ed.time
-        zoomLevel = min(80, max(1, z))
+        zoomLevel = min(Self.maxZoom, max(1, z))
         DispatchQueue.main.async { position.scrollTo(x: max(0, x(anchor) - visibleWidth / 2)) }
     }
 
@@ -179,11 +248,11 @@ struct StudioTimeline: View {
         switch ed.selection {
         case .none: return "Click the video to pick a clip · drag across it to pick a stretch · S splits at the playhead"
         case .piece: return ed.selectedClip.map { "Clip \(clock($0.clip.out.start)) – \(clock($0.clip.out.end)) · drag the ends to trim · S splits" } ?? ""
-        case .text: return "Text · drag to move, drag the ends to stretch"
-        case .zoom: return "Zoom · drag to move, drag the ends to stretch"
-        case .image: return "Picture · drag to move, drag the ends to stretch"
-        case .video: return "Video on top · drag to move, drag the ends to stretch"
-        case .blur: return "Blur box · drag to move, drag the ends to stretch"
+        case .text: return "Text · drag it to move, drag an end to make it longer or shorter"
+        case .zoom: return "Zoom · drag it to move, drag an end to make it longer or shorter"
+        case .image: return "Picture · drag it to move, drag an end to make it longer or shorter"
+        case .video: return "Video on top · drag it to move, drag an end to make it longer or shorter"
+        case .blur: return "Blur box · drag it to move, drag an end to make it longer or shorter"
         case .music: return "Music · ⌫ removes it"
         case .range: return ed.range.map { "Picked \(clock($0.start)) – \(clock($0.end)) · drag the ends to adjust · ⌫ cuts it" } ?? ""
         }
@@ -476,7 +545,7 @@ struct StudioTimeline: View {
     }
 
     private func trim(_ i: Int, _ c: Clip, start: Bool) -> some Gesture {
-        DragGesture(minimumDistance: 1)
+        DragGesture(minimumDistance: 1, coordinateSpace: .named("timeline"))
             .onChanged { v in
                 let dt = Double(v.translation.width) / pps
                 var a = c.out.start, b = c.out.end
@@ -579,7 +648,10 @@ struct StudioTimeline: View {
     @ViewBuilder private func block(_ sel: Selection, label: String, icon: String, color: Color, h: CGFloat) -> some View {
         if let sp = span(of: sel) {
             let selected = ed.selection == sel
-            let w = max(10, x(sp.end) - x(sp.start))
+            let w = max(14, x(sp.end) - x(sp.start))
+            let showEnds = selected || hovered == sel
+            // Short items get their handles just outside, so there's still room in the middle to move them.
+            let outside: CGFloat = w < 44 ? Self.edgeWidth : 0
             ZStack(alignment: .leading) {
                 RoundedRectangle(cornerRadius: 8, style: .continuous)
                     .fill(LinearGradient(colors: [color.opacity(selected ? 1 : 0.75), color.opacity(selected ? 0.75 : 0.5)], startPoint: .top, endPoint: .bottom))
@@ -588,21 +660,20 @@ struct StudioTimeline: View {
                     Label(label, systemImage: icon).font(.system(size: 10.5, weight: .semibold)).foregroundStyle(.white).lineLimit(1)
                         .padding(.horizontal, 8)
                 }
-                if selected {
-                    HStack {
-                        edge(sel, sp, start: true)
-                        Spacer(minLength: 0)
-                        edge(sel, sp, start: false)
-                    }
-                }
             }
             .frame(width: w, height: h - 2)
+            .contentShape(Rectangle())
+            .overlay(alignment: .leading) { edge(sel, sp, start: true, visible: showEnds).offset(x: -outside) }
+            .overlay(alignment: .trailing) { edge(sel, sp, start: false, visible: showEnds).offset(x: outside) }
+            .onHover { inside in if inside { hovered = sel } else if hovered == sel { hovered = nil } }
             .shadow(color: selected ? color.opacity(0.7) : .clear, radius: 8)
             .scaleEffect(y: selected ? 1.04 : 1)
             .animation(SC.spring, value: selected)
             .offset(x: x(sp.start), y: 1)
             .onTapGesture { withAnimation(SC.spring) { ed.select(sel) } }
-            .gesture(DragGesture(minimumDistance: 2)
+            // Measured against the timeline, not the block: the block moves under the pointer, and
+            // measuring against something that moves makes the drag jump about and lag behind.
+            .gesture(DragGesture(minimumDistance: 2, coordinateSpace: .named("timeline"))
                 .onChanged { v in
                     let o = drag?.origin ?? (sp.start, sp.end)
                     let len = o.1 - o.0
@@ -610,23 +681,32 @@ struct StudioTimeline: View {
                     a = snap(a, len: len)
                     drag = Drag(sel: sel, kind: .move, a: a, b: a + len, origin: o)
                     if ed.selection != sel { ed.select(sel) }
+                    followDrag(v.location.x)
                 }
                 .onEnded { _ in commit() })
         }
     }
 
-    private func edge(_ sel: Selection, _ sp: TimeSpan, start: Bool) -> some View {
-        Capsule().fill(Color.white).frame(width: 4)
-            .padding(.vertical, 5).padding(.horizontal, 2)
-            .contentShape(Rectangle().inset(by: -4))
+    private static let edgeWidth: CGFloat = 14
+
+    /// The grip at each end of an item. It works whether or not the item is picked yet.
+    private func edge(_ sel: Selection, _ sp: TimeSpan, start: Bool, visible: Bool) -> some View {
+        ZStack {
+            if visible { Capsule().fill(Color.white).frame(width: 4).padding(.vertical, 5) }
+        }
+        .frame(width: Self.edgeWidth)
+        .frame(maxHeight: .infinity)
+        .contentShape(Rectangle())
             .onHover { inside in if inside { NSCursor.resizeLeftRight.push() } else { NSCursor.pop() } }
-            .gesture(DragGesture(minimumDistance: 1)
+            .gesture(DragGesture(minimumDistance: 1, coordinateSpace: .named("timeline"))
                 .onChanged { v in
                     let o = drag?.origin ?? (sp.start, sp.end)
                     let dt = Double(v.translation.width) / pps
                     var a = o.0, b = o.1
                     if start { a = snapPoint(min(b - 0.2, max(0, o.0 + dt))) } else { b = snapPoint(max(a + 0.2, min(duration, o.1 + dt))) }
                     drag = Drag(sel: sel, kind: start ? .start : .end, a: a, b: b, origin: o)
+                    if ed.selection != sel { ed.select(sel) }
+                    followDrag(v.location.x)
                 }
                 .onEnded { _ in commit() })
     }
@@ -651,6 +731,47 @@ struct StudioTimeline: View {
         if s != a { return s }
         let e = snapPoint(a + len)
         return e != a + len ? e - len : a
+    }
+}
+
+// MARK: - Typing a time
+
+/// A small box for an exact time: 1:23.4, or plain seconds.
+struct TimeEntry: View {
+    let value: Double
+    let seconds: Bool
+    let onCommit: (Double) -> Void
+    @State private var text = ""
+    @FocusState private var focused: Bool
+
+    private var shown: String { seconds ? String(format: "%.1f s", value) : clock(value) }
+
+    private func parse(_ s: String) -> Double? {
+        let clean = s.replacingOccurrences(of: "s", with: "").trimmingCharacters(in: .whitespaces)
+        var total = 0.0
+        for part in clean.split(separator: ":", omittingEmptySubsequences: false) {
+            guard let v = Double(part), v >= 0 else { return nil }
+            total = total * 60 + v
+        }
+        return clean.isEmpty ? nil : total
+    }
+
+    var body: some View {
+        TextField("", text: $text)
+            .textFieldStyle(.plain)
+            .font(.system(size: 11.5, weight: .medium)).monospacedDigit()
+            .multilineTextAlignment(.center)
+            .foregroundStyle(SC.text)
+            .frame(width: 66, height: 24)
+            .background(RoundedRectangle(cornerRadius: 7, style: .continuous).fill(SC.wash(focused ? 0.14 : 0.08)))
+            .focused($focused)
+            .onAppear { text = shown }
+            .onChange(of: value) { if !focused { text = shown } }
+            .onSubmit {
+                if let v = parse(text) { onCommit(v) }
+                focused = false
+                text = shown
+            }
     }
 }
 

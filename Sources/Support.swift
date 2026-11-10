@@ -26,6 +26,8 @@ enum Settings {
     /// Chosen microphone's unique ID; empty = the Mac's current default input.
     static var micDevice: String { get { d.string(forKey: "micDevice") ?? "" } set { d.set(newValue, forKey: "micDevice") } }
     /// Name each recording from the page/window title (and, if allowed, what you said).
+    /// The language spoken in videos, for captions. "auto" works it out from the recording.
+    static var speechLanguage: String { get { d.string(forKey: "speechLanguage") ?? "auto" } set { d.set(newValue, forKey: "speechLanguage") } }
     static var autoName: Bool { get { bool("autoName", true) } set { d.set(newValue, forKey: "autoName") } }
     static var nameFromSpeech: Bool { get { bool("nameFromSpeech", true) } set { d.set(newValue, forKey: "nameFromSpeech") } }
     static var sounds: Bool { get { bool("sounds", true) } set { d.set(newValue, forKey: "sounds") } }

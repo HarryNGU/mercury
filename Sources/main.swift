@@ -42,7 +42,7 @@ func listWindows() -> [WindowChoice] {
 @MainActor
 final class AppDelegate: NSObject, NSApplicationDelegate, NSMenuDelegate, NSWindowDelegate {
     private var statusItem: NSStatusItem!
-    private let bubble = CameraBubble()
+    let bubble = CameraBubble()
     private let recorder = Recorder()
     private let dictation = DictationController()
     lazy var assistant = AssistantController()
@@ -515,7 +515,7 @@ final class AppDelegate: NSObject, NSApplicationDelegate, NSMenuDelegate, NSWind
         model.onShowThings = { [weak self] on in self?.bubble.setShowThings(on) }
         bubble.onToggleThings = { [weak self] in self?.model.showThings.toggle() }
         model.onSize = { [weak self] size in self?.bubble.setSize(size) }
-        model.onStart = { [weak self] in self?.startPicker() }
+        model.onStart = { [weak self] in self?.startPicker(fromMainWindow: true) }
         model.onOpenFolder = { [weak self] in self?.openFolder() }
         model.onPause = { [weak self] in self?.togglePause() }
         model.onRestart = { [weak self] in self?.restart() }
@@ -584,6 +584,14 @@ final class AppDelegate: NSObject, NSApplicationDelegate, NSMenuDelegate, NSWind
         if (notification.object as? NSWindow) === launcher { AppPresence.mainWindow(false) }
     }
 
+    func windowWillEnterFullScreen(_ notification: Notification) {
+        if (notification.object as? NSWindow) === launcher { AppPresence.mainWindowFullScreen(true) }
+    }
+
+    func windowDidExitFullScreen(_ notification: Notification) {
+        if (notification.object as? NSWindow) === launcher { AppPresence.mainWindowFullScreen(false) }
+    }
+
     /// Started by "Open Mercury when you log in": stay quietly in the menu bar.
     private var launchedAtLogin: Bool {
         guard let e = NSAppleEventManager.shared().currentAppleEvent, e.eventID == kAEOpenApplication else { return false }
@@ -591,7 +599,7 @@ final class AppDelegate: NSObject, NSApplicationDelegate, NSMenuDelegate, NSWind
     }
 
     private func pickArea(then done: @escaping (Bool) -> Void) {
-        launcher.orderOut(nil)
+        windowStepsAside = false
         let screen = NSScreen.underMouse
         ShortcutCenter.shared.escapeCancels { AreaSelector.cancelActive() }
         AreaSelector.pick(on: screen) { [weak self] rect in
@@ -736,10 +744,16 @@ final class AppDelegate: NSObject, NSApplicationDelegate, NSMenuDelegate, NSWind
 
     func toggle() { recording ? stop(discard: false) : startPicker() }
 
+    /// Set when recording was started from the main window's own Record button: the window steps aside,
+    /// because you're almost always recording something behind it. From the shortcut or menu bar it stays,
+    /// so you can record Mercury itself.
+    private var windowStepsAside = false
+
     /// Loom-style: hover what you want, click "Record this".
-    func startPicker() {
+    func startPicker(fromMainWindow: Bool = false) {
         guard !recording, !busy else { return }
-        launcher.orderOut(nil)
+        windowStepsAside = fromMainWindow
+        if fromMainWindow { launcher.orderOut(nil) }
         ShortcutCenter.shared.escapeCancels { Picker.cancelActive() }
         Picker.run { [weak self] picked in
             guard let self else { return }
@@ -754,7 +768,7 @@ final class AppDelegate: NSObject, NSApplicationDelegate, NSMenuDelegate, NSWind
         log("start requested: \(source.label) (recording=\(recording), busy=\(busy))")
         guard !recording, !busy else { return }
         busy = true
-        launcher.orderOut(nil)
+        if windowStepsAside { launcher.orderOut(nil) }
         let screen: NSScreen
         switch source {
         case .display(let id), .area(let id, _): screen = NSScreen.with(displayID: id) ?? NSScreen.underMouse
