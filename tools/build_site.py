@@ -19,7 +19,7 @@ GLYPH = {
 }
 
 NAV = [("index.html#features", "Features"), ("get-started.html", "Get started"), ("security.html", "Safety"), ("faq.html", "FAQ")]
-V = "18"  # bump to refresh cached CSS and JS
+V = "19"  # bump to refresh cached CSS and JS
 
 # Mercury for Windows (early test). The installer is attached to a GitHub release of its own,
 # tagged windows-vX.Y.Z and marked as a pre release so the Mac "latest" link never changes.
@@ -91,12 +91,12 @@ def page(name, title, desc, body, home=False):
 <footer class="site" data-tone="dark"><div class="wrap">
 <div class="foot-mark"><img src="assets/planet.png" alt="" width="1024" height="1024" loading="lazy"></div>
 <div class="cols">
-<div><a class="brand" href="index.html"><img class="mark" src="assets/favicon.png?v=2" alt="" width="22" height="22">Mercury</a><p class="about">A personal assistant for your Mac. Free and open source, with no account, no tracking and no ads.</p></div>
+<div><a class="brand" href="index.html"><img class="mark" src="assets/favicon.png?v=2" alt="" width="22" height="22">Mercury</a><p class="about">Mercury, the messenger. A personal assistant for your Mac or Windows PC. Free and open source, with no account, no tracking and no ads.</p></div>
 <div><h4>Product</h4><ul><li><a href="index.html#download">Download</a></li><li><a href="index.html#features">Features</a></li><li><a href="get-started.html">Get started</a></li><li><a href="windows.html">Mercury for Windows</a></li><li><a href="faq.html">FAQ</a></li><li><a href="{REPO}">Source code</a></li></ul></div>
 <div><h4>Trust</h4><ul><li><a href="security.html">Safety and security</a></li><li><a href="privacy.html">Privacy policy</a></li><li><a href="terms.html">Terms of use</a></li><li><a href="notices.html">Open source notices</a></li></ul></div>
 <div><h4>Help</h4><ul><li><a href="{REPO}/issues">Report a problem</a></li><li><a href="{REPO}/security/advisories/new">Report a security issue</a></li><li><a href="get-started.html#uninstall">Uninstall</a></li></ul></div>
 </div>
-<p class="fine-print">Mercury is an independent open source project for the Mac. It isn't connected to any bank, company or other product called Mercury. This site doesn't use cookies or analytics, and it's hosted on GitHub Pages.</p>
+<p class="fine-print">Mercury is an independent open source project for Mac and Windows. It isn't connected to any bank, company or other product called Mercury. This site doesn't use cookies or analytics, and it's hosted on GitHub Pages.</p>
 </div></footer>
 <script src="assets/site.js?v={V}"></script>
 </body>
@@ -241,17 +241,36 @@ WIN_STEPS = f"""<dialog class="wsteps" id="winSteps" aria-labelledby="winStepsTi
 <div class="ws-foot"><a href="{WIN_URL}">Download didn't start? Try again</a><button class="btn primary small" data-close>Got it</button></div>
 </dialog>"""
 
+MAC_FIG_DONE = """<figure><div class="md-alert"><img src="assets/icon.png?v=2" alt=""><b>“Mercury” Not Opened</b><p>Apple could not verify “Mercury” is free of malware that may harm your Mac or compromise your privacy.</p><div class="md-btns"><i class="hl">Done</i><i>Move to Bin</i></div></div><figcaption>Click <strong>Done</strong>. Not Move to Bin.</figcaption></figure>"""
+MAC_FIG_OPEN = """<figure><div class="md-set"><div class="md-side"><i></i><i></i><i class="on">Privacy &amp; Security</i><i></i></div><div class="md-main"><b>Security</b><p>“Mercury” was blocked to protect your Mac.</p><span class="hl">Open Anyway</span></div></div><figcaption>In <strong>Privacy &amp; Security</strong>, scroll down and click <strong>Open Anyway</strong>.</figcaption></figure>"""
+MAC_DEMO = f'<div class="mac-demo" aria-hidden="true">{MAC_FIG_DONE}{MAC_FIG_OPEN}</div>'
+
+MAC_STEPS = f"""<dialog class="wsteps" id="macSteps" aria-labelledby="macStepsTitle">
+<div class="ws-head"><h2 id="macStepsTitle">Your download has started</h2><button class="ws-x" data-close aria-label="Close">×</button></div>
+<p class="ws-lead">Mercury is free and made by one person, so Apple hasn't checked it yet and your Mac will stop it the first time. Here's the one minute way past that. Keep this open while you go.</p>
+<ol class="ws-list">
+<li><strong>Open the download and drag Mercury into Applications.</strong><span>Click the Mercury file in your Downloads (it ends in <code>.dmg</code>), then drag the planet onto the Applications folder.</span></li>
+<li><strong>Open Mercury. Your Mac says it can't be opened. Click Done.</strong><span>That's normal for any app Apple hasn't checked. Nothing is wrong with your Mac.</span><div class="mac-demo one" aria-hidden="true">{MAC_FIG_DONE}</div></li>
+<li><strong>Open System Settings, then Privacy &amp; Security. Scroll down and click Open Anyway.</strong><span>It's next to “Mercury was blocked”. Click <b>Open Anyway</b> once more and type your Mac password. You only do this once.</span><div class="mac-demo one" aria-hidden="true">{MAC_FIG_OPEN}</div><a class="ws-open" href="x-apple.systempreferences:com.apple.preference.security?Security">Take me to Privacy &amp; Security</a></li>
+</ol>
+<p class="ws-done">Mercury then opens and introduces itself. After this first time it opens like any other app.</p>
+<div class="ws-foot"><a data-release="url" href="{REPO}/releases/latest">Download didn't start? Try again</a><button class="btn primary small" data-close>Got it</button></div>
+</dialog>"""
+
+MAC_BTN = f'<a class="btn primary" data-release="url" data-mac-download data-first="mac" href="{REPO}/releases/latest">{ICON["apple"]}Download for Mac</a>'
+WIN_BTN = f'<a class="btn primary" href="{WIN_URL}" data-win-download data-first="windows">{ICON["windows"]}Download for Windows</a>'
+
 HOME = f"""
 <section class="scene" data-tone="dark" aria-label="Introduction">
 <div class="scene-pin">
 <canvas class="space" aria-hidden="true"></canvas>
 <img class="space-fallback" src="assets/planet.png" alt="" width="1024" height="1024">
 <div class="intro">
-<span class="kicker">{ORBIT}Mercury for Mac</span>
-<h1>The assistant that <br>lives on {ring("your Mac")}{DOT}</h1>
-<p class="lede">Mercury floats over whatever you're doing and helps you right there. It sees your screen when you ask, types what you say, records and edits your videos, and never sends a thing without your OK.</p>
-<div class="actions"><a class="btn primary" href="#download" data-os="mac ios android linux chromeos other">{ICON['apple']}Download for Mac</a><a class="btn primary" href="{WIN_URL}" data-win-download data-os="windows" hidden>{ICON['windows']}Download for Windows</a><a class="btn ghost" href="#features">See what it does</a></div>
-<p class="meta" data-os="mac ios android linux chromeos other">Free and open source, for macOS 15 or later</p><p class="meta" data-os="windows" hidden>Free and open source. Made for the Mac, now in early testing on Windows 10 and 11</p>
+<span class="kicker">{ORBIT}Mercury, the messenger</span>
+<h1>Hand me the job. <br>I'll {ring("run it")} for you{DOT}</h1>
+<p class="lede">In the old stories, Mercury was the messenger of the gods. Now it runs errands for you on your Mac or Windows PC. It looks at your screen and tutors you through it, finds answers and videos, writes your messages and records your screen, and comes back for your OK before anything goes out.</p>
+<div class="actions dl2">{MAC_BTN}{WIN_BTN}</div>
+<p class="meta">Free and open source. For macOS 15 or later, and Windows 10 and 11 (early test).</p>
 </div>
 <div class="meet" aria-hidden="true"><span class="kicker">{ORBIT}Meet Mercury</span><p>Small enough to stay out of your way.<br>Clever enough to help with anything on your screen.</p></div>
 <div class="laptop" aria-hidden="true"><div class="bezel"><i class="notch"></i></div><div class="base"><i></i></div></div>
@@ -269,13 +288,13 @@ HOME = f"""
 </section>
 
 <section class="orbit-sec" data-tone="dark"><div class="wrap">
-<div class="head reveal"><span class="kicker">{ORBIT}Works everywhere</span><h2>The apps you already use, {ring("with help")}{DOT}</h2><p>There's nothing new to learn. Mercury shows up over any app on your Mac whenever you need a hand, and gets out of the way when you don't.</p></div>
+<div class="head reveal"><span class="kicker">{ORBIT}Works everywhere</span><h2>The apps you already use, {ring("with help")}{DOT}</h2><p>There's nothing new to learn. Mercury shows up over any app on your computer whenever you need a hand, and gets out of the way when you don't.</p></div>
 <div class="orbit reveal" aria-hidden="true"><div class="ring r1"></div><div class="ring r2"></div><div class="core"><img src="assets/planet.png" alt="" width="1024" height="1024" loading="lazy"></div><div class="sats">{ORBIT_HTML}</div></div>
 <div class="day">{DAY_HTML}</div>
 </div></section>
 
 <section class="features" id="features" data-tone="dark"><div class="wrap">
-<div class="head reveal"><span class="kicker">{ORBIT}What it does</span><h2>One assistant for {ring("everything")} you do on your Mac{DOT}</h2></div>
+<div class="head reveal"><span class="kicker">{ORBIT}What it does</span><h2>One messenger for {ring("everything")} you do{DOT}</h2></div>
 <div class="feat-grid">
 <div class="feat-list">{FEAT_HTML}</div>
 <div class="feat-stage"><div class="stage-inner"><div class="halo"></div>{STAGE_HTML}</div></div>
@@ -311,12 +330,13 @@ HOME = f"""
 <details><summary>Can Mercury do anything without me knowing?</summary><p>No. It only looks, listens or does something when you ask. A red dot shows while it's listening, and anything that sends or changes something waits for you to press Allow.</p></details>
 <details><summary>I use ChatGPT. Does Mercury know what it knows about me?</summary><p>You can bring it over. Mercury gives you a short prompt to paste into ChatGPT, and you paste the answer back. It's saved on your Mac and you can delete it any time. Mercury's answers themselves come from Claude.</p></details>
 <details><summary>Which Macs does it work on?</summary><p>Any Mac on macOS 15 Sequoia or later, with Apple silicon or Intel. There's also an <a href=\"windows.html\">early test version for Windows 10 and 11</a>, and no phone version yet.</p></details>
-<details><summary>Is this the Mercury bank?</summary><p>No. This Mercury is a free, open source assistant app for the Mac, made by one person. It has nothing to do with any bank or company of the same name.</p></details>
+<details><summary>Is this the Mercury bank?</summary><p>No. This Mercury is a free, open source assistant app for Mac and Windows, made by one person. It has nothing to do with any bank or company of the same name.</p></details>
 </div>
 <p class="more reveal"><a href="faq.html">More questions and answers</a></p>
 </div></section>
 
 {WIN_STEPS}
+{MAC_STEPS}
 <section class="download" id="download" data-tone="dark">
 <div class="horizon" aria-hidden="true"><img src="assets/planet.png" alt="" width="1024" height="1024" loading="lazy"></div>
 <div class="wrap narrow cta reveal">
@@ -325,19 +345,15 @@ HOME = f"""
 <div data-available="false"><p>Mercury is in a small private beta at the moment. The public download is coming soon.</p>
 <a class="btn primary" href="{REPO}">Follow on GitHub</a>
 <p class="fine">On GitHub, choose Watch, then Custom, then Releases, and you'll hear as soon as it's out.</p></div>
-<div data-os="mac" data-available="true" hidden>
-<p>Free, for any Mac on macOS 15 or later.</p>
-<a class="btn primary" data-release="url" href="{REPO}/releases/latest">{ICON['apple']}Download for Mac</a>
-<p class="fine">Version <span data-release="version">1.1.0</span> · <span data-release="size">3.3 MB</span> · Apple silicon and Intel · <a href="get-started.html">Install guide</a></p>
-<p class="fine">On a Windows PC? Try the <a href="windows.html">early Windows version</a>.</p>
+<div data-available="true" hidden>
+<p>Free, for Mac and Windows. Pick your computer.</p>
+<div class="dl2">
+<div class="dlcard" data-first="mac"><b>{ICON['apple']}Mac</b><a class="btn primary" data-release="url" data-mac-download href="{REPO}/releases/latest">Download for Mac</a><p class="fine">macOS 15 or later · Version <span data-release="version">1.4.3</span> · <span data-release="size">13.4 MB</span> · <a href="get-started.html">Install guide</a></p></div>
+<div class="dlcard" data-first="windows"><b>{ICON['windows']}Windows</b><a class="btn primary" href="{WIN_URL}" data-win-download>Download for Windows</a><p class="fine">Windows 10 and 11 · Early test, version {WIN_VERSION} · {WIN_SIZE} · <a href="windows.html">Install guide</a></p></div>
 </div>
-<div data-os="windows" hidden>
-<p>Mercury for Windows is here as an early test. Free, for Windows 10 and 11.</p>
-<a class="btn primary" href="{WIN_URL}" data-win-download>{ICON['windows']}Download for Windows</a>
-<p class="fine">Version {WIN_VERSION} · {WIN_SIZE} · <a href="windows.html">Install guide</a></p>
 </div>
-<div data-os="ios android" class="elsewhere" hidden><p>Mercury is a Mac app. Open this page on your Mac to download it.</p></div>
-<div data-os="linux chromeos other" class="elsewhere" hidden><p>Mercury is made for the Mac, with an <a href="windows.html">early version for Windows</a>. There's no Linux or ChromeOS version. Follow it on <a href="{REPO}">GitHub</a> to hear if that changes.</p></div>
+<div data-os="ios android" class="elsewhere" hidden><p>Mercury runs on a Mac or a Windows PC, not on phones. Open this page on your computer to download it.</p></div>
+<div data-os="linux chromeos other" class="elsewhere" hidden><p>There's no Linux or ChromeOS version yet. Follow it on <a href="{REPO}">GitHub</a> to hear if that changes.</p></div>
 </div>
 </section>
 """
@@ -422,7 +438,7 @@ STARTED = f"""
 <li><strong>Drag Mercury into Applications</strong><p>Open the downloaded file and drag the Mercury icon onto the Applications folder.</p></li>
 <li><strong>Open it</strong><p>Open Mercury from Applications.</p>
 <div data-notarized="true" hidden><p>Mercury is signed and notarised by Apple, so it opens like any other app.</p></div>
-<div data-notarized="false"><p>The first time, macOS asks you to confirm: open System Settings → Privacy &amp; Security and click <strong>Open Anyway</strong> next to Mercury. You only do this once.</p></div>
+<div data-notarized="false"><p>The first time, your Mac says Mercury can't be opened, because Apple hasn't checked this free app yet. Click <strong>Done</strong>, then open System Settings → Privacy &amp; Security, scroll down and click <strong>Open Anyway</strong> next to Mercury. Click Open Anyway once more and type your password. You only do this once.</p>{MAC_DEMO}</div>
 </li>
 </ol>
 <details class="note" style="margin-top:16px"><summary style="cursor:pointer;font-weight:600;color:var(--ink)">Want to check your download is genuine?</summary>
@@ -665,7 +681,7 @@ NOT_FOUND = head("404", "Page not found", "That page doesn't exist.") + '<div cl
 
 if __name__ == "__main__":
     DOCS.mkdir(exist_ok=True)
-    page("index.html", "Mercury · Personal assistant for Mac", "Ask about anything on your screen, get emails and tasks done, talk instead of typing, and record and edit videos. Free, private and open source, for the Mac.", HOME, home=True)
+    page("index.html", "Mercury · The messenger for your Mac and Windows PC", "Hand Mercury the job and it runs it: it looks at your screen and tutors you, finds answers and videos, writes your messages and records your screen. Free, private and open source, for Mac and Windows.", HOME, home=True)
     page("get-started.html", "Get started · Mercury", "Install Mercury, set up permissions, connect your AI and learn the shortcuts.",
          head("Get started", "Set up Mercury in about two minutes", "Install it, say hello, and Mercury walks you through the rest. Everything after installing is optional.") + STARTED)
     page("windows.html", "Mercury for Windows · Mercury", "Download Mercury for Windows 10 and 11 and set it up in about a minute. Free, with no account.",

@@ -439,3 +439,37 @@ html[data-tone="light"] .orb circle { fill: var(--blue-2); }
 .wsteps .ws-foot a { color: var(--blue-2); font-size: 14px; }
 .wsteps .btn.primary { background: #0d0f16; color: #fff; }
 @media (max-width: 560px) { .wsteps { padding: 20px 16px 18px; } .wsteps .ws-list > li { padding-left: 46px; } .wsteps .ws-list > li::before { left: 12px; } }
+
+/* Both downloads side by side; this computer's one first. */
+.actions.dl2 { flex-wrap: wrap; }
+.download .dl2 { display: grid; grid-template-columns: 1fr 1fr; gap: 14px; margin: 18px 0 6px; text-align: left; }
+.dlcard { display: flex; flex-direction: column; gap: 10px; padding: 18px; border-radius: 18px; background: rgba(255, 255, 255, 0.05); border: 1px solid rgba(255, 255, 255, 0.12); }
+.dlcard.first { border-color: rgba(231, 179, 95, 0.6); background: rgba(255, 255, 255, 0.08); }
+.dlcard b { display: flex; align-items: center; gap: 8px; font-size: 18px; color: #fff; }
+.dlcard b svg { width: 18px; height: 18px; }
+.dlcard .btn { justify-content: center; }
+.dlcard .fine { margin: 0; }
+@media (max-width: 560px) { .download .dl2 { grid-template-columns: 1fr; } }
+/* Pictures of the two macOS screens people meet the first time. */
+.mac-demo { display: grid; grid-template-columns: 1fr 1fr; gap: 14px; margin: 16px 0 6px; }
+.mac-demo figure { margin: 0; }
+.mac-demo .md-alert { background: #ecebe8; color: #1d1d1f; border-radius: 14px; padding: 16px 14px 12px; text-align: center; font: 400 12px/1.35 -apple-system, system-ui, sans-serif; min-height: 170px; display: flex; flex-direction: column; align-items: center; gap: 6px; box-shadow: 0 6px 20px rgba(0, 0, 0, 0.12); }
+.mac-demo .md-alert img { width: 34px; height: 34px; border-radius: 8px; }
+.mac-demo .md-alert b { font-size: 13px; }
+.mac-demo .md-alert p { margin: 0; color: #444; }
+.mac-demo .md-btns { margin-top: auto; display: grid; gap: 6px; width: 100%; }
+.mac-demo .md-btns i { font-style: normal; background: #fff; border-radius: 6px; padding: 4px; }
+.mac-demo .md-set { display: flex; background: #f5f5f4; border-radius: 12px; overflow: hidden; min-height: 170px; font: 400 12px/1.35 -apple-system, system-ui, sans-serif; color: #1d1d1f; box-shadow: 0 6px 20px rgba(0, 0, 0, 0.12); }
+.mac-demo .md-side { width: 38%; background: #e6e5e2; padding: 10px 8px; display: grid; gap: 6px; align-content: start; }
+.mac-demo .md-side i { display: block; height: 14px; border-radius: 4px; background: rgba(0, 0, 0, 0.07); font-style: normal; font-size: 10px; line-height: 14px; padding: 0 4px; overflow: hidden; white-space: nowrap; }
+.mac-demo .md-side i.on { background: #2f7cf6; color: #fff; height: auto; padding: 2px 4px; white-space: normal; }
+.mac-demo .md-main { flex: 1; padding: 12px; display: flex; flex-direction: column; gap: 6px; align-items: flex-start; }
+.mac-demo .md-main b { font-size: 13px; }
+.mac-demo .md-main p { margin: 0; color: #444; }
+.mac-demo .md-main span { margin-top: 4px; background: #fff; border: 1px solid rgba(0, 0, 0, 0.15); border-radius: 6px; padding: 3px 10px; }
+.mac-demo .hl { outline: 3px solid #ffd257; outline-offset: 2px; }
+.mac-demo figcaption { font-size: 14px; margin-top: 8px; color: rgba(13, 15, 22, 0.78); }
+.doc .mac-demo figcaption { color: inherit; opacity: 0.8; }
+.wsteps .ws-open { display: inline-block; margin-top: 10px; font-weight: 600; color: var(--blue-2); }
+@media (max-width: 560px) { .mac-demo { grid-template-columns: 1fr; } }
+.mac-demo.one { grid-template-columns: minmax(0, 300px); }

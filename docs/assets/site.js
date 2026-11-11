@@ -344,6 +344,26 @@ void main(){
     })
     .catch(() => {});
 
+  // Both downloads show for everyone; the one for this computer goes first, the other one goes quiet.
+  const mine = os === "windows" ? "windows" : "mac";
+  document.querySelectorAll("[data-first]").forEach((el) => {
+    const me = el.getAttribute("data-first") === mine;
+    el.classList.toggle("first", me);
+    if (el.classList.contains("btn") && !me) { el.classList.remove("primary"); el.classList.add("ghost"); }
+    if (!me && el.parentElement) el.parentElement.append(el);
+  });
+
+  // ── Mac download: the steps past Apple's "can't be opened" message open on top, because people
+  // don't read install guides and the Open Anyway button is hidden deep in System Settings.
+  const ms = document.getElementById("macSteps");
+  if (ms && typeof ms.showModal === "function") {
+    document.querySelectorAll("[data-mac-download]").forEach((a) => a.addEventListener("click", () => {
+      setTimeout(() => { if (!ms.open) ms.showModal(); }, 150);
+    }));
+    ms.querySelectorAll("[data-close]").forEach((b) => b.addEventListener("click", () => ms.close()));
+    ms.addEventListener("click", (e) => { if (e.target === ms) ms.close(); });
+  }
+
   // ── Windows download: the file starts downloading and the three install steps open on top,
   // because few people read an install guide before they need it.
   const ws = document.getElementById("winSteps");
