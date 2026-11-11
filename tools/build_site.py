@@ -19,7 +19,7 @@ GLYPH = {
 }
 
 NAV = [("index.html#features", "Features"), ("get-started.html", "Get started"), ("security.html", "Safety"), ("faq.html", "FAQ")]
-V = "16"  # bump to refresh cached CSS and JS
+V = "18"  # bump to refresh cached CSS and JS
 
 # Mercury for Windows (early test). The installer is attached to a GitHub release of its own,
 # tagged windows-vX.Y.Z and marked as a pre release so the Mac "latest" link never changes.
@@ -222,6 +222,25 @@ CONTROL = [
 ]
 CONTROL_HTML = "".join(f'<div class="row reveal" style="--d:{i * 0.05:.2f}s"><b>{a}</b><span>{b}</span>{c}</div>' for i, (a, b, c) in enumerate(CONTROL))
 
+WIN_DEMO = """<div class="win-demo" aria-hidden="true">
+<figure><div class="ss"><b>Windows protected your PC</b><p>Microsoft Defender SmartScreen prevented an unrecognised app from starting.</p><span class="hl">More info</span><div class="ss-btns"><i>Don't run</i></div></div><figcaption>First, click <strong>More info</strong>.</figcaption></figure>
+<figure><div class="ss"><b>Windows protected your PC</b><p>App: Mercury-Setup-""" + WIN_VERSION + """.exe<br>Publisher: Unknown publisher</p><div class="ss-btns"><i class="hl">Run anyway</i><i>Don't run</i></div></div><figcaption>Then click <strong>Run anyway</strong>.</figcaption></figure>
+</div>"""
+
+# People rarely read install guides, so clicking any "Download for Windows" button starts the
+# download and opens these steps on top of the page, right when they're needed.
+WIN_STEPS = f"""<dialog class="wsteps" id="winSteps" aria-labelledby="winStepsTitle">
+<div class="ws-head"><h2 id="winStepsTitle">Your download has started</h2><button class="ws-x" data-close aria-label="Close">×</button></div>
+<p class="ws-lead">Three quick steps and Mercury is ready. Keep this open while you go.</p>
+<ol class="ws-list">
+<li><strong>If your browser asks, keep the file.</strong><span>Mercury is new, so browsers may say it isn't commonly downloaded. In <b>Edge</b>, click the three dots next to the file, then <b>Keep</b>, <b>Show more</b> and <b>Keep anyway</b>. In <b>Chrome</b>, click <b>Keep</b>.</span></li>
+<li><strong>Open <code>{WIN_FILE}</code></strong><span>Click it in your browser's downloads, or find it in your Downloads folder.</span></li>
+<li><strong>Windows shows a blue box. Click More info, then Run anyway.</strong><span>Windows does this for any app it hasn't seen many times before.</span>{WIN_DEMO}</li>
+</ol>
+<p class="ws-done">Mercury then installs itself in seconds and opens. Pick the free AI and you're done. No account, no password.</p>
+<div class="ws-foot"><a href="{WIN_URL}">Download didn't start? Try again</a><button class="btn primary small" data-close>Got it</button></div>
+</dialog>"""
+
 HOME = f"""
 <section class="scene" data-tone="dark" aria-label="Introduction">
 <div class="scene-pin">
@@ -231,7 +250,7 @@ HOME = f"""
 <span class="kicker">{ORBIT}Mercury for Mac</span>
 <h1>The assistant that <br>lives on {ring("your Mac")}{DOT}</h1>
 <p class="lede">Mercury floats over whatever you're doing and helps you right there. It sees your screen when you ask, types what you say, records and edits your videos, and never sends a thing without your OK.</p>
-<div class="actions"><a class="btn primary" href="#download" data-os="mac ios android linux chromeos other">{ICON['apple']}Download for Mac</a><a class="btn primary" href="windows.html" data-os="windows" hidden>{ICON['windows']}Download for Windows</a><a class="btn ghost" href="#features">See what it does</a></div>
+<div class="actions"><a class="btn primary" href="#download" data-os="mac ios android linux chromeos other">{ICON['apple']}Download for Mac</a><a class="btn primary" href="{WIN_URL}" data-win-download data-os="windows" hidden>{ICON['windows']}Download for Windows</a><a class="btn ghost" href="#features">See what it does</a></div>
 <p class="meta" data-os="mac ios android linux chromeos other">Free and open source, for macOS 15 or later</p><p class="meta" data-os="windows" hidden>Free and open source. Made for the Mac, now in early testing on Windows 10 and 11</p>
 </div>
 <div class="meet" aria-hidden="true"><span class="kicker">{ORBIT}Meet Mercury</span><p>Small enough to stay out of your way.<br>Clever enough to help with anything on your screen.</p></div>
@@ -297,6 +316,7 @@ HOME = f"""
 <p class="more reveal"><a href="faq.html">More questions and answers</a></p>
 </div></section>
 
+{WIN_STEPS}
 <section class="download" id="download" data-tone="dark">
 <div class="horizon" aria-hidden="true"><img src="assets/planet.png" alt="" width="1024" height="1024" loading="lazy"></div>
 <div class="wrap narrow cta reveal">
@@ -313,8 +333,8 @@ HOME = f"""
 </div>
 <div data-os="windows" hidden>
 <p>Mercury for Windows is here as an early test. Free, for Windows 10 and 11.</p>
-<a class="btn primary" href="windows.html">{ICON['windows']}Download for Windows</a>
-<p class="fine">Version {WIN_VERSION} · {WIN_SIZE} · The next page shows each step, including the two warnings Windows shows.</p>
+<a class="btn primary" href="{WIN_URL}" data-win-download>{ICON['windows']}Download for Windows</a>
+<p class="fine">Version {WIN_VERSION} · {WIN_SIZE} · <a href="windows.html">Install guide</a></p>
 </div>
 <div data-os="ios android" class="elsewhere" hidden><p>Mercury is a Mac app. Open this page on your Mac to download it.</p></div>
 <div data-os="linux chromeos other" class="elsewhere" hidden><p>Mercury is made for the Mac, with an <a href="windows.html">early version for Windows</a>. There's no Linux or ChromeOS version. Follow it on <a href="{REPO}">GitHub</a> to hear if that changes.</p></div>
@@ -323,15 +343,13 @@ HOME = f"""
 """
 
 # ─────────────────────────────── Windows ───────────────────────────────
-WIN_DEMO = """<div class="win-demo" aria-hidden="true">
-<figure><div class="ss"><b>Windows protected your PC</b><p>Microsoft Defender SmartScreen prevented an unrecognised app from starting.</p><span class="hl">More info</span><div class="ss-btns"><i>Don't run</i></div></div><figcaption>First, click <strong>More info</strong>.</figcaption></figure>
-<figure><div class="ss"><b>Windows protected your PC</b><p>App: Mercury-Setup-""" + WIN_VERSION + """.exe<br>Publisher: Unknown publisher</p><div class="ss-btns"><i class="hl">Run anyway</i><i>Don't run</i></div></div><figcaption>Then click <strong>Run anyway</strong>.</figcaption></figure>
-</div>"""
+
 
 WINDOWS = f"""
+{WIN_STEPS}
 <div class="wrap narrow doc">
 <div class="win-get">
-<a class="btn primary" href="{WIN_URL}">{ICON['windows']}Download for Windows</a>
+<a class="btn primary" href="{WIN_URL}" data-win-download>{ICON['windows']}Download for Windows</a>
 <p>Version {WIN_VERSION} · {WIN_SIZE} · Windows 10 or 11 (64 bit) · Free, no account</p>
 </div>
 

@@ -419,3 +419,23 @@ html[data-tone="light"] .orb circle { fill: var(--blue-2); }
 
 /* Keep the hidden attribute stronger than display rules like .btn, so per device buttons swap cleanly. */
 [hidden] { display: none !important; }
+
+/* Windows install steps, shown on top of the page when the download starts. */
+.wsteps { width: min(640px, calc(100vw - 32px)); max-height: calc(100vh - 32px); overflow: auto; padding: 26px 26px 22px; border: 0; border-radius: 22px; background: #fbfaf7; color: #0d0f16; box-shadow: 0 30px 80px -20px rgba(0, 0, 0, 0.55); font: 400 16px/1.5 var(--sans); }
+.wsteps::backdrop { background: rgba(4, 5, 10, 0.62); backdrop-filter: blur(3px); }
+.wsteps .ws-head { display: flex; align-items: flex-start; justify-content: space-between; gap: 12px; }
+.wsteps h2 { font-size: 24px; letter-spacing: -0.02em; margin: 0; color: #0d0f16; }
+.wsteps .ws-x { border: 0; background: transparent; font-size: 28px; line-height: 1; cursor: pointer; color: rgba(13, 15, 22, 0.55); padding: 0 4px; }
+.wsteps .ws-lead { margin: 6px 0 16px; color: rgba(13, 15, 22, 0.7); }
+.wsteps .ws-list { list-style: none; counter-reset: w; padding: 0; margin: 0; display: grid; gap: 12px; }
+.wsteps .ws-list > li { counter-increment: w; position: relative; padding: 14px 16px 14px 52px; border-radius: 16px; background: #fff; border: 1px solid rgba(13, 15, 22, 0.1); }
+.wsteps .ws-list > li::before { content: counter(w); position: absolute; left: 16px; top: 14px; width: 24px; height: 24px; border-radius: 50%; background: #0d0f16; color: #fff; font: 600 13px/24px var(--sans); text-align: center; }
+.wsteps .ws-list > li > strong { display: block; color: #0d0f16; }
+.wsteps .ws-list > li > span { display: block; margin-top: 4px; font-size: 15px; color: rgba(13, 15, 22, 0.75); }
+.wsteps code { font: 13px var(--mono); background: rgba(13, 15, 22, 0.06); padding: 1px 5px; border-radius: 5px; }
+.wsteps .win-demo { margin-top: 12px; }
+.wsteps .ws-done { margin: 16px 0 0; font-size: 15px; color: rgba(13, 15, 22, 0.75); }
+.wsteps .ws-foot { margin-top: 18px; display: flex; align-items: center; justify-content: space-between; gap: 12px; flex-wrap: wrap; }
+.wsteps .ws-foot a { color: var(--blue-2); font-size: 14px; }
+.wsteps .btn.primary { background: #0d0f16; color: #fff; }
+@media (max-width: 560px) { .wsteps { padding: 20px 16px 18px; } .wsteps .ws-list > li { padding-left: 46px; } .wsteps .ws-list > li::before { left: 12px; } }

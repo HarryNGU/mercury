@@ -344,6 +344,17 @@ void main(){
     })
     .catch(() => {});
 
+  // ── Windows download: the file starts downloading and the three install steps open on top,
+  // because few people read an install guide before they need it.
+  const ws = document.getElementById("winSteps");
+  if (ws && typeof ws.showModal === "function") {
+    document.querySelectorAll("[data-win-download]").forEach((a) => a.addEventListener("click", () => {
+      setTimeout(() => { if (!ws.open) ws.showModal(); }, 150);
+    }));
+    ws.querySelectorAll("[data-close]").forEach((b) => b.addEventListener("click", () => ws.close()));
+    ws.addEventListener("click", (e) => { if (e.target === ws) ws.close(); });
+  }
+
   document.querySelectorAll("[data-copy]").forEach((b) => {
     b.addEventListener("click", () => {
       const t = document.querySelector(b.getAttribute("data-copy"));
