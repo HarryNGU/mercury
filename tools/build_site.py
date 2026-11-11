@@ -267,7 +267,7 @@ HOME = f"""
 <img class="space-fallback" src="assets/planet.png" alt="" width="1024" height="1024">
 <div class="intro">
 <span class="kicker">{ORBIT}Mercury, the messenger</span>
-<h1>Hand me the job. <br>I'll {ring("run it")} for you{DOT}</h1>
+<h1>The personal assistant <br>that lives on {ring("your desktop")}{DOT}</h1>
 <p class="lede">In the old stories, Mercury was the messenger of the gods. Now it runs errands for you on your Mac or Windows PC. It looks at your screen and tutors you through it, finds answers and videos, writes your messages and records your screen, and comes back for your OK before anything goes out.</p>
 <div class="actions dl2">{MAC_BTN}{WIN_BTN}</div>
 <p class="meta">Free and open source. For macOS 15 or later, and Windows 10 and 11 (early test).</p>
