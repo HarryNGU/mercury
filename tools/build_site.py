@@ -23,11 +23,11 @@ V = "18"  # bump to refresh cached CSS and JS
 
 # Mercury for Windows (early test). The installer is attached to a GitHub release of its own,
 # tagged windows-vX.Y.Z and marked as a pre release so the Mac "latest" link never changes.
-WIN_VERSION = "0.1.1"
+WIN_VERSION = "0.1.3"
 WIN_FILE = f"Mercury-Setup-{WIN_VERSION}.exe"
 WIN_URL = f"{REPO}/releases/download/windows-v{WIN_VERSION}/{WIN_FILE}"
 WIN_SIZE = "118 MB"
-WIN_SHA = "033df009f65c19f4d25e746c4f236565334b1f846e5e8f5a5e44fc162dd82a07"
+WIN_SHA = "78b704cef052be37c1bae86dd9964c2408e71a80fd88a56a83c4454f68f4e000"
 
 ICON = {
     "lock": '<svg viewBox="0 0 24 24" fill="none" stroke="#fff" stroke-width="1.9" stroke-linecap="round" stroke-linejoin="round"><rect x="4.5" y="10.5" width="15" height="10" rx="3"/><path d="M8 10.5V7.5a4 4 0 0 1 8 0v3"/></svg>',
