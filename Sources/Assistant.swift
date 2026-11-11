@@ -74,14 +74,22 @@ extension Settings {
 /// Which brain answers: the Claude Code you already use (your memory, apps and subscription), or
 /// the plain API with an API key.
 enum AssistantBrain: String, CaseIterable, Identifiable {
-    case claudeCode, api
+    case claudeCode, free, openai, api
     var id: String { rawValue }
-    var title: String { switch self { case .claudeCode: "Claude Code (your context)"; case .api: "API key only" } }
+    var title: String {
+        switch self {
+        case .claudeCode: "Claude Code (your context)"
+        case .free: "Mercury's free AI"
+        case .openai: "OpenAI or compatible key"
+        case .api: "Anthropic API key"
+        }
+    }
 }
 
 extension Settings {
     static var assistantBrain: AssistantBrain {
-        get { AssistantBrain(rawValue: d.string(forKey: "assistantBrain") ?? "") ?? (ClaudeCodeSession.binary != nil ? .claudeCode : .api) }
+        // Nothing chosen yet: Claude Code if it's on this Mac, otherwise Mercury's free AI, so nobody hits a dead end.
+        get { AssistantBrain(rawValue: d.string(forKey: "assistantBrain") ?? "") ?? (ClaudeCodeSession.binary != nil ? .claudeCode : .free) }
         set { d.set(newValue.rawValue, forKey: "assistantBrain") }
     }
 }
@@ -287,8 +295,13 @@ final class AssistantModel: ObservableObject {
                 return  // the answer arrives through handle(_:)
             }
             do {
-                try await AssistantClient.ask(note + q, history: history, screenshot: shot, transcript: transcript) { piece in
+                let onText: @MainActor (String) -> Void = { piece in
                     if index < self.exchanges.count { self.exchanges[index].answer += piece; self.exchanges[index].activity = nil }
+                }
+                switch Settings.assistantBrain {
+                case .free: try await FreeAI.ask(note + q, history: history, screenshot: shot, transcript: transcript, onText: onText)
+                case .openai: try await OpenAIClient.ask(note + q, history: history, screenshot: shot, transcript: transcript, onText: onText)
+                default: try await AssistantClient.ask(note + q, history: history, screenshot: shot, transcript: transcript, onText: onText)
                 }
             } catch is CancellationError {
             } catch {

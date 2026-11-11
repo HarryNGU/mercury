@@ -877,6 +877,19 @@ struct AssistantPage: View {
     @AppStorage("drillTimerOn") private var drillOn = false
     @AppStorage("drillTarget") private var drillTarget = 0
     @State private var brain = Settings.assistantBrain
+    @State private var hasOpenAIKey = Keychain.hasKey(account: Keychain.openAIAccount)
+    @State private var openAIKey = ""
+    @State private var openAIBase = Settings.openAIBaseURL
+    @State private var openAIModel = Settings.openAIModel
+
+    private var brainFooter: String {
+        switch brain {
+        case .claudeCode: return "Uses the Claude Code on this Mac: your memory notes and connected apps, on your Claude subscription. It can do things for you, always with your OK."
+        case .free: return "Mercury's free AI answers through Mercury's own small server, which passes your message and any screenshot on to Claude and doesn't store them. It answers and looks at your screen, but can't do things on your Mac."
+        case .openai: return "Uses your own key with OpenAI or a service that works the same way. It answers and looks at your screen, but can't do things on your Mac; that needs Claude Code."
+        case .api: return "Uses Claude directly with your Anthropic key. Faster to start, but it doesn't know your memory or connected apps and can't take actions."
+        }
+    }
     @State private var move = Settings.assistantMove
     @State private var choice = Settings.assistantModel
     @State private var hasKey = Keychain.hasKey
@@ -891,13 +904,40 @@ struct AssistantPage: View {
             PageHeader(title: "Assistant", subtitle: "Press \(keys.label(.assist)) anywhere. Mercury sees your screen, can hear your call, and Claude helps as it happens.") {
                 PrimaryButton(title: "Open", icon: "sparkles") { model.onAssist?() }
             }
-            SettingsGroup(title: "Brain", footer: brain == .claudeCode
-                ? "Uses the Claude Code on this Mac: your memory notes, CLAUDE.md files and connected apps (Gmail, Calendar, Notion and more), on your Claude subscription. It reads and searches freely; anything that sends, changes or runs something waits for you to approve it in the panel."
-                : "Uses Claude directly with an API key. Faster to start, but it doesn't know your memory or connected apps and can't take actions.") {
-                SettingRow(title: "Answer with", divider: brain == .claudeCode) {
+            SettingsGroup(title: "Brain", footer: brainFooter) {
+                SettingRow(title: "Answer with", divider: brain == .claudeCode || brain == .openai || brain == .free) {
                     SwiftUI.Picker("", selection: $brain) { ForEach(AssistantBrain.allCases) { Text($0.title).tag($0) } }
                         .labelsHidden().frame(width: 230)
                         .onChange(of: brain) { Settings.assistantBrain = brain }
+                }
+                if brain == .free {
+                    SettingRow(title: "Free messages", subtitle: "40 a day on this Mac, reset at midnight UTC. No account needed.", divider: false) {
+                        Text(FreeAI.remaining.map { "\($0) left today" } ?? "").foregroundStyle(.secondary)
+                    }
+                }
+                if brain == .openai {
+                    SettingRow(title: "Key", subtitle: hasOpenAIKey ? "Saved in your Keychain." : "From platform.openai.com, or your other service. A ChatGPT Plus plan isn't a key.") {
+                        if hasOpenAIKey {
+                            SecondaryButton(title: "Remove") { Keychain.setKey(nil, account: Keychain.openAIAccount); hasOpenAIKey = false }
+                        } else {
+                            HStack(spacing: 8) {
+                                SecureField("sk-…", text: $openAIKey).textFieldStyle(.roundedBorder).frame(width: 200)
+                                PrimaryButton(title: "Save") {
+                                    Keychain.setKey(openAIKey.trimmingCharacters(in: .whitespacesAndNewlines), account: Keychain.openAIAccount)
+                                    openAIKey = ""; hasOpenAIKey = Keychain.hasKey(account: Keychain.openAIAccount)
+                                }
+                                .disabled(openAIKey.trimmingCharacters(in: .whitespaces).isEmpty)
+                            }
+                        }
+                    }
+                    SettingRow(title: "Service address", subtitle: "Leave as OpenAI, or use another that works the same way, like Gemini, Grok, DeepSeek, OpenRouter, or Ollama on this Mac.") {
+                        TextField("https://api.openai.com/v1", text: $openAIBase).textFieldStyle(.roundedBorder).frame(width: 240)
+                            .onSubmit { Settings.openAIBaseURL = openAIBase }.onChange(of: openAIBase) { Settings.openAIBaseURL = openAIBase }
+                    }
+                    SettingRow(title: "Model", subtitle: "Pick one that can see pictures, so it can read your screen.", divider: false) {
+                        TextField("gpt-5-mini", text: $openAIModel).textFieldStyle(.roundedBorder).frame(width: 240)
+                            .onChange(of: openAIModel) { Settings.openAIModel = openAIModel }
+                    }
                 }
                 if brain == .claudeCode {
                     if ClaudeCodeSession.binary == nil {

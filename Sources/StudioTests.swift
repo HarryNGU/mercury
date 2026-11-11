@@ -381,6 +381,23 @@ enum StudioTests {
             DispatchQueue.main.asyncAfter(deadline: .now() + 6.5) { NSApp.terminate(nil) }
             return true
         }
+        if args.contains("--brainstest") {
+            // Asks Mercury's live free AI one short question (uses one of this Mac's free messages), and checks the
+            // OpenAI brain explains a missing key. Never reads or writes saved chats or settings.
+            Task { @MainActor in
+                var reply = ""
+                do {
+                    try await FreeAI.ask("In one short sentence: how do I check which version of my operating system I have?", history: [], screenshot: nil, transcript: "") { reply += $0 }
+                    log("brainstest: free AI replied \"\(reply.replacingOccurrences(of: "\n", with: " ").prefix(160))\", \(FreeAI.remaining.map(String.init) ?? "?") left today")
+                } catch { log("brainstest: free AI failed: \(error.localizedDescription)") }
+                let saved = Settings.d.string(forKey: "openAIBaseURL")
+                do { try await OpenAIClient.ask("hi", history: [], screenshot: nil, transcript: "") { _ in } ; log("brainstest: openai answered") }
+                catch { log("brainstest: openai without key says: \(error.localizedDescription)") }
+                if saved == nil { Settings.d.removeObject(forKey: "openAIBaseURL") }
+                NSApp.terminate(nil)
+            }
+            return true
+        }
         if args.contains("--focustest") {
             // The panel's keyboard rules, offscreen: it only takes the keyboard on request, never while locked,
             // and Claude's computer driving tools are recognised. Touches no settings or chats.

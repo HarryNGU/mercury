@@ -205,6 +205,39 @@ enum Keychain {
         return String(data: d, encoding: .utf8)
     }
 
+    /// Other services' keys, kept the same way.
+    static let openAIAccount = "openai-api-key"
+
+    static func key(account other: String) -> String? {
+        var item: CFTypeRef?
+        let q: [String: Any] = [kSecClass as String: kSecClassGenericPassword, kSecAttrService as String: service,
+                                kSecAttrAccount as String: other, kSecReturnData as String: true]
+        guard SecItemCopyMatching(q as CFDictionary, &item) == errSecSuccess, let d = item as? Data else { return nil }
+        return String(data: d, encoding: .utf8)
+    }
+
+    static func setKey(_ key: String?, account other: String) {
+        let base: [String: Any] = [kSecClass as String: kSecClassGenericPassword, kSecAttrService as String: service,
+                                   kSecAttrAccount as String: other]
+        SecItemDelete(base as CFDictionary)
+        guard let key, !key.isEmpty else { return }
+        var add = base
+        add[kSecValueData as String] = Data(key.utf8)
+        add[kSecAttrAccessible as String] = kSecAttrAccessibleWhenUnlocked
+        SecItemAdd(add as CFDictionary, nil)
+    }
+
+    /// Whether another service's key is saved, never showing a Keychain prompt.
+    static func hasKey(account other: String) -> Bool {
+        let ctx = LAContext()
+        ctx.interactionNotAllowed = true
+        let q: [String: Any] = [kSecClass as String: kSecClassGenericPassword, kSecAttrService as String: service,
+                                kSecAttrAccount as String: other, kSecReturnAttributes as String: true,
+                                kSecUseAuthenticationContext as String: ctx]
+        let status = SecItemCopyMatching(q as CFDictionary, nil)
+        return status == errSecSuccess || status == errSecInteractionNotAllowed
+    }
+
     static func setAPIKey(_ key: String?) {
         knownHasKey = nil
         let base: [String: Any] = [kSecClass as String: kSecClassGenericPassword, kSecAttrService as String: service,

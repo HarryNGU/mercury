@@ -61,6 +61,9 @@ struct OnboardingView: View {
     @State private var showKeyField = false
     @State private var apiKey = ""
     @State private var hasKey = Keychain.hasKey
+    @State private var hasOpenAIKey = false
+    @State private var keyKind = AssistantBrain.openai
+    @State private var showInstall = false
     @State private var agreed = Settings.assistantConsent
     @State private var skipped: Set<String> = []
     @State private var alreadyAllowed = false
@@ -184,8 +187,8 @@ struct OnboardingView: View {
                 l += ["Claude is on this Mac, but it isn't signed in yet.",
                       "Click Sign in with Claude. Your browser opens, you sign in with your Claude Pro or Max account, and I'll notice by myself."]
             case .missing:
-                l += ["I couldn't find Claude Code on this Mac. It's the best way to share your context with me.",
-                      "You can install it, or use an Anthropic API key if you have one."]
+                l += ["I couldn't find Claude on this Mac, and that's fine.",
+                      "I can use Mercury's free AI: \(40) messages a day, no account needed. Or use your own OpenAI or Anthropic key."]
             }
             return l
         case .promises:
@@ -377,51 +380,79 @@ struct OnboardingView: View {
     @ViewBuilder private var brainStep: some View {
         VStack(alignment: .leading, spacing: 14) {
             if showKeyField {
-                VStack(alignment: .leading, spacing: 10) {
-                    if hasKey {
+                VStack(alignment: .leading, spacing: 12) {
+                    SwiftUI.Picker("", selection: $keyKind) {
+                        Text("OpenAI").tag(AssistantBrain.openai)
+                        Text("Anthropic").tag(AssistantBrain.api)
+                    }
+                    .pickerStyle(.segmented).labelsHidden().frame(width: 240)
+                    if keySaved {
                         Label("Your key is saved in the macOS Keychain.", systemImage: "checkmark.circle.fill").foregroundStyle(.green).font(.system(size: 14))
                     } else {
                         HStack(spacing: 10) {
-                            SecureField("", text: $apiKey, prompt: Text("sk-ant-…").foregroundColor(.white.opacity(0.35)))
+                            SecureField("", text: $apiKey, prompt: Text(keyKind == .openai ? "sk-…" : "sk-ant-…").foregroundColor(.white.opacity(0.35)))
                                 .textFieldStyle(.plain).font(.system(size: 15, design: .monospaced)).foregroundStyle(.white)
                                 .padding(.horizontal, 14).frame(width: 320, height: 42).background(glass(12))
                             Chip(title: "Save", primary: true) {
-                                Keychain.setAPIKey(clean(apiKey)); apiKey = ""; hasKey = Keychain.hasKey
+                                if keyKind == .openai { Keychain.setKey(clean(apiKey), account: Keychain.openAIAccount) } else { Keychain.setAPIKey(clean(apiKey)) }
+                                apiKey = ""; refreshKeys()
                             }
                             .disabled(clean(apiKey).isEmpty).opacity(clean(apiKey).isEmpty ? 0.4 : 1)
                         }
                     }
-                    Text("Get one at console.anthropic.com. It's stored in your Keychain, and use is billed to your Anthropic account. With a key I won't know your notes or apps.")
+                    Text(keyKind == .openai
+                         ? "Get one at platform.openai.com, under API keys. It's separate from a ChatGPT Plus plan, and use is billed to your OpenAI account. Other services that work like OpenAI's can be set up later in Settings, Assistant."
+                         : "Get one at console.anthropic.com. Use is billed to your Anthropic account.")
                         .font(.system(size: 12.5)).foregroundStyle(.white.opacity(0.55)).fixedSize(horizontal: false, vertical: true)
+                    Text("Your key stays in your Keychain. With a key, I answer and look at your screen, but I can't do things on your Mac; that needs Claude Code.")
+                        .font(.system(size: 12.5)).foregroundStyle(.white.opacity(0.45)).fixedSize(horizontal: false, vertical: true)
                 }
                 .padding(18).background(glass(18))
-                ReplyChips(hasKey ? [("Use my API key", true), ("Back", false)] : [("Back", false)]) { i in
-                    if hasKey && i == 0 { brain = .api; say("Use my API key") { go(.promises) } } else { withAnimation { showKeyField = false } }
+                ReplyChips(keySaved ? [("Use my key", true), ("Back", false)] : [("Back", false)]) { i in
+                    if keySaved && i == 0 { brain = keyKind; say("Use my key") { go(.promises) } } else { withAnimation { showKeyField = false } }
                 }
             } else {
                 switch brainState {
                 case .checking:
                     EmptyView()
                 case .signedIn:
-                    ReplyChips([("Use my Claude Code", true), ("Use an API key", false), ("Decide later", false)]) { pickBrain($0) }
+                    ReplyChips([("Use my Claude Code", true), ("Use the free AI", false), ("Use my own key", false)]) { pickBrain($0) }
                 case .signedOut:
-                    ReplyChips([("Sign in with Claude", true), ("Use an API key", false), ("Decide later", false)]) { pickBrain($0) }
+                    ReplyChips([("Sign in with Claude", true), ("Use the free AI", false), ("Use my own key", false)]) { pickBrain($0) }
                 case .missing:
-                    VStack(alignment: .leading, spacing: 10) {
-                        HStack(spacing: 10) {
-                            Text("curl -fsSL https://claude.ai/install.sh | bash").font(.system(size: 13, design: .monospaced)).foregroundStyle(.white)
-                                .textSelection(.enabled).padding(.horizontal, 14).frame(height: 40).background(glass(12))
-                            Chip(title: "Copy", primary: false) { copy("curl -fsSL https://claude.ai/install.sh | bash") }
-                        }
-                        Text("Paste that into Terminal, press Return, then type claude and sign in with your Claude Pro or Max account. Free Claude accounts can't use Claude Code; an API key works instead.")
-                            .font(.system(size: 12.5)).foregroundStyle(.white.opacity(0.6)).fixedSize(horizontal: false, vertical: true)
+                    ReplyChips([("Use the free AI", true), ("Use my own key", false)]) { i in
+                        if i == 0 { brain = .free; say("Use the free AI") { go(.promises) } }
+                        else { withAnimation(.spring(duration: 0.4)) { showKeyField = true } }
                     }
-                    ReplyChips([("I've installed it, check again", true), ("Use an API key", false), ("Decide later", false)]) { pickBrain($0) }
+                    Button { withAnimation { showInstall.toggle() } } label: {
+                        Text(showInstall ? "Hide the Claude Code steps" : "Have Claude Pro or Max? Use Claude Code instead")
+                            .font(.system(size: 12.5, weight: .medium)).foregroundStyle(Theme.accent)
+                    }
+                    .buttonStyle(.plain)
+                    if showInstall {
+                        VStack(alignment: .leading, spacing: 10) {
+                            HStack(spacing: 10) {
+                                Text("curl -fsSL https://claude.ai/install.sh | bash").font(.system(size: 13, design: .monospaced)).foregroundStyle(.white)
+                                    .textSelection(.enabled).padding(.horizontal, 14).frame(height: 40).background(glass(12))
+                                Chip(title: "Copy", primary: false) { copy("curl -fsSL https://claude.ai/install.sh | bash") }
+                            }
+                            Text("Paste that into Terminal, press Return, then type claude and sign in with your Claude Pro or Max account.")
+                                .font(.system(size: 12.5)).foregroundStyle(.white.opacity(0.6)).fixedSize(horizontal: false, vertical: true)
+                            Chip(title: "I've installed it, check again", primary: false) { checkBrain(replay: true) }
+                        }
+                    }
                 }
             }
-            Text("Use ChatGPT? You can bring over what it knows about you later, in Settings → Assistant.")
-                .font(.system(size: 12.5)).foregroundStyle(.white.opacity(0.45))
         }
+        .onAppear { refreshKeys() }
+        .onChange(of: keyKind) { refreshKeys() }
+    }
+
+    private var keySaved: Bool { keyKind == .openai ? hasOpenAIKey : hasKey }
+
+    private func refreshKeys() {
+        hasKey = Keychain.hasKey
+        hasOpenAIKey = Keychain.hasKey(account: Keychain.openAIAccount)
     }
 
     private func pickBrain(_ i: Int) {
@@ -441,8 +472,8 @@ struct OnboardingView: View {
                 }
             default: checkBrain(replay: true)
             }
-        case 1: withAnimation(.spring(duration: 0.4)) { showKeyField = true }
-        default: say("Decide later") { go(.promises) }
+        case 1: brain = .free; say("Use the free AI") { go(.promises) }
+        default: withAnimation(.spring(duration: 0.4)) { showKeyField = true }
         }
     }
 
