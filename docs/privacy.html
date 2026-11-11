@@ -24,7 +24,7 @@
 <meta http-equiv="Content-Security-Policy" content="default-src 'self'; img-src 'self' data:; media-src 'self'; style-src 'self' 'unsafe-inline'; script-src 'self'; connect-src 'self'; base-uri 'self'; form-action 'none'">
 <link rel="icon" href="assets/favicon.png?v=2">
 <link rel="apple-touch-icon" href="assets/icon.png?v=2">
-<link rel="stylesheet" href="assets/style.css?v=15">
+<link rel="stylesheet" href="assets/style.css?v=16">
 </head>
 <body class="inner">
 <header class="nav-shell">
@@ -34,14 +34,14 @@
 <a href="index.html#download" class="btn primary small nav-cta">Download</a>
 <button class="menu-btn" aria-label="Menu" aria-expanded="false"><span></span><span></span></button>
 </nav>
-<div class="drawer"><a href="index.html#features">Features</a><a href="get-started.html">Get started</a><a href="security.html">Safety</a><a href="faq.html">FAQ</a><a href="index.html#download" class="btn primary">Download for Mac</a></div>
+<div class="drawer"><a href="index.html#features">Features</a><a href="get-started.html">Get started</a><a href="security.html">Safety</a><a href="faq.html">FAQ</a><a href="index.html#download" class="btn primary">Download</a></div>
 </header>
 <main>
 <section class="page-head" data-tone="dark"><div class="glow"></div><div class="wrap narrow"><span class="kicker rise"><svg class="orb" viewBox="0 0 20 20" aria-hidden="true"><ellipse cx="10" cy="10" rx="8.5" ry="4.2" transform="rotate(-18 10 10)"/><circle cx="10" cy="10" r="2.6"/></svg>Trust</span><h1 class="rise" style="--d:.05s">Privacy policy</h1><p class="rise" style="--d:.1s">What Mercury does with your information: nothing is collected.</p></div></section><div class="wrap narrow doc"><p class="updated">Last updated 3 November 2026</p>
 <p>Mercury is a free, open source Mac app that I make. This policy explains what happens to your information when you use the app and this website. In short, I don't collect anything, and Mercury only sends information to other services when you use a feature that needs them.</p>
 
 <h2>Who makes Mercury</h2>
-<p>Mercury is an independent open source project published at <a href="https://github.com/HarryNGU/mercury">github.com/HarryNGU/mercury</a>. There are no Mercury accounts and no Mercury servers. You can reach me through <a href="https://github.com/HarryNGU/mercury/issues">GitHub issues</a>.</p>
+<p>Mercury is an independent open source project published at <a href="https://github.com/HarryNGU/mercury">github.com/HarryNGU/mercury</a>. There are no Mercury accounts. The Mac app uses no Mercury servers. The early Windows version can use one for its optional free AI (see <a href="#windows">below</a>). You can reach me through <a href="https://github.com/HarryNGU/mercury/issues">GitHub issues</a>.</p>
 
 <h2>What I collect</h2>
 <p>Nothing. Mercury has no accounts, analytics, crash reporting, advertising or tracking. I don't receive your recordings, voice, screenshots, messages, contacts or settings, and I couldn't see them even if I wanted to.</p>
@@ -71,6 +71,11 @@
 </table>
 <p>Those services handle the information under their own privacy policies, including <a href="https://www.anthropic.com/legal/privacy">Anthropic's</a>. Mercury never sells your information or shares it with anyone else.</p>
 
+<h2 id="windows">Mercury for Windows and its free AI</h2>
+<p>The early Windows version offers a free AI, so you can try it without an account or an API key. If you choose it, your question (and a screenshot, if you turn the eye on) goes through a small Mercury server on Cloudflare to Anthropic for the answer, then the answer comes straight back. The server doesn't store your messages, screenshots or anything else you send.</p>
+<p>To keep the free AI fair and within its daily budget, the server keeps only daily counts: how many questions this PC has asked today (linked to a random ID made on your PC, not your name), and how many came from your internet address, which is scrambled (hashed) first so the real address is never saved. Cloudflare, like any host, may log requests for security (see <a href="https://www.cloudflare.com/privacypolicy/">Cloudflare's privacy policy</a>).</p>
+<p>If you'd rather nothing passes through Mercury's server, choose "Use my own Anthropic API key" in the welcome screen or in Settings. Mercury then talks to Anthropic directly. On Windows, settings live in <code>%APPDATA%\Mercury</code>, and your key is encrypted with Windows' own protection.</p>
+
 <h2>Other people's information</h2>
 <p>If you turn on Listen during a call, what other people say is transcribed on your Mac and may be included when you ask a question. Tell people before you do this. In some places the law requires their consent.</p>
 
@@ -91,12 +96,12 @@
 <div class="foot-mark"><img src="assets/planet.png" alt="" width="1024" height="1024" loading="lazy"></div>
 <div class="cols">
 <div><a class="brand" href="index.html"><img class="mark" src="assets/favicon.png?v=2" alt="" width="22" height="22">Mercury</a><p class="about">A personal assistant for your Mac. Free and open source, with no account, no tracking and no ads.</p></div>
-<div><h4>Product</h4><ul><li><a href="index.html#download">Download</a></li><li><a href="index.html#features">Features</a></li><li><a href="get-started.html">Get started</a></li><li><a href="faq.html">FAQ</a></li><li><a href="https://github.com/HarryNGU/mercury">Source code</a></li></ul></div>
+<div><h4>Product</h4><ul><li><a href="index.html#download">Download</a></li><li><a href="index.html#features">Features</a></li><li><a href="get-started.html">Get started</a></li><li><a href="windows.html">Mercury for Windows</a></li><li><a href="faq.html">FAQ</a></li><li><a href="https://github.com/HarryNGU/mercury">Source code</a></li></ul></div>
 <div><h4>Trust</h4><ul><li><a href="security.html">Safety and security</a></li><li><a href="privacy.html">Privacy policy</a></li><li><a href="terms.html">Terms of use</a></li><li><a href="notices.html">Open source notices</a></li></ul></div>
 <div><h4>Help</h4><ul><li><a href="https://github.com/HarryNGU/mercury/issues">Report a problem</a></li><li><a href="https://github.com/HarryNGU/mercury/security/advisories/new">Report a security issue</a></li><li><a href="get-started.html#uninstall">Uninstall</a></li></ul></div>
 </div>
 <p class="fine-print">Mercury is an independent open source project for the Mac. It isn't connected to any bank, company or other product called Mercury. This site doesn't use cookies or analytics, and it's hosted on GitHub Pages.</p>
 </div></footer>
-<script src="assets/site.js?v=15"></script>
+<script src="assets/site.js?v=16"></script>
 </body>
 </html>

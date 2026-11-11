@@ -401,3 +401,21 @@ html[data-tone="light"] .ring path { stroke: var(--blue-2); }
 .orb circle { fill: var(--blue); }
 html[data-tone="light"] .orb circle { fill: var(--blue-2); }
 @media (prefers-reduced-motion: reduce) { .ring path { stroke-dashoffset: 0; } .ring .moon { opacity: 1; } }
+
+/* Windows page: the download button and a picture of the SmartScreen box with what to click. */
+.doc .win-get { text-align: center; padding: 34px 20px 30px; border-radius: 22px; background: #fbfaf7; border: 1px solid var(--line); }
+.doc .win-get p { margin-top: 14px; font-size: 15px; color: var(--muted); }
+.win-demo { display: grid; grid-template-columns: 1fr 1fr; gap: 14px; margin: 16px 0 6px; }
+.win-demo figure { margin: 0; }
+.win-demo .ss { background: #0f5fa8; color: #fff; padding: 16px 16px 14px; border-radius: 6px; font: 400 12.5px "Segoe UI", system-ui, sans-serif; min-height: 150px; display: flex; flex-direction: column; gap: 8px; }
+.win-demo .ss b { font-size: 16px; font-weight: 600; }
+.win-demo .ss p { color: rgba(255, 255, 255, 0.9); margin: 0; font-size: 12.5px; }
+.win-demo .ss > span { text-decoration: underline; align-self: flex-start; padding: 1px 4px; margin-left: -4px; }
+.win-demo .ss-btns { margin-top: auto; display: flex; justify-content: flex-end; gap: 8px; }
+.win-demo .ss-btns i { font-style: normal; border: 1px solid rgba(255, 255, 255, 0.85); padding: 5px 14px; }
+.win-demo .hl { outline: 3px solid #ffd257; outline-offset: 2px; border-radius: 3px; }
+.win-demo figcaption { font-size: 14px; margin-top: 8px; color: rgba(13, 15, 22, 0.78); }
+@media (max-width: 560px) { .win-demo { grid-template-columns: 1fr; } }
+
+/* Keep the hidden attribute stronger than display rules like .btn, so per device buttons swap cleanly. */
+[hidden] { display: none !important; }

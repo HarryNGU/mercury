@@ -316,10 +316,12 @@ void main(){
   else if (/Win/.test(plat) || /Windows/.test(ua)) os = "windows";
   else if (/CrOS/.test(ua)) os = "chromeos";
   else if (/Linux/.test(plat) || /Linux/.test(ua)) os = "linux";
-  document.querySelectorAll("[data-os]").forEach((el) => {
+  const forThisDevice = (el) => {
+    if (!el.hasAttribute("data-os")) return true;
     const list = el.getAttribute("data-os").split(" ");
-    el.hidden = !(list.includes(os) || (list.includes("not-mac") && os !== "mac"));
-  });
+    return list.includes(os) || (list.includes("not-mac") && os !== "mac");
+  };
+  document.querySelectorAll("[data-os]").forEach((el) => { el.hidden = !forThisDevice(el); });
 
   fetch("release.json", { cache: "no-store" })
     .then((r) => (r.ok ? r.json() : null))
@@ -333,7 +335,8 @@ void main(){
       });
       // Until a release is public, the download area shows the beta message instead.
       document.querySelectorAll("[data-available]").forEach((el) => {
-        el.hidden = String(rel.available !== false) !== el.getAttribute("data-available");
+        // An element for another device (like the Mac download on a Windows PC) stays hidden.
+        el.hidden = String(rel.available !== false) !== el.getAttribute("data-available") || !forThisDevice(el);
       });
       document.querySelectorAll("[data-notarized]").forEach((el) => {
         el.hidden = String(rel.notarized) !== el.getAttribute("data-notarized");

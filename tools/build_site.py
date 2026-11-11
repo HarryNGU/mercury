@@ -19,7 +19,15 @@ GLYPH = {
 }
 
 NAV = [("index.html#features", "Features"), ("get-started.html", "Get started"), ("security.html", "Safety"), ("faq.html", "FAQ")]
-V = "15"  # bump to refresh cached CSS and JS
+V = "16"  # bump to refresh cached CSS and JS
+
+# Mercury for Windows (early test). The installer is attached to a GitHub release of its own,
+# tagged windows-vX.Y.Z and marked as a pre release so the Mac "latest" link never changes.
+WIN_VERSION = "0.1.1"
+WIN_FILE = f"Mercury-Setup-{WIN_VERSION}.exe"
+WIN_URL = f"{REPO}/releases/download/windows-v{WIN_VERSION}/{WIN_FILE}"
+WIN_SIZE = "118 MB"
+WIN_SHA = "033df009f65c19f4d25e746c4f236565334b1f846e5e8f5a5e44fc162dd82a07"
 
 ICON = {
     "lock": '<svg viewBox="0 0 24 24" fill="none" stroke="#fff" stroke-width="1.9" stroke-linecap="round" stroke-linejoin="round"><rect x="4.5" y="10.5" width="15" height="10" rx="3"/><path d="M8 10.5V7.5a4 4 0 0 1 8 0v3"/></svg>',
@@ -27,6 +35,7 @@ ICON = {
     "send": '<svg viewBox="0 0 24 24" fill="none" stroke="#fff" stroke-width="1.9" stroke-linecap="round" stroke-linejoin="round"><path d="M21 3 10 14M21 3l-7 18-4-7-7-4z"/></svg>',
     "code": '<svg viewBox="0 0 24 24" fill="none" stroke="#fff" stroke-width="1.9" stroke-linecap="round" stroke-linejoin="round"><path d="m8 7-5 5 5 5M16 7l5 5-5 5M13.5 4l-3 16"/></svg>',
     "apple": '<svg viewBox="0 0 24 24" fill="currentColor"><path d="M16.4 12.6c0-2.6 2.1-3.8 2.2-3.9-1.2-1.8-3.1-2-3.7-2-1.6-.2-3.1.9-3.9.9-.8 0-2-.9-3.4-.9-1.7 0-3.3 1-4.2 2.6-1.8 3.1-.5 7.7 1.3 10.2.9 1.2 1.9 2.6 3.2 2.6 1.3-.1 1.8-.8 3.3-.8 1.6 0 2 .8 3.4.8 1.4 0 2.3-1.3 3.1-2.5 1-1.4 1.4-2.8 1.4-2.9-.1 0-2.7-1-2.7-4.1zM13.9 5c.7-.9 1.2-2 1-3.2-1 0-2.3.7-3 1.6-.7.8-1.3 2-1.1 3.1 1.1.1 2.3-.6 3.1-1.5z"/></svg>',
+    "windows": '<svg viewBox="0 0 24 24" fill="currentColor"><path d="M3 5.2 10.4 4v7.4H3zM11.6 3.8 21 2.4v9H11.6zM3 12.6h7.4V20L3 18.8zM11.6 12.6H21v9l-9.4-1.4z"/></svg>',
     "play": '<svg viewBox="0 0 24 24" fill="currentColor"><path d="M8 5.5v13l11-6.5z"/></svg>',
     "speaker": '<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M11 5 6 9H3v6h3l5 4z"/><path d="M15.5 8.5a5 5 0 0 1 0 7M18.5 5.5a9 9 0 0 1 0 13"/></svg>',
 }
@@ -74,7 +83,7 @@ def page(name, title, desc, body, home=False):
 <a href="index.html#download" class="btn primary small nav-cta">Download</a>
 <button class="menu-btn" aria-label="Menu" aria-expanded="false"><span></span><span></span></button>
 </nav>
-<div class="drawer">{nav}<a href="index.html#download" class="btn primary">Download for Mac</a></div>
+<div class="drawer">{nav}<a href="index.html#download" class="btn primary">Download</a></div>
 </header>
 <main>
 {body}
@@ -83,7 +92,7 @@ def page(name, title, desc, body, home=False):
 <div class="foot-mark"><img src="assets/planet.png" alt="" width="1024" height="1024" loading="lazy"></div>
 <div class="cols">
 <div><a class="brand" href="index.html"><img class="mark" src="assets/favicon.png?v=2" alt="" width="22" height="22">Mercury</a><p class="about">A personal assistant for your Mac. Free and open source, with no account, no tracking and no ads.</p></div>
-<div><h4>Product</h4><ul><li><a href="index.html#download">Download</a></li><li><a href="index.html#features">Features</a></li><li><a href="get-started.html">Get started</a></li><li><a href="faq.html">FAQ</a></li><li><a href="{REPO}">Source code</a></li></ul></div>
+<div><h4>Product</h4><ul><li><a href="index.html#download">Download</a></li><li><a href="index.html#features">Features</a></li><li><a href="get-started.html">Get started</a></li><li><a href="windows.html">Mercury for Windows</a></li><li><a href="faq.html">FAQ</a></li><li><a href="{REPO}">Source code</a></li></ul></div>
 <div><h4>Trust</h4><ul><li><a href="security.html">Safety and security</a></li><li><a href="privacy.html">Privacy policy</a></li><li><a href="terms.html">Terms of use</a></li><li><a href="notices.html">Open source notices</a></li></ul></div>
 <div><h4>Help</h4><ul><li><a href="{REPO}/issues">Report a problem</a></li><li><a href="{REPO}/security/advisories/new">Report a security issue</a></li><li><a href="get-started.html#uninstall">Uninstall</a></li></ul></div>
 </div>
@@ -222,8 +231,8 @@ HOME = f"""
 <span class="kicker">{ORBIT}Mercury for Mac</span>
 <h1>The assistant that <br>lives on {ring("your Mac")}{DOT}</h1>
 <p class="lede">Mercury floats over whatever you're doing and helps you right there. It sees your screen when you ask, types what you say, records and edits your videos, and never sends a thing without your OK.</p>
-<div class="actions"><a class="btn primary" href="#download">{ICON['apple']}Download for Mac</a><a class="btn ghost" href="#features">See what it does</a></div>
-<p class="meta">Free and open source, for macOS 15 or later</p>
+<div class="actions"><a class="btn primary" href="#download" data-os="mac ios android linux chromeos other">{ICON['apple']}Download for Mac</a><a class="btn primary" href="windows.html" data-os="windows" hidden>{ICON['windows']}Download for Windows</a><a class="btn ghost" href="#features">See what it does</a></div>
+<p class="meta" data-os="mac ios android linux chromeos other">Free and open source, for macOS 15 or later</p><p class="meta" data-os="windows" hidden>Free and open source. Made for the Mac, now in early testing on Windows 10 and 11</p>
 </div>
 <div class="meet" aria-hidden="true"><span class="kicker">{ORBIT}Meet Mercury</span><p>Small enough to stay out of your way.<br>Clever enough to help with anything on your screen.</p></div>
 <div class="laptop" aria-hidden="true"><div class="bezel"><i class="notch"></i></div><div class="base"><i></i></div></div>
@@ -282,7 +291,7 @@ HOME = f"""
 <details><summary>Is Mercury really free?</summary><p>Yes. It's open source, with no paid version and no ads. The assistant uses an AI you bring yourself (your Claude plan or your own API key).</p></details>
 <details><summary>Can Mercury do anything without me knowing?</summary><p>No. It only looks, listens or does something when you ask. A red dot shows while it's listening, and anything that sends or changes something waits for you to press Allow.</p></details>
 <details><summary>I use ChatGPT. Does Mercury know what it knows about me?</summary><p>You can bring it over. Mercury gives you a short prompt to paste into ChatGPT, and you paste the answer back. It's saved on your Mac and you can delete it any time. Mercury's answers themselves come from Claude.</p></details>
-<details><summary>Which Macs does it work on?</summary><p>Any Mac on macOS 15 Sequoia or later, with Apple silicon or Intel. There's no Windows or phone version yet.</p></details>
+<details><summary>Which Macs does it work on?</summary><p>Any Mac on macOS 15 Sequoia or later, with Apple silicon or Intel. There's also an <a href=\"windows.html\">early test version for Windows 10 and 11</a>, and no phone version yet.</p></details>
 <details><summary>Is this the Mercury bank?</summary><p>No. This Mercury is a free, open source assistant app for the Mac, made by one person. It has nothing to do with any bank or company of the same name.</p></details>
 </div>
 <p class="more reveal"><a href="faq.html">More questions and answers</a></p>
@@ -300,11 +309,89 @@ HOME = f"""
 <p>Free, for any Mac on macOS 15 or later.</p>
 <a class="btn primary" data-release="url" href="{REPO}/releases/latest">{ICON['apple']}Download for Mac</a>
 <p class="fine">Version <span data-release="version">1.1.0</span> · <span data-release="size">3.3 MB</span> · Apple silicon and Intel · <a href="get-started.html">Install guide</a></p>
+<p class="fine">On a Windows PC? Try the <a href="windows.html">early Windows version</a>.</p>
+</div>
+<div data-os="windows" hidden>
+<p>Mercury for Windows is here as an early test. Free, for Windows 10 and 11.</p>
+<a class="btn primary" href="windows.html">{ICON['windows']}Download for Windows</a>
+<p class="fine">Version {WIN_VERSION} · {WIN_SIZE} · The next page shows each step, including the two warnings Windows shows.</p>
 </div>
 <div data-os="ios android" class="elsewhere" hidden><p>Mercury is a Mac app. Open this page on your Mac to download it.</p></div>
-<div data-os="windows linux chromeos other" class="elsewhere" hidden><p>Mercury is made for the Mac and relies on macOS features that Windows, Linux and ChromeOS don't have. Follow it on <a href="{REPO}">GitHub</a> to hear if that changes.</p></div>
+<div data-os="linux chromeos other" class="elsewhere" hidden><p>Mercury is made for the Mac, with an <a href="windows.html">early version for Windows</a>. There's no Linux or ChromeOS version. Follow it on <a href="{REPO}">GitHub</a> to hear if that changes.</p></div>
 </div>
 </section>
+"""
+
+# ─────────────────────────────── Windows ───────────────────────────────
+WIN_DEMO = """<div class="win-demo" aria-hidden="true">
+<figure><div class="ss"><b>Windows protected your PC</b><p>Microsoft Defender SmartScreen prevented an unrecognised app from starting.</p><span class="hl">More info</span><div class="ss-btns"><i>Don't run</i></div></div><figcaption>First, click <strong>More info</strong>.</figcaption></figure>
+<figure><div class="ss"><b>Windows protected your PC</b><p>App: Mercury-Setup-""" + WIN_VERSION + """.exe<br>Publisher: Unknown publisher</p><div class="ss-btns"><i class="hl">Run anyway</i><i>Don't run</i></div></div><figcaption>Then click <strong>Run anyway</strong>.</figcaption></figure>
+</div>"""
+
+WINDOWS = f"""
+<div class="wrap narrow doc">
+<div class="win-get">
+<a class="btn primary" href="{WIN_URL}">{ICON['windows']}Download for Windows</a>
+<p>Version {WIN_VERSION} · {WIN_SIZE} · Windows 10 or 11 (64 bit) · Free, no account</p>
+</div>
+
+<h2 id="install">Install in four steps</h2>
+<ol class="steps">
+<li><strong>Download Mercury</strong><p>Click <strong>Download for Windows</strong> above. Your browser saves <code>{WIN_FILE}</code> in your Downloads folder. It's {WIN_SIZE}, so give it a minute.</p>
+<p><strong>If your browser warns you.</strong> Mercury is new and isn't signed with a paid certificate yet, so your browser may say the file isn't commonly downloaded. That's expected.</p>
+<ul>
+<li><strong>Edge:</strong> in the downloads box, click the three dots next to the file, then <strong>Keep</strong>, then <strong>Show more</strong>, then <strong>Keep anyway</strong>.</li>
+<li><strong>Chrome:</strong> in the downloads box, click <strong>Keep</strong>.</li>
+</ul></li>
+<li><strong>Open the file</strong><p>Click the file in your browser's downloads, or open your Downloads folder and double click <code>{WIN_FILE}</code>.</p>
+<p>Windows then shows a blue box saying <strong>Windows protected your PC</strong>. It shows this for any app it hasn't seen many times before.</p>
+{WIN_DEMO}
+<p>You don't need an admin password. Mercury installs in a few seconds and opens by itself.</p></li>
+<li><strong>Choose how Mercury thinks</strong><p>On the welcome screen, keep <strong>Use Mercury's free AI</strong> selected and click <strong>Start using Mercury</strong>. There's no account to make. You get 40 messages a day. If you have an Anthropic API key, you can use that instead.</p></li>
+<li><strong>Find Mercury any time</strong><p>The chat opens in the bottom right corner. When you hide it, Mercury keeps running by the clock in the taskbar. To bring it back:</p>
+<ul>
+<li>Press <kbd>Alt</kbd><kbd>\\</kbd> (the backslash key, usually just above Enter).</li>
+<li>Or click the Mercury icon by the clock. If you can't see it, click the <strong>^</strong> arrow next to the clock. You can drag the icon onto the taskbar so it always shows.</li>
+</ul>
+<p>Mercury starts with Windows, so it's always ready. You can turn that off in its Settings.</p></li>
+</ol>
+<p class="note">Everything Mercury does on your PC, like saving a note or running a command, shows an <strong>Approve</strong> or <strong>Deny</strong> card first. Opening an app or setting a timer just happens, because you can see it straight away. Read more on the <a href="security.html">safety page</a>.</p>
+
+<h2 id="shortcuts">Shortcuts</h2>
+<table>
+<tr><th>Keys</th><th>What it does</th></tr>
+<tr><td><kbd>Alt</kbd><kbd>\\</kbd></td><td>Show or hide the chat</td></tr>
+<tr><td><kbd>Alt</kbd><kbd>Shift</kbd><kbd>R</kbd></td><td>Record your screen, or finish a recording</td></tr>
+<tr><td><kbd>Ctrl</kbd><kbd>Enter</kbd></td><td>Send your message with a look at your screen</td></tr>
+<tr><td><kbd>Esc</kbd></td><td>Hide the chat</td></tr>
+</table>
+<p>If another app already uses <kbd>Alt</kbd><kbd>\\</kbd>, Mercury uses <kbd>Ctrl</kbd><kbd>Alt</kbd><kbd>M</kbd> instead (and <kbd>Ctrl</kbd><kbd>Alt</kbd><kbd>R</kbd> to record). Right click the Mercury icon by the clock to see which keys it's using.</p>
+
+<h2 id="early">What's in this early version</h2>
+<p>The Windows version is new, so it does less than the Mac app for now.</p>
+<table>
+<tr><th>Works now</th><th>Coming later</th></tr>
+<tr><td>Chat about anything, with a look at your screen when you turn on the eye</td><td>Talking instead of typing (dictation)</td></tr>
+<tr><td>Small jobs on your PC: open apps and websites, set timers, save notes, prepare emails and messages, run simple commands</td><td>The reel editor and drawing on recordings</td></tr>
+<tr><td>Screen recording with your camera in a bubble, your microphone and your PC's sound</td><td>Automatic updates</td></tr>
+</table>
+<p>Something not working, or confusing? Tell the person who sent you here, or <a href="{REPO}/issues">report it on GitHub</a>. A screenshot helps a lot.</p>
+
+<details class="note" style="margin-top:28px"><summary style="cursor:pointer;font-weight:600;color:var(--ink)">Want to check your download is genuine?</summary>
+<p>Open PowerShell from the Start menu and run <code>Get-FileHash $HOME\\Downloads\\{WIN_FILE}</code>. The long code it prints should match this fingerprint exactly:</p>
+<div class="checksum" id="winsha">{WIN_SHA.upper()}</div>
+<p style="margin-top:8px"><button class="btn ghost small" data-copy="#winsha">Copy fingerprint</button></p></details>
+
+<h2 id="privacy">Privacy</h2>
+<p>With the free AI, your messages pass through a small Mercury server to Anthropic and aren't stored. The server only keeps daily counts so everyone gets a fair share. The full details are in the <a href="privacy.html#windows">privacy policy</a>.</p>
+
+<h2 id="uninstall">Uninstall</h2>
+<ol>
+<li>Right click the Mercury icon by the clock and choose <strong>Quit Mercury</strong>.</li>
+<li>Open <strong>Settings</strong>, then <strong>Apps</strong>, then <strong>Installed apps</strong>. Find Mercury, click the three dots, then <strong>Uninstall</strong>.</li>
+<li>Optional: delete Mercury's settings folder by typing <code>%APPDATA%\\Mercury</code> into the File Explorer address bar. Your recordings (in Videos, Mercury Recordings) and notes (in Documents, Mercury) are yours to keep or delete.</li>
+</ol>
+</div>
 """
 
 # ─────────────────────────────── Get started ───────────────────────────────
@@ -400,7 +487,7 @@ PRIVACY = f"""
 <p>Mercury is a free, open source Mac app that I make. This policy explains what happens to your information when you use the app and this website. In short, I don't collect anything, and Mercury only sends information to other services when you use a feature that needs them.</p>
 
 <h2>Who makes Mercury</h2>
-<p>Mercury is an independent open source project published at <a href="{REPO}">github.com/HarryNGU/mercury</a>. There are no Mercury accounts and no Mercury servers. You can reach me through <a href="{REPO}/issues">GitHub issues</a>.</p>
+<p>Mercury is an independent open source project published at <a href="{REPO}">github.com/HarryNGU/mercury</a>. There are no Mercury accounts. The Mac app uses no Mercury servers. The early Windows version can use one for its optional free AI (see <a href="#windows">below</a>). You can reach me through <a href="{REPO}/issues">GitHub issues</a>.</p>
 
 <h2>What I collect</h2>
 <p>Nothing. Mercury has no accounts, analytics, crash reporting, advertising or tracking. I don't receive your recordings, voice, screenshots, messages, contacts or settings, and I couldn't see them even if I wanted to.</p>
@@ -429,6 +516,11 @@ PRIVACY = f"""
 <tr><td>Mercury checks for updates (once a day, if that's on)</td><td>A normal request for one small public file. Nothing about you is included.</td><td>GitHub Pages (this website)</td></tr>
 </table>
 <p>Those services handle the information under their own privacy policies, including <a href="https://www.anthropic.com/legal/privacy">Anthropic's</a>. Mercury never sells your information or shares it with anyone else.</p>
+
+<h2 id="windows">Mercury for Windows and its free AI</h2>
+<p>The early Windows version offers a free AI, so you can try it without an account or an API key. If you choose it, your question (and a screenshot, if you turn the eye on) goes through a small Mercury server on Cloudflare to Anthropic for the answer, then the answer comes straight back. The server doesn't store your messages, screenshots or anything else you send.</p>
+<p>To keep the free AI fair and within its daily budget, the server keeps only daily counts: how many questions this PC has asked today (linked to a random ID made on your PC, not your name), and how many came from your internet address, which is scrambled (hashed) first so the real address is never saved. Cloudflare, like any host, may log requests for security (see <a href="https://www.cloudflare.com/privacypolicy/">Cloudflare's privacy policy</a>).</p>
+<p>If you'd rather nothing passes through Mercury's server, choose "Use my own Anthropic API key" in the welcome screen or in Settings. Mercury then talks to Anthropic directly. On Windows, settings live in <code>%APPDATA%\\Mercury</code>, and your key is encrypted with Windows' own protection.</p>
 
 <h2>Other people's information</h2>
 <p>If you turn on Listen during a call, what other people say is transcribed on your Mac and may be included when you ask a question. Tell people before you do this. In some places the law requires their consent.</p>
@@ -558,6 +650,8 @@ if __name__ == "__main__":
     page("index.html", "Mercury · Personal assistant for Mac", "Ask about anything on your screen, get emails and tasks done, talk instead of typing, and record and edit videos. Free, private and open source, for the Mac.", HOME, home=True)
     page("get-started.html", "Get started · Mercury", "Install Mercury, set up permissions, connect your AI and learn the shortcuts.",
          head("Get started", "Set up Mercury in about two minutes", "Install it, say hello, and Mercury walks you through the rest. Everything after installing is optional.") + STARTED)
+    page("windows.html", "Mercury for Windows · Mercury", "Download Mercury for Windows 10 and 11 and set it up in about a minute. Free, with no account.",
+         head("Windows", "Mercury for Windows", "An early test version for Windows 10 and 11. Setting it up takes about a minute, with no account and no admin password.") + WINDOWS)
     page("faq.html", "FAQ · Mercury", "Answers to common questions about Mercury.", FAQ)
     doc("privacy.html", "Privacy policy", "What Mercury does with your information: nothing is collected.", PRIVACY)
     doc("terms.html", "Terms of use", "The terms for using Mercury, including acceptable use.", TERMS)
