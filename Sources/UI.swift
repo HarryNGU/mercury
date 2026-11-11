@@ -32,6 +32,8 @@ final class UIModel: ObservableObject {
     @Published var importing = false
 
     // Recording pill
+    /// True only while a recording is running, so the pill's animation stops the rest of the time.
+    @Published var recording = false
     @Published var paused = false
     @Published var elapsed: TimeInterval = 0
     @Published var saving = false
@@ -326,18 +328,21 @@ struct Checkerboard: View {
 struct RecordingPill: View {
     @ObservedObject var model: UIModel
     @ObservedObject private var themes = ThemeStore.shared
-    @State private var pulse = false
-
     var body: some View {
         HStack(spacing: 4) {
             // Drag handle + status
             HStack(spacing: 9) {
                 ZStack {
                     Circle().fill(model.paused ? Color.orange : Color.red).frame(width: 10, height: 10)
-                    if !model.paused {
-                        Circle().stroke(Color.red.opacity(0.6), lineWidth: 2)
-                            .frame(width: 10, height: 10)
-                            .scaleEffect(pulse ? 2.2 : 1).opacity(pulse ? 0 : 1)
+                    // The pill exists from launch, hidden. The ring only animates while a recording is running,
+                    // so an idle Mercury never redraws anything (an endless animation here kept every Mac busy).
+                    if !model.paused && model.recording {
+                        TimelineView(.animation(minimumInterval: 1.0 / 30)) { ctx in
+                            let k = ctx.date.timeIntervalSinceReferenceDate.truncatingRemainder(dividingBy: 1.2) / 1.2
+                            Circle().stroke(Color.red.opacity(0.6), lineWidth: 2)
+                                .frame(width: 10, height: 10)
+                                .scaleEffect(1 + 1.2 * (1 - pow(1 - k, 2))).opacity(1 - k)
+                        }
                     }
                 }
                 Text(model.saving ? "Saving…" : model.paused ? "Paused" : model.elapsedText)
@@ -390,7 +395,6 @@ struct RecordingPill: View {
         .environment(\.colorScheme, .dark)
         .fixedSize()
         .id(themes.current.id)
-        .onAppear { withAnimation(.easeOut(duration: 1.2).repeatForever(autoreverses: false)) { pulse = true } }
     }
 }
 

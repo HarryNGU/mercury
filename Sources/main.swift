@@ -48,7 +48,7 @@ final class AppDelegate: NSObject, NSApplicationDelegate, NSMenuDelegate, NSWind
     lazy var assistant = AssistantController()
     private var controls: ControlBar!
     private let draw = DrawController()
-    private var recording = false { didSet { if oldValue != recording { buildMainMenu(); keepAwake(recording) } } }
+    private var recording = false { didSet { if oldValue != recording { buildMainMenu(); keepAwake(recording); model.recording = recording } } }
     private var awake: IOPMAssertionID?
 
     /// Talking to the camera doesn't count as using the Mac, so without this an idle sleep timer
@@ -170,7 +170,10 @@ final class AppDelegate: NSObject, NSApplicationDelegate, NSMenuDelegate, NSWind
             }
         }
         if Settings.mic { AVCaptureDevice.requestAccess(for: .audio) { ok in log("mic access = \(ok)") } }
-        if Settings.camera { bubble.show(on: NSScreen.underMouse) }
+        // The camera bubble no longer starts at launch: running the camera and background removal all day
+        // made Macs slow and kept the camera on when nobody was recording. It appears when you start
+        // choosing what to record (see startPicker) and turns off when the recording ends.
+        if Settings.camera && args.contains("--selftest") { bubble.show(on: NSScreen.underMouse) }
 
         if args.contains("--countdowntest") {  // plays the countdown only (for screenshots)
             DispatchQueue.main.asyncAfter(deadline: .now() + 1) { runCountdown(on: NSScreen.underMouse, region: args.contains("chrome") ? Picker.chromeSourceForTesting().flatMap { AppDelegate.region(of: $0, screen: NSScreen.underMouse) } : nil) { log("countdown done") } }
@@ -603,6 +606,7 @@ final class AppDelegate: NSObject, NSApplicationDelegate, NSMenuDelegate, NSWind
 
     private func pickArea(then done: @escaping (Bool) -> Void) {
         windowStepsAside = false
+        if Settings.camera { bubble.show(on: NSScreen.underMouse) }
         let screen = NSScreen.underMouse
         ShortcutCenter.shared.escapeCancels { AreaSelector.cancelActive() }
         AreaSelector.pick(on: screen) { [weak self] rect in
@@ -611,6 +615,8 @@ final class AppDelegate: NSObject, NSApplicationDelegate, NSMenuDelegate, NSWind
             if let rect {
                 self.source = .area(screen.displayID, rect)
                 log("source: \(self.source.label)")
+            } else {
+                self.bubble.hide()  // cancelled: no recording, so no camera
             }
             done(rect != nil)
         }
@@ -758,11 +764,12 @@ final class AppDelegate: NSObject, NSApplicationDelegate, NSMenuDelegate, NSWind
         guard !recording, !busy else { return }
         windowStepsAside = fromMainWindow
         if fromMainWindow { launcher.orderOut(nil) }
+        if Settings.camera { bubble.show(on: NSScreen.underMouse) }  // on now, so you can place it before recording
         ShortcutCenter.shared.escapeCancels { Picker.cancelActive() }
         Picker.run { [weak self] picked in
             guard let self else { return }
             ShortcutCenter.shared.escapeCancels(nil)
-            guard let picked else { self.showLauncher(); return }
+            guard let picked else { self.bubble.hide(); self.showLauncher(); return }
             self.source = picked
             self.start()
         }
@@ -778,7 +785,8 @@ final class AppDelegate: NSObject, NSApplicationDelegate, NSMenuDelegate, NSWind
         case .display(let id), .area(let id, _): screen = NSScreen.with(displayID: id) ?? NSScreen.underMouse
         default: screen = NSScreen.underMouse  // the picker leaves the mouse over the chosen window
         }
-        if Settings.camera { bubble.moveOnto(screen) }
+        // Started from the menu without the picker: switch the camera on here (it's off between recordings).
+        if Settings.camera { if bubble.panel.isVisible { bubble.moveOnto(screen) } else { bubble.show(on: screen) } }
         let go = { (target: CaptureSource) in
             if Settings.countdown && !CommandLine.arguments.contains("--selftest") {
                 // Esc during the 3-2-1 cancels before anything is recorded.
@@ -936,6 +944,7 @@ final class AppDelegate: NSObject, NSApplicationDelegate, NSMenuDelegate, NSWind
 
     private func finished(_ url: URL?) {
         log("finished: \(url?.path ?? "discarded")")
+        bubble.hide()  // the camera only runs while recording
         if quitting {
             quitting = false
             NSApp.reply(toApplicationShouldTerminate: true)
@@ -1009,6 +1018,7 @@ final class AppDelegate: NSObject, NSApplicationDelegate, NSMenuDelegate, NSWind
 
     private func failed(_ error: Error) {
         log("failed: \(error)")
+        bubble.hide()
         restarting = false
         recording = false
         titleTimer?.invalidate()
