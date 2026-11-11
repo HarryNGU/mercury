@@ -19,7 +19,7 @@ GLYPH = {
 }
 
 NAV = [("index.html#features", "Features"), ("get-started.html", "Get started"), ("security.html", "Safety"), ("faq.html", "FAQ")]
-V = "19"  # bump to refresh cached CSS and JS
+V = "20"  # bump to refresh cached CSS and JS
 
 # Mercury for Windows (early test). The installer is attached to a GitHub release of its own,
 # tagged windows-vX.Y.Z and marked as a pre release so the Mac "latest" link never changes.
@@ -268,7 +268,7 @@ HOME = f"""
 <div class="intro">
 <span class="kicker">{ORBIT}Mercury, the messenger</span>
 <h1>The personal assistant <br>that lives on {ring("your desktop")}{DOT}</h1>
-<p class="lede">In the old stories, Mercury was the messenger of the gods. Now it runs errands for you on your Mac or Windows PC. It looks at your screen and tutors you through it, finds answers and videos, writes your messages and records your screen, and comes back for your OK before anything goes out.</p>
+<p class="lede">In the old stories, Mercury carried messages for the gods. Now it runs errands on your Mac or Windows PC, and checks with you before anything goes out.</p>
 <div class="actions dl2">{MAC_BTN}{WIN_BTN}</div>
 <p class="meta">Free and open source. For macOS 15 or later, and Windows 10 and 11 (early test).</p>
 </div>
