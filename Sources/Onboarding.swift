@@ -401,7 +401,7 @@ struct OnboardingView: View {
                         }
                     }
                     Text(keyKind == .openai
-                         ? "Get one at platform.openai.com, under API keys. It's separate from a ChatGPT Plus plan, and use is billed to your OpenAI account. Other services that work like OpenAI's can be set up later in Settings, Assistant."
+                         ? "Get one at platform.openai.com, under API keys. It's separate from a ChatGPT Plus plan and needs credit on your OpenAI account. A free Gemini key from aistudio.google.com works here too."
                          : "Get one at console.anthropic.com. Use is billed to your Anthropic account.")
                         .font(.system(size: 12.5)).foregroundStyle(.white.opacity(0.55)).fixedSize(horizontal: false, vertical: true)
                     Text("Your key stays in your Keychain. With a key, I answer and look at your screen, but I can't do things on your Mac; that needs Claude Code.")

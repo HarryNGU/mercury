@@ -122,11 +122,28 @@ enum FreeAI {
 }
 
 enum OpenAIClient {
+    /// Set only by the --openaitest hook, so tests never read or write the Keychain.
+    nonisolated(unsafe) static var keyOverride: String?
+
+    /// Plain words for the errors people actually hit.
+    static func friendly(status: Int, message: String, raw: [String: Any]?) -> String {
+        let code = ((raw?["error"] as? [String: Any])?["code"] as? String) ?? ""
+        if code == "insufficient_quota" || message.lowercased().contains("credit") || message.lowercased().contains("quota") {
+            return "Your OpenAI account has no credit left. Add some at platform.openai.com, under Billing, or use a free Gemini key from aistudio.google.com instead."
+        }
+        if status == 401 { return "That key isn't working. Check it in Settings, Assistant, and that the service address matches where the key came from." }
+        return "The AI couldn't answer: \(message)"
+    }
+
     static func ask(_ question: String, history: [AssistantClient.Turn], screenshot: Data?, transcript: String,
                     onText: @escaping @MainActor (String) -> Void) async throws {
         let endpoint = Settings.openAIEndpoint(Settings.openAIBaseURL)
         let base = endpoint?.absoluteString ?? ""
-        let key = Keychain.key(account: Keychain.openAIAccount) ?? ""
+        let key = keyOverride ?? Keychain.key(account: Keychain.openAIAccount) ?? ""
+        if GeminiClient.isGemini(key: key, base: Settings.openAIBaseURL) {
+            try await GeminiClient.ask(question, key: key, history: history, screenshot: screenshot, transcript: transcript, onText: onText)
+            return
+        }
         // A local server such as Ollama needs no key; anything on the internet does.
         guard !key.isEmpty || base.contains("localhost") || base.contains("127.0.0.1") else {
             throw LiveListener.Failure("Add your OpenAI key in Mercury, Settings, Assistant to start asking.")
@@ -173,7 +190,7 @@ enum OpenAIClient {
                 let m2 = (j2?["error"] as? [String: Any])?["message"] as? String ?? "HTTP \(s2)"
                 throw LiveListener.Failure("The AI couldn't answer: \(m2)")
             }
-            throw LiveListener.Failure(status == 401 ? "That key isn't working. Check it in Settings, Assistant." : "The AI couldn't answer: \(msg)")
+            throw LiveListener.Failure(OpenAIClient.friendly(status: status, message: msg, raw: json))
         }
         for try await line in bytes.lines {
             guard line.hasPrefix("data: ") else { continue }
@@ -183,5 +200,84 @@ enum OpenAIClient {
                   let choice = (ev["choices"] as? [[String: Any]])?.first else { continue }
             if let s = (choice["delta"] as? [String: Any])?["content"] as? String, !s.isEmpty { await onText(s) }
         }
+    }
+}
+
+
+/// Google's Gemini, through its own address. Its newer "AQ." keys are often refused by Google's OpenAI
+/// style address, so a Gemini key always goes here, with the key in the x-goog-api-key header.
+enum GeminiClient {
+    static let defaultModel = "gemini-flash-latest"
+
+    static func isGemini(key: String, base: String) -> Bool {
+        key.hasPrefix("AIza") || key.hasPrefix("AQ.") || base.contains("generativelanguage.googleapis.com")
+    }
+
+    /// The model to ask: yours if it's a Gemini one, otherwise Google's latest Flash.
+    static func model(_ chosen: String) -> String {
+        let m = chosen.trimmingCharacters(in: .whitespacesAndNewlines)
+        return m.lowercased().hasPrefix("gemini") ? m : defaultModel
+    }
+
+    /// Where requests go. Tests point it at a fake local server with -geminiBaseURL.
+    static var base: String {
+        let b = Settings.d.string(forKey: "geminiBaseURL") ?? ""
+        return b.isEmpty ? "https://generativelanguage.googleapis.com/v1beta" : b
+    }
+
+    static func ask(_ question: String, key: String, history: [AssistantClient.Turn], screenshot: Data?, transcript: String,
+                    onText: @escaping @MainActor (String) -> Void) async throws {
+        let name = model(Settings.openAIModel)
+        guard let url = URL(string: base + "/models/\(name):streamGenerateContent?alt=sse") else {
+            throw LiveListener.Failure("That Gemini model name doesn't look right. Check it in Settings, Assistant.")
+        }
+        var contents: [[String: Any]] = []
+        for t in history.suffix(8) where !t.answer.isEmpty {
+            contents.append(["role": "user", "parts": [["text": t.question]]])
+            contents.append(["role": "model", "parts": [["text": t.answer]]])
+        }
+        var text = ""
+        if !transcript.isEmpty { text += "<recent_conversation>\n\(transcript)\n</recent_conversation>\n\n" }
+        text += question
+        var parts: [[String: Any]] = [["text": text]]
+        if let s = screenshot { parts.append(["inline_data": ["mime_type": "image/jpeg", "data": s.base64EncodedString()]]) }
+        contents.append(["role": "user", "parts": parts])
+
+        var req = URLRequest(url: url)
+        req.httpMethod = "POST"
+        req.timeoutInterval = 120
+        req.setValue("application/json", forHTTPHeaderField: "content-type")
+        req.setValue(key, forHTTPHeaderField: "x-goog-api-key")
+        req.httpBody = try JSONSerialization.data(withJSONObject: [
+            "systemInstruction": ["parts": [["text": AssistantClient.system]]],
+            "contents": contents,
+        ])
+        let (bytes, resp) = try await URLSession.shared.bytes(for: req)
+        let status = (resp as? HTTPURLResponse)?.statusCode ?? 0
+        guard status == 200 else {
+            var raw = Data()
+            for try await b in bytes { raw.append(b); if raw.count > 20_000 { break } }
+            let json = (try? JSONSerialization.jsonObject(with: raw)) as? [String: Any]
+            let msg = (json?["error"] as? [String: Any])?["message"] as? String ?? "HTTP \(status)"
+            log("assistant: gemini \(status)")
+            throw LiveListener.Failure(friendly(status: status, message: msg))
+        }
+        for try await line in bytes.lines {
+            guard line.hasPrefix("data: "), let d = line.dropFirst(6).data(using: .utf8),
+                  let ev = (try? JSONSerialization.jsonObject(with: d)) as? [String: Any],
+                  let cand = (ev["candidates"] as? [[String: Any]])?.first,
+                  let parts = (cand["content"] as? [String: Any])?["parts"] as? [[String: Any]] else { continue }
+            for p in parts { if let t = p["text"] as? String, !t.isEmpty { await onText(t) } }
+        }
+    }
+
+    static func friendly(status: Int, message: String) -> String {
+        let m = message.lowercased()
+        if status == 400 && m.contains("api key") || status == 401 || status == 403 {
+            return "Google didn't accept that Gemini key. Make a new one at aistudio.google.com and paste it in Settings, Assistant."
+        }
+        if status == 429 { return "You've used up Gemini's free requests for now. Wait a minute and try again, or turn on billing in Google AI Studio." }
+        if status == 404 { return "Gemini doesn't know that model. Clear the Model box in Settings, Assistant, and Mercury will pick one." }
+        return "Gemini couldn't answer: \(message)"
     }
 }

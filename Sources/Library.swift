@@ -916,7 +916,7 @@ struct AssistantPage: View {
                     }
                 }
                 if brain == .openai {
-                    SettingRow(title: "Key", subtitle: hasOpenAIKey ? "Saved in your Keychain." : "From platform.openai.com, or your other service. A ChatGPT Plus plan isn't a key.") {
+                    SettingRow(title: "Key", subtitle: hasOpenAIKey ? "Saved in your Keychain." : "From platform.openai.com (needs credit), or a free Gemini key from aistudio.google.com. A ChatGPT Plus plan isn't a key.") {
                         if hasOpenAIKey {
                             SecondaryButton(title: "Remove") { Keychain.setKey(nil, account: Keychain.openAIAccount); hasOpenAIKey = false }
                         } else {
@@ -930,11 +930,11 @@ struct AssistantPage: View {
                             }
                         }
                     }
-                    SettingRow(title: "Service address", subtitle: "Leave as OpenAI, or use another that works the same way, like Gemini, Grok, DeepSeek, OpenRouter, or Ollama on this Mac.") {
+                    SettingRow(title: "Service address", subtitle: "Leave empty for OpenAI. Gemini keys are set up on their own. Or use another that works like OpenAI, like Grok, DeepSeek, OpenRouter, or Ollama on this Mac.") {
                         TextField("https://api.openai.com/v1", text: $openAIBase).textFieldStyle(.roundedBorder).frame(width: 240)
                             .onSubmit { Settings.openAIBaseURL = openAIBase }.onChange(of: openAIBase) { Settings.openAIBaseURL = openAIBase }
                     }
-                    SettingRow(title: "Model", subtitle: "Pick one that can see pictures, so it can read your screen.", divider: false) {
+                    SettingRow(title: "Model", subtitle: "Pick one that can see pictures, so it can read your screen. Leave empty for a good default.", divider: false) {
                         TextField("gpt-5-mini", text: $openAIModel).textFieldStyle(.roundedBorder).frame(width: 240)
                             .onChange(of: openAIModel) { Settings.openAIModel = openAIModel }
                     }

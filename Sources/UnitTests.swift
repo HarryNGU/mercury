@@ -71,6 +71,13 @@ enum UnitTests {
         check("OpenRouter", e("https://openrouter.ai/api/v1"), "https://openrouter.ai/api/v1/chat/completions")
         check("Ollama without http", e("localhost:11434/v1"), "http://localhost:11434/v1/chat/completions")
         check("not an address", e("https://"), "nil")
+        check("new Gemini key spotted", GeminiClient.isGemini(key: "AQ.example", base: ""), true)
+        check("old Gemini key spotted", GeminiClient.isGemini(key: "AIzaTest", base: ""), true)
+        check("OpenAI key isn't Gemini", GeminiClient.isGemini(key: "sk-proj-test", base: "https://api.openai.com/v1"), false)
+        check("Gemini address spotted", GeminiClient.isGemini(key: "x", base: "https://generativelanguage.googleapis.com/v1beta/openai"), true)
+        check("OpenAI model swapped for Gemini", GeminiClient.model("gpt-5-mini"), GeminiClient.defaultModel)
+        check("Gemini model kept", GeminiClient.model("gemini-2.5-pro"), "gemini-2.5-pro")
+        check("no credit explained", OpenAIClient.friendly(status: 429, message: "You exceeded your current quota", raw: ["error": ["code": "insufficient_quota"]]).contains("no credit"), true)
     }
 
     // MARK: Chat
