@@ -77,6 +77,8 @@ enum UnitTests {
         check("Gemini address spotted", GeminiClient.isGemini(key: "x", base: "https://generativelanguage.googleapis.com/v1beta/openai"), true)
         check("OpenAI model swapped for Gemini", GeminiClient.model("gpt-5-mini"), GeminiClient.defaultModel)
         check("Gemini model kept", GeminiClient.model("gemini-2.5-pro"), "gemini-2.5-pro")
+        check("busy fallbacks", GeminiClient.models("gpt-5-mini"), ["gemini-flash-latest", "gemini-flash-lite-latest", "gemini-2.5-flash"])
+        check("no repeated fallback", GeminiClient.models("gemini-2.5-flash"), ["gemini-2.5-flash", "gemini-flash-lite-latest"])
         check("no credit explained", OpenAIClient.friendly(status: 429, message: "You exceeded your current quota", raw: ["error": ["code": "insufficient_quota"]]).contains("no credit"), true)
     }
 

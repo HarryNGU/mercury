@@ -225,12 +225,21 @@ enum GeminiClient {
         return b.isEmpty ? "https://generativelanguage.googleapis.com/v1beta" : b
     }
 
+    /// Models to try in turn when Google says one is busy: yours (or the latest Flash), then lighter ones.
+    static func models(_ chosen: String) -> [String] {
+        var list = [model(chosen), "gemini-flash-lite-latest", "gemini-2.5-flash"]
+        var seen = Set<String>()
+        list = list.filter { seen.insert($0).inserted }
+        return list
+    }
+
+    /// Google's "busy right now" answers, worth retrying or trying another model.
+    static func isBusy(_ status: Int) -> Bool { status == 503 || status == 500 || status == 429 }
+
+    struct Busy: Error { let status: Int; let message: String }
+
     static func ask(_ question: String, key: String, history: [AssistantClient.Turn], screenshot: Data?, transcript: String,
                     onText: @escaping @MainActor (String) -> Void) async throws {
-        let name = model(Settings.openAIModel)
-        guard let url = URL(string: base + "/models/\(name):streamGenerateContent?alt=sse") else {
-            throw LiveListener.Failure("That Gemini model name doesn't look right. Check it in Settings, Assistant.")
-        }
         var contents: [[String: Any]] = []
         for t in history.suffix(8) where !t.answer.isEmpty {
             contents.append(["role": "user", "parts": [["text": t.question]]])
@@ -242,16 +251,46 @@ enum GeminiClient {
         var parts: [[String: Any]] = [["text": text]]
         if let s = screenshot { parts.append(["inline_data": ["mime_type": "image/jpeg", "data": s.base64EncodedString()]]) }
         contents.append(["role": "user", "parts": parts])
-
-        var req = URLRequest(url: url)
-        req.httpMethod = "POST"
-        req.timeoutInterval = 120
-        req.setValue("application/json", forHTTPHeaderField: "content-type")
-        req.setValue(key, forHTTPHeaderField: "x-goog-api-key")
-        req.httpBody = try JSONSerialization.data(withJSONObject: [
+        let body = try JSONSerialization.data(withJSONObject: [
             "systemInstruction": ["parts": [["text": AssistantClient.system]]],
             "contents": contents,
         ])
+
+        var last: Busy?
+        for name in models(Settings.openAIModel) {
+            for attempt in 0..<2 {
+                do {
+                    try await once(model: name, key: key, body: body, onText: onText)
+                    if name != model(Settings.openAIModel) { log("assistant: gemini answered with \(name)") }
+                    return
+                } catch let b as Busy {
+                    last = b
+                    log("assistant: gemini \(name) busy (\(b.status)), attempt \(attempt + 1)")
+                    if b.status == 429 { break }  // out of requests for this model: try the next one
+                    try? await Task.sleep(nanoseconds: UInt64(retryDelay * 1_000_000_000))
+                }
+            }
+        }
+        if last?.status == 429 {
+            throw LiveListener.Failure("You've used up Gemini's free requests for now. Wait a minute and try again, or turn on billing in Google AI Studio.")
+        }
+        throw LiveListener.Failure("Google's Gemini is very busy right now, so it couldn't answer. Try again in a minute.")
+    }
+
+    /// Seconds to wait before asking a busy model again. Tests shorten it.
+    nonisolated(unsafe) static var retryDelay = 1.5
+
+    /// One request to one model. Throws Busy when Google is overloaded, so the caller can try again.
+    private static func once(model name: String, key: String, body: Data, onText: @escaping @MainActor (String) -> Void) async throws {
+        guard let url = URL(string: base + "/models/\(name):streamGenerateContent?alt=sse") else {
+            throw LiveListener.Failure("That Gemini model name doesn't look right. Check it in Settings, Assistant.")
+        }
+        var req = URLRequest(url: url)
+        req.httpMethod = "POST"
+        req.timeoutInterval = 60
+        req.setValue("application/json", forHTTPHeaderField: "content-type")
+        req.setValue(key, forHTTPHeaderField: "x-goog-api-key")
+        req.httpBody = body
         let (bytes, resp) = try await URLSession.shared.bytes(for: req)
         let status = (resp as? HTTPURLResponse)?.statusCode ?? 0
         guard status == 200 else {
@@ -259,6 +298,7 @@ enum GeminiClient {
             for try await b in bytes { raw.append(b); if raw.count > 20_000 { break } }
             let json = (try? JSONSerialization.jsonObject(with: raw)) as? [String: Any]
             let msg = (json?["error"] as? [String: Any])?["message"] as? String ?? "HTTP \(status)"
+            if isBusy(status) { throw Busy(status: status, message: msg) }
             log("assistant: gemini \(status)")
             throw LiveListener.Failure(friendly(status: status, message: msg))
         }

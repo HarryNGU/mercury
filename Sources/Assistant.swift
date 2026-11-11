@@ -80,7 +80,7 @@ enum AssistantBrain: String, CaseIterable, Identifiable {
         switch self {
         case .claudeCode: "Claude Code (your context)"
         case .free: "Mercury's free AI"
-        case .openai: "OpenAI or compatible key"
+        case .openai: "Your own key (OpenAI, Gemini and more)"
         case .api: "Anthropic API key"
         }
     }

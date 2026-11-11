@@ -402,6 +402,7 @@ enum StudioTests {
             // Asks the OpenAI brain through whatever -openAIBaseURL is passed (a fake local server in tests).
             // Launch arguments don't save, so this touches no settings or chats.
             if let i = args.firstIndex(of: "-testKey"), i + 1 < args.count { OpenAIClient.keyOverride = args[i + 1] }
+            GeminiClient.retryDelay = 0.05
             Task { @MainActor in
                 var reply = ""
                 do {
