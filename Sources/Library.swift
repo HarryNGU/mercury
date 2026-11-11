@@ -534,7 +534,7 @@ struct VideoTile: View {
             }
             .overlay(alignment: .topLeading) {
                 if item.isReel {
-                    Text("REEL").font(.system(size: 10, weight: .bold)).tracking(0.5).foregroundStyle(.white)
+                    Text("REEL").font(.system(size: 10, weight: .bold)).tracking(0.5).foregroundStyle(Theme.onBrand)
                         .padding(.horizontal, 7).padding(.vertical, 3)
                         .background(Capsule().fill(Theme.accent)).padding(8)
                 }

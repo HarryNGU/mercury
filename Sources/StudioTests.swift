@@ -398,6 +398,19 @@ enum StudioTests {
             }
             return true
         }
+        if args.contains("--openaitest") {
+            // Asks the OpenAI brain through whatever -openAIBaseURL is passed (a fake local server in tests).
+            // Launch arguments don't save, so this touches no settings or chats.
+            Task { @MainActor in
+                var reply = ""
+                do {
+                    try await OpenAIClient.ask("hi", history: [], screenshot: nil, transcript: "") { reply += $0 }
+                    log("openaitest: replied \"\(reply.prefix(120))\"")
+                } catch { log("openaitest: failed: \(error.localizedDescription)") }
+                NSApp.terminate(nil)
+            }
+            return true
+        }
         if args.contains("--focustest") {
             // The panel's keyboard rules, offscreen: it only takes the keyboard on request, never while locked,
             // and Claude's computer driving tools are recognised. Touches no settings or chats.

@@ -167,6 +167,8 @@ struct BubbleTheme: Identifiable, Equatable {
     let name: String
     let start: NSColor   // gradient start (top-left)
     let end: NSColor     // gradient end (bottom-right)
+    /// Text and icons drawn on top of the gradient: white, or dark ink on a pale theme.
+    var ink: NSColor = .white
 
     static func rgb(_ hex: UInt32) -> NSColor {
         NSColor(srgbRed: CGFloat((hex >> 16) & 0xFF) / 255, green: CGFloat((hex >> 8) & 0xFF) / 255,
@@ -225,6 +227,8 @@ enum Theme {
                        startPoint: .topLeading, endPoint: .bottomTrailing)
     }
     static var accent: Color { Color(nsColor: nsAccent) }
+    /// The colour for text and icons sitting on `brand`.
+    static var onBrand: Color { Color(nsColor: ThemeStore.shared.current.ink) }
     /// The midpoint of the gradient, for strokes, rings and highlights.
     static var nsAccent: NSColor {
         ThemeStore.shared.current.start.blended(withFraction: 0.35, of: ThemeStore.shared.current.end) ?? ThemeStore.shared.current.start
@@ -375,7 +379,7 @@ struct RecordingPill: View {
                     RoundedRectangle(cornerRadius: 2.5).fill(.white).frame(width: 9, height: 9)
                     Text("Done").font(.system(size: 13, weight: .semibold, design: .rounded))
                 }
-                .foregroundStyle(.white)
+                .foregroundStyle(Theme.onBrand)
                 .padding(.horizontal, 14).frame(height: 32)
                 .background(Capsule().fill(Theme.brand))
             }
@@ -438,7 +442,7 @@ struct PillIcon: View {
         Button(action: action) {
             Image(systemName: icon)
                 .font(.system(size: 13, weight: .semibold))
-                .foregroundStyle(.white.opacity(hover || on ? 1 : 0.85))
+                .foregroundStyle(on ? Theme.onBrand : .white.opacity(hover ? 1 : 0.85))
                 .frame(width: 32, height: 32)
                 .background(Circle().fill(on ? AnyShapeStyle(Theme.brand) : AnyShapeStyle(.white.opacity(hover ? 0.16 : 0))))
         }

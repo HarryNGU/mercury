@@ -27,6 +27,7 @@ enum UnitTests {
         panelSizing()
         computerControl()
         reportFolder()
+        openAIAddress()
         for f in failures { log("unittests: FAIL \(f)") }
         log("unittests: \(passed) passed, \(failures.count) failed")
         print("unittests: \(passed) passed, \(failures.count) failed")
@@ -36,6 +37,23 @@ enum UnitTests {
 
     private static func check<T: Equatable>(_ name: String, _ got: T, _ want: T) {
         if got == want { passed += 1 } else { failures.append("\(name): got \(got), want \(want)") }
+    }
+
+    // MARK: Your own key
+
+    private static func openAIAddress() {
+        let e = { Settings.openAIEndpoint($0)?.absoluteString ?? "nil" }
+        let openai = "https://api.openai.com/v1/chat/completions"
+        check("empty box means OpenAI", e(""), openai)
+        check("spaces only means OpenAI", e("   "), openai)
+        check("default address", e("https://api.openai.com/v1"), openai)
+        check("trailing slash", e("https://api.openai.com/v1/"), openai)
+        check("missing https", e("api.openai.com/v1"), openai)
+        check("pasted full endpoint", e("https://api.openai.com/v1/chat/completions"), openai)
+        check("Ollama on this Mac", e("http://localhost:11434/v1"), "http://localhost:11434/v1/chat/completions")
+        check("OpenRouter", e("https://openrouter.ai/api/v1"), "https://openrouter.ai/api/v1/chat/completions")
+        check("Ollama without http", e("localhost:11434/v1"), "http://localhost:11434/v1/chat/completions")
+        check("not an address", e("https://"), "nil")
     }
 
     // MARK: Chat

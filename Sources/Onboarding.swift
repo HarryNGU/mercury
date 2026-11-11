@@ -119,7 +119,7 @@ struct OnboardingView: View {
                                     .transition(.opacity.combined(with: .offset(y: 14)))
                             }
                             if let reply {
-                                HStack { Spacer(minLength: 120); Text(reply).font(.system(size: 15.5)).foregroundStyle(.white)
+                                HStack { Spacer(minLength: 120); Text(reply).font(.system(size: 15.5)).foregroundStyle(Theme.onBrand)
                                     .padding(.horizontal, 16).padding(.vertical, 11)
                                     .background(RoundedRectangle(cornerRadius: 20, style: .continuous).fill(Theme.brand)) }
                                     .transition(.scale(scale: 0.9, anchor: .bottomTrailing).combined(with: .opacity))
@@ -324,7 +324,7 @@ struct OnboardingView: View {
             }
             if let a = current {
                 HStack(alignment: .center, spacing: 20) {
-                    Image(systemName: a.icon).font(.system(size: 30, weight: .medium)).foregroundStyle(.white)
+                    Image(systemName: a.icon).font(.system(size: 30, weight: .medium)).foregroundStyle(Theme.onBrand)
                         .frame(width: 72, height: 72)
                         .background(Circle().fill(Theme.brand))
                         .shadow(color: Theme.accent.opacity(0.5), radius: 18)
@@ -528,7 +528,7 @@ struct OnboardingView: View {
                         Text("Send me on my first errand").font(.system(size: 16, weight: .semibold, design: .rounded))
                         Image(systemName: "arrow.right").font(.system(size: 14, weight: .bold))
                     }
-                    .foregroundStyle(.white)
+                    .foregroundStyle(Theme.onBrand)
                     .padding(.horizontal, 26).frame(height: 50)
                     .background(Capsule().fill(Theme.brand))
                     .shadow(color: Theme.accent.opacity(0.55), radius: 20, y: 6)
@@ -601,7 +601,7 @@ struct OnboardingView: View {
 
     private func promise(_ icon: String, _ t: String, _ d: String) -> some View {
         HStack(alignment: .top, spacing: 14) {
-            Image(systemName: icon).font(.system(size: 15, weight: .medium)).foregroundStyle(.white)
+            Image(systemName: icon).font(.system(size: 15, weight: .medium)).foregroundStyle(Theme.onBrand)
                 .frame(width: 32, height: 32).background(Circle().fill(Theme.brand))
             VStack(alignment: .leading, spacing: 2) {
                 Text(t).font(.system(size: 14.5, weight: .semibold)).foregroundStyle(.white)
@@ -806,7 +806,7 @@ private struct Chip: View {
     var body: some View {
         Button(action: action) {
             Text(title).font(.system(size: 14.5, weight: .semibold))
-                .foregroundStyle(.white)
+                .foregroundStyle(primary ? Theme.onBrand : .white)
                 .padding(.horizontal, 18).frame(height: 40)
                 .background(Capsule().fill(primary ? AnyShapeStyle(Theme.brand) : AnyShapeStyle(Color.white.opacity(hover ? 0.16 : 0.09))))
                 .overlay(Capsule().stroke(.white.opacity(primary ? 0 : 0.14)))
@@ -831,7 +831,7 @@ private struct FeatureCard: View {
         Button { Sounds.tour(on ? .off : .on); withAnimation(.spring(duration: 0.3)) { on.toggle() } } label: {
             VStack(alignment: .leading, spacing: 10) {
                 HStack {
-                    BubbleGlyph(kind: glyph, tinted: false, lineWidth: 2).foregroundStyle(.white)
+                    BubbleGlyph(kind: glyph, tinted: false, lineWidth: 2).foregroundStyle(on ? Theme.onBrand : .white)
                         .frame(width: 24, height: 24).frame(width: 46, height: 46)
                         .background(Circle().fill(on ? AnyShapeStyle(Theme.brand) : AnyShapeStyle(Color.white.opacity(0.1))))
                     Spacer()
@@ -1271,7 +1271,7 @@ private struct HowIWork: View {
             ForEach(Array(beats.enumerated()), id: \.offset) { i, b in
                 if i < shown {
                     HStack(alignment: .top, spacing: 14) {
-                        Image(systemName: b.0).font(.system(size: 18, weight: .semibold)).foregroundStyle(.white)
+                        Image(systemName: b.0).font(.system(size: 18, weight: .semibold)).foregroundStyle(Theme.onBrand)
                             .frame(width: 42, height: 42).background(Circle().fill(Theme.brand))
                         VStack(alignment: .leading, spacing: 3) {
                             Text(b.1).font(.system(size: 16, weight: .semibold)).foregroundStyle(.white)

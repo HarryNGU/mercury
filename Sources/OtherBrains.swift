@@ -11,9 +11,27 @@ extension Settings {
         get { d.string(forKey: "openAIBaseURL") ?? "https://api.openai.com/v1" }
         set { d.set(newValue, forKey: "openAIBaseURL") }
     }
+    /// The address actually used: OpenAI when the box is empty, https added when it's missing,
+    /// and a pasted ".../chat/completions" trimmed back to the base. Nil when it still isn't a web address.
+    static func openAIEndpoint(_ raw: String) -> URL? {
+        var base = raw.trimmingCharacters(in: .whitespacesAndNewlines)
+        if base.isEmpty { base = "https://api.openai.com/v1" }
+        if !base.lowercased().hasPrefix("http://") && !base.lowercased().hasPrefix("https://") {
+            let local = base.hasPrefix("localhost") || base.hasPrefix("127.0.0.1")
+            base = (local ? "http://" : "https://") + base
+        }
+        while base.hasSuffix("/") { base.removeLast() }
+        if base.lowercased().hasSuffix("/chat/completions") { base.removeLast("/chat/completions".count) }
+        guard let url = URL(string: base + "/chat/completions"), let host = url.host, !host.isEmpty,
+              url.scheme == "http" || url.scheme == "https" else { return nil }
+        return url
+    }
     /// The model to ask. It needs vision to read screenshots.
     static var openAIModel: String {
-        get { d.string(forKey: "openAIModel") ?? "gpt-5-mini" }
+        get {
+            let m = (d.string(forKey: "openAIModel") ?? "").trimmingCharacters(in: .whitespacesAndNewlines)
+            return m.isEmpty ? "gpt-5-mini" : m
+        }
         set { d.set(newValue, forKey: "openAIModel") }
     }
 }
@@ -106,13 +124,14 @@ enum FreeAI {
 enum OpenAIClient {
     static func ask(_ question: String, history: [AssistantClient.Turn], screenshot: Data?, transcript: String,
                     onText: @escaping @MainActor (String) -> Void) async throws {
-        let base = Settings.openAIBaseURL.trimmingCharacters(in: .whitespaces).trimmingCharacters(in: CharacterSet(charactersIn: "/"))
+        let endpoint = Settings.openAIEndpoint(Settings.openAIBaseURL)
+        let base = endpoint?.absoluteString ?? ""
         let key = Keychain.key(account: Keychain.openAIAccount) ?? ""
         // A local server such as Ollama needs no key; anything on the internet does.
         guard !key.isEmpty || base.contains("localhost") || base.contains("127.0.0.1") else {
             throw LiveListener.Failure("Add your OpenAI key in Mercury, Settings, Assistant to start asking.")
         }
-        guard let url = URL(string: base + "/chat/completions") else { throw LiveListener.Failure("That service address doesn't look right. Check it in Settings, Assistant.") }
+        guard let url = endpoint else { throw LiveListener.Failure("That service address doesn't look right. Check it in Settings, Assistant.") }
         var messages: [[String: Any]] = [["role": "system", "content": AssistantClient.system]]
         for t in history.suffix(8) where !t.answer.isEmpty {
             messages.append(["role": "user", "content": t.question])
@@ -139,6 +158,21 @@ enum OpenAIClient {
             let json = (try? JSONSerialization.jsonObject(with: raw)) as? [String: Any]
             let msg = (json?["error"] as? [String: Any])?["message"] as? String ?? "HTTP \(status)"
             log("assistant: openai \(status)")
+            // OpenAI won't stream some models for accounts that haven't verified their organisation.
+            // Ask once more without streaming and show the whole answer.
+            if status == 400, msg.lowercased().contains("stream") {
+                var plain = req
+                plain.httpBody = try JSONSerialization.data(withJSONObject: ["model": Settings.openAIModel, "stream": false, "messages": messages])
+                let (data, r2) = try await URLSession.shared.data(for: plain)
+                let s2 = (r2 as? HTTPURLResponse)?.statusCode ?? 0
+                let j2 = (try? JSONSerialization.jsonObject(with: data)) as? [String: Any]
+                if s2 == 200, let answer = (((j2?["choices"] as? [[String: Any]])?.first?["message"]) as? [String: Any])?["content"] as? String {
+                    await onText(answer)
+                    return
+                }
+                let m2 = (j2?["error"] as? [String: Any])?["message"] as? String ?? "HTTP \(s2)"
+                throw LiveListener.Failure("The AI couldn't answer: \(m2)")
+            }
             throw LiveListener.Failure(status == 401 ? "That key isn't working. Check it in Settings, Assistant." : "The AI couldn't answer: \(msg)")
         }
         for try await line in bytes.lines {

@@ -246,7 +246,7 @@ struct SavedToast: View {
         HStack(spacing: 12) {
             ZStack {
                 Circle().fill(Theme.brand).frame(width: 34, height: 34)
-                Image(systemName: "checkmark").font(.system(size: 15, weight: .bold)).foregroundStyle(.white)
+                Image(systemName: "checkmark").font(.system(size: 15, weight: .bold)).foregroundStyle(Theme.onBrand)
             }
             VStack(alignment: .leading, spacing: 2) {
                 Text("Saved as “\(name)”").font(.system(size: 13.5, weight: .semibold, design: .rounded)).lineLimit(1)

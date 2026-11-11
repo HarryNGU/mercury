@@ -437,7 +437,7 @@ struct DrawToolbar: View {
             icon("trash", "Clear everything (⌘K)") { model.clear() }
                 .disabled(!model.hasDrawings)
             Button { model.active = false } label: {
-                Text("Done").font(.system(size: 12, weight: .semibold, design: .rounded)).foregroundStyle(.white)
+                Text("Done").font(.system(size: 12, weight: .semibold, design: .rounded)).foregroundStyle(Theme.onBrand)
                     .padding(.horizontal, 12).frame(height: 28).background(Capsule().fill(Theme.brand))
             }
             .buttonStyle(.plain).help("Stop drawing (Esc). Your drawings stay until you clear them.")

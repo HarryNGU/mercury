@@ -28,9 +28,14 @@ struct ChatStyle {
     static func current(mine: String, theirs: String, size: Double) -> ChatStyle {
         let m = color(mine) ?? Color(red: 0.04, green: 0.52, blue: 1)
         let t: Color = theirs == "glass" ? .white.opacity(0.14) : (color(theirs) ?? .white.opacity(0.14))
-        let light = theirs == "E9E9EB"
-        return ChatStyle(mine: m, mineText: .white, theirs: t, theirsText: light ? .black : .white, textSize: size)
+        let light = paleBubbles.contains(theirs)
+        let mineInk: Color = paleBubbles.contains(mine) ? Color(red: 0.06, green: 0.24, blue: 0.18) : .white
+        let theirInk: Color = theirs == "C1E9DA" ? Color(red: 0.06, green: 0.24, blue: 0.18) : (light ? .black : .white)
+        return ChatStyle(mine: m, mineText: mineInk, theirs: t, theirsText: theirInk, textSize: size)
     }
+
+    /// Bubble colours pale enough to need dark text.
+    static let paleBubbles: Set<String> = ["E9E9EB", "C1E9DA"]
 
     static func color(_ hex: String) -> Color? {
         guard hex.count == 6, let v = UInt32(hex, radix: 16) else { return nil }
