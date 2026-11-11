@@ -28,6 +28,7 @@ enum UnitTests {
         computerControl()
         reportFolder()
         openAIAddress()
+        snippets()
         for f in failures { log("unittests: FAIL \(f)") }
         log("unittests: \(passed) passed, \(failures.count) failed")
         print("unittests: \(passed) passed, \(failures.count) failed")
@@ -37,6 +38,22 @@ enum UnitTests {
 
     private static func check<T: Equatable>(_ name: String, _ got: T, _ want: T) {
         if got == want { passed += 1 } else { failures.append("\(name): got \(got), want \(want)") }
+    }
+
+    // MARK: Snippets
+
+    private static func snippets() {
+        let list = [Snippet(trigger: "mercury link", text: "https://harryngu.github.io/mercury/"),
+                    Snippet(trigger: "github", text: "https://github.com/HarryNGU"),
+                    Snippet(trigger: "email 1", text: "one@example.com"),
+                    Snippet(trigger: "email", text: "EMAIL")]
+        let x = { SnippetStore.expand($0, with: list) }
+        check("expanded text isn't expanded again", x("Mercury link."), "https://harryngu.github.io/mercury/.")
+        check("both in one sentence", x("Here's my github and the mercury link"), "Here's my https://github.com/HarryNGU and the https://harryngu.github.io/mercury/")
+        check("longer trigger wins", x("Email one, please"), "one@example.com, please")
+        check("shorter one still works alone", x("my email"), "my EMAIL")
+        check("said twice", x("github github"), "https://github.com/HarryNGU https://github.com/HarryNGU")
+        check("no trigger, no change", x("nothing here"), "nothing here")
     }
 
     // MARK: Your own key

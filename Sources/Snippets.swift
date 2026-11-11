@@ -57,15 +57,27 @@ final class SnippetStore: ObservableObject {
 
     /// Replaces spoken triggers with their text. Matching ignores case and punctuation, and
     /// treats "3" and "three" as the same, so "Email three." still becomes your address.
-    func expand(_ text: String) -> String {
-        var out = text
+    func expand(_ text: String) -> String { Self.expand(text, with: snippets) }
+
+    /// One pass over what you said: every trigger is found in the original words, longer triggers
+    /// win where two overlap, and text that was put in is never searched again. (Expanding one
+    /// snippet after another let "github" fire inside an expanded "github.io" link.)
+    static func expand(_ text: String, with snippets: [Snippet]) -> String {
+        let ns = text as NSString
+        var hits: [(range: NSRange, text: String)] = []
         for s in snippets.sorted(by: { $0.trigger.count > $1.trigger.count }) {
             let words = s.trigger.lowercased().split(whereSeparator: { !$0.isLetter && !$0.isNumber }).map(String.init)
             guard !words.isEmpty else { continue }
             let pattern = "\\b" + words.map(Self.variants).joined(separator: "[\\s,.\\-]+") + "\\b"
             guard let re = try? NSRegularExpression(pattern: pattern, options: [.caseInsensitive]) else { continue }
-            out = re.stringByReplacingMatches(in: out, range: NSRange(out.startIndex..., in: out),
-                                              withTemplate: NSRegularExpression.escapedTemplate(for: s.text))
+            for m in re.matches(in: text, range: NSRange(location: 0, length: ns.length))
+            where !hits.contains(where: { NSIntersectionRange($0.range, m.range).length > 0 }) {
+                hits.append((m.range, s.text))
+            }
+        }
+        var out = text
+        for h in hits.sorted(by: { $0.range.location > $1.range.location }) {
+            if let r = Range(h.range, in: out) { out.replaceSubrange(r, with: h.text) }
         }
         return out
     }
