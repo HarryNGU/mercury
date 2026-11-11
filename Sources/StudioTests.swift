@@ -356,6 +356,31 @@ enum StudioTests {
             }
             return true
         }
+        if let i = args.firstIndex(of: "--arrivalshot"), i + 1 < args.count {
+            // The welcome tour's shooting star arrival, offscreen, caught at four moments. No haptics, no sound
+            // players loaded. Writes OUT-1.png to OUT-7.png.
+            var shake = CGSize.zero
+            let view = ZStack {
+                Color(red: 0.03, green: 0.05, blue: 0.13)
+                ArrivalIntro(shake: Binding(get: { shake }, set: { shake = $0 }), target: CGPoint(x: 500, y: 130)) { log("arrivalshot: finished") }
+            }
+            let host = NSHostingView(rootView: view.frame(width: 1000, height: 700))
+            let w = NSWindow(contentRect: NSRect(x: -30000, y: -30000, width: 1000, height: 700), styleMask: [.borderless], backing: .buffered, defer: false)
+            w.contentView = host; w.orderBack(nil)
+            // The last three catch the planet gliding up into the welcome's small planet spot.
+            for (k, at) in [0.4, 0.62, 2.0, 3.9, 4.55, 4.85, 5.35].enumerated() {
+                DispatchQueue.main.asyncAfter(deadline: .now() + at) {
+                    host.layoutSubtreeIfNeeded()
+                    if let rep = host.bitmapImageRepForCachingDisplay(in: host.bounds) {
+                        host.cacheDisplay(in: host.bounds, to: rep)
+                        try? rep.representation(using: .png, properties: [:])?.write(to: URL(fileURLWithPath: args[i + 1].replacingOccurrences(of: ".png", with: "-\(k + 1).png")))
+                    }
+                    log("arrivalshot: frame \(k + 1) at \(at)s, shake \(Int(shake.width)),\(Int(shake.height))")
+                }
+            }
+            DispatchQueue.main.asyncAfter(deadline: .now() + 6.5) { NSApp.terminate(nil) }
+            return true
+        }
         if args.contains("--focustest") {
             // The panel's keyboard rules, offscreen: it only takes the keyboard on request, never while locked,
             // and Claude's computer driving tools are recognised. Touches no settings or chats.

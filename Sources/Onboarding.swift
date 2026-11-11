@@ -11,6 +11,12 @@ import SwiftUI
 
 extension Settings {
     static var onboarded: Bool { get { d.bool(forKey: "onboarded") } set { d.set(newValue, forKey: "onboarded") } }
+    /// The welcome has appeared at least once. It only opens by itself on the very first launch;
+    /// after that Mercury goes straight to the app, and Settings > Welcome tour replays it.
+    static var tourShown: Bool { get { d.bool(forKey: "tourShown") } set { d.set(newValue, forKey: "tourShown") } }
+    /// Set when the tour asks for Screen Recording, which macOS often follows with "quit and reopen". Until this
+    /// time the tour picks up where it was after a relaunch, instead of counting as already seen.
+    static var tourResumeUntil: Double { get { d.double(forKey: "tourResumeUntil") } set { d.set(newValue, forKey: "tourResumeUntil") } }
     /// You agreed to Ask Mercury's ground rules (screenshots on ask, consent when listening to others).
     static var assistantConsent: Bool { get { d.bool(forKey: "assistantConsent") } set { d.set(newValue, forKey: "assistantConsent") } }
     static var wantsRecord: Bool { get { d.object(forKey: "wantsRecord") as? Bool ?? true } set { d.set(newValue, forKey: "wantsRecord") } }
@@ -26,7 +32,7 @@ struct OnboardingView: View {
     @ObservedObject var permissions: Permissions
     let onDone: () -> Void
 
-    enum Scene: Int, CaseIterable { case hello, name, talk, camera, screen, permissions, brain, promises, ready }
+    enum Scene: Int, CaseIterable { case hello, name, how, talk, camera, screen, permissions, brain, promises, ready }
     enum BrainState { case checking, signedIn, signedOut, missing }
 
     // Testing: `--onboard N` opens scene N.
@@ -39,6 +45,12 @@ struct OnboardingView: View {
     @State private var typing = false
     @State private var reply: String?
     @State private var playID = UUID()
+    /// The shooting star arrival before the first hello. Skipped on later scenes and with Reduce Motion.
+    @State private var arriving = false
+    @State private var arrived = false
+    @State private var shake = CGSize.zero
+    /// Where the small planet sits at the top of the welcome, so the big one can glide into it.
+    @State private var orbCenter: CGPoint?
 
     @State private var name = Settings.userName
     @State private var record = Settings.wantsRecord
@@ -62,6 +74,14 @@ struct OnboardingView: View {
             OnboardBackdrop()
             Stars().allowsHitTesting(false)
             if scene == .ready { Starburst().allowsHitTesting(false) }
+            if arriving {
+                ArrivalIntro(shake: $shake, target: orbCenter) {
+                    arrived = true
+                    withAnimation(.easeOut(duration: 0.4)) { arriving = false }
+                    play(animated: true)
+                }
+                .transition(.opacity)
+            }
             VStack(spacing: 0) {
                 topBar
                 GeometryReader { geo in
@@ -69,7 +89,14 @@ struct OnboardingView: View {
                     ScrollView {
                         VStack(alignment: .leading, spacing: 10) {
                             if scene == .ready { ReadyOrb().frame(maxWidth: .infinity).padding(.bottom, 14) }
-                            if scene == .hello { BirthOrb().frame(maxWidth: .infinity).padding(.bottom, 10) }
+                            if scene == .hello {
+                                // After the arrival the big planet glides into this exact spot, so this one is already formed.
+                                BirthOrb(instant: arrived || arriving).frame(maxWidth: .infinity)
+                                    .background(GeometryReader { g in
+                                        Color.clear.preference(key: OrbCenterKey.self, value: CGPoint(x: g.frame(in: .named("onboard")).midX, y: g.frame(in: .named("onboard")).midY))
+                                    })
+                                    .padding(.bottom, 10)
+                            }
                             ForEach(Array(lines.prefix(revealed).enumerated()), id: \.offset) { i, text in
                                 BubbleLine(text: text, avatar: i == 0)
                                     .transition(.asymmetric(insertion: .scale(scale: 0.92, anchor: .bottomLeading).combined(with: .opacity), removal: .opacity))
@@ -101,15 +128,20 @@ struct OnboardingView: View {
                         .frame(maxWidth: .infinity)
                     }
                     .scrollIndicators(.never)
+                .opacity(arriving ? 0 : 1)
                     .onChange(of: revealed) { withAnimation(.easeOut(duration: 0.3)) { scroll.scrollTo("end", anchor: .bottom) } }
                 }
                 }
             }
         }
+        .coordinateSpace(name: "onboard")
+        .onPreferenceChange(OrbCenterKey.self) { orbCenter = $0 }
+        .offset(shake)
         .environment(\.colorScheme, .dark)
         .onAppear {
+            Settings.tourShown = true
             permissions.refresh()
-            if scene == .hello { Sounds.tour(.hello) }
+            if scene == .hello && !reduceMotion && !CommandLine.arguments.contains("--tourshot") { arriving = true; return }
             play(animated: true)
         }
         // A little chime each time you allow something, the moment macOS confirms it.
@@ -123,23 +155,26 @@ struct OnboardingView: View {
     private var lines: [String] {
         switch scene {
         case .hello:
-            return ["Hi, I'm Mercury 👋",
-                    "Three quick tricks and you're set. What should I call you?"]
+            return ["Hello there! I'm Mercury!",
+                    "Did you know? Mercury was the messenger of the gods. Now I'm yours.",
+                    "What should I call you?"]
         case .name:
             return []
+        case .how:
+            return ["Lovely to meet you\(you)! Here's how I work."]
         case .talk:
-            return ["Trick one\(you): click the mic and say anything, in any language, ums and all."]
+            return ["Now let me show you how quick I am. Click the mic and say anything, in any language, ums and all."]
         case .camera:
-            return ["Trick two: you, in a bubble."]
+            return ["Next: you, in a bubble."]
         case .screen:
-            return ["Trick three: I'll tell you what you were working on."]
+            return ["And the one I'm proudest of: I'll tell you what you were working on."]
         case .permissions:
             if neededKinds.isEmpty { return ["Nothing to allow for what you picked. Easy."] }
             if alreadyAllowed { return ["You've already allowed everything I need. Thank you for trusting me 💙"] }
             return ["To help, I need your OK in macOS for a few things.",
                    "I'll explain each one. Skip anything you're unsure about, and I'll only ask again when you use that feature."]
         case .brain:
-            var l = ["Now, my brain. I think with Claude, the AI made by Anthropic."]
+            var l = ["Where should I find my answers? I think with Claude, the AI made by Anthropic."]
             switch brainState {
             case .checking: break
             case .signedIn:
@@ -156,7 +191,8 @@ struct OnboardingView: View {
         case .promises:
             return ["Last thing: my promises to you."]
         case .ready:
-            return ["You're all set\(you)! Here's how to find me."]
+            return ["I'll wait in your menu bar\(you).",
+                    "Whenever you need me, press \(ShortcutCenter.shared.label(.assist)) and I come running, or click my icon at the top of your screen."]
         }
     }
 
@@ -182,7 +218,7 @@ struct OnboardingView: View {
             }
             HStack(spacing: 14) {
                 Spacer(minLength: 0)
-                Chip(title: "Skip", primary: false) { name = ""; Settings.userName = ""; say("I'd rather not say") { go(.talk) } }
+                Chip(title: "Skip", primary: false) { name = ""; Settings.userName = ""; say("I'd rather not say") { go(.how) } }
             }
             Text("Only used to greet you. It never leaves this Mac.")
                 .font(.system(size: 12.5)).foregroundStyle(.white.opacity(0.55))
@@ -199,6 +235,9 @@ struct OnboardingView: View {
 
         case .name:
             nameEntry
+
+        case .how:
+            HowIWork { say("Got it") { go(.talk) } }
 
         case .talk:
             TalkTrick(permissions: permissions) { worked in
@@ -326,6 +365,7 @@ struct OnboardingView: View {
         case .accessibility:
             Inserter.requestTrust(); Permissions.open(a.pane)
         case .screen:
+            Settings.tourResumeUntil = Date().timeIntervalSince1970 + 1800
             CGRequestScreenCaptureAccess(); Permissions.open(a.pane)
         default:
             Permissions.open(a.pane)
@@ -448,9 +488,13 @@ struct OnboardingView: View {
             if (dictate || record) && !Whisper.hasModel { whisperCard }
             HStack {
                 Spacer()
-                Button { finish() } label: {
+                Button {
+                    finish()
+                    // Straight into the chat, where the first errands are waiting.
+                    DispatchQueue.main.asyncAfter(deadline: .now() + 0.4) { (NSApp.delegate as? AppDelegate)?.assistant.show() }
+                } label: {
                     HStack(spacing: 8) {
-                        Text("Start using Mercury").font(.system(size: 16, weight: .semibold, design: .rounded))
+                        Text("Send me on my first errand").font(.system(size: 16, weight: .semibold, design: .rounded))
                         Image(systemName: "arrow.right").font(.system(size: 14, weight: .bold))
                     }
                     .foregroundStyle(.white)
@@ -592,7 +636,7 @@ struct OnboardingView: View {
         name = String(n.prefix(40))
         Settings.userName = name
         Haptic.big()
-        say("Call me \(name)") { go(.talk) }
+        say("Call me \(name)") { go(.how) }
     }
 
     private func go(_ target: Scene) {
@@ -811,6 +855,14 @@ private struct ReadyOrb: View {
 enum Haptic {
     static func soft() { NSHapticFeedbackManager.defaultPerformer.perform(.alignment, performanceTime: .now) }
     static func big() { NSHapticFeedbackManager.defaultPerformer.perform(.levelChange, performanceTime: .now) }
+    /// A burst of strong taps close together, felt as the trackpad shaking (only while a finger rests on it).
+    static func quake(taps: Int = 9, every: Double = 0.045) {
+        for k in 0..<taps {
+            DispatchQueue.main.asyncAfter(deadline: .now() + Double(k) * every) {
+                NSHapticFeedbackManager.defaultPerformer.perform(k % 2 == 0 ? .levelChange : .generic, performanceTime: .now)
+            }
+        }
+    }
 }
 
 private func trickCard<C: View>(@ViewBuilder _ c: () -> C) -> some View {
@@ -1051,6 +1103,7 @@ private struct ScreenTrick: View {
 
     private func peek() {
         if CGPreflightScreenCaptureAccess() { look(); return }
+        Settings.tourResumeUntil = Date().timeIntervalSince1970 + 1800
         CGRequestScreenCaptureAccess()
         Permissions.open(pane)
         waiting = true
@@ -1084,6 +1137,8 @@ private struct ScreenTrick: View {
 
 /// Mercury's planet being born: a point of light that blooms into the planet, with rings rolling out.
 private struct BirthOrb: View {
+    /// True right after the arrival, when the planet has already landed: no second birth.
+    var instant = false
     @State private var on = false
     var body: some View {
         ZStack {
@@ -1096,9 +1151,13 @@ private struct BirthOrb: View {
                 .scaleEffect(on ? 1 : 0.15).opacity(on ? 1 : 0).blur(radius: on ? 0 : 14)
                 .shadow(color: Theme.accent.opacity(0.75), radius: on ? 30 : 4)
                 .animation(.spring(duration: 1.1, bounce: 0.35), value: on)
+            MessengerMoon(radius: 64).opacity(on ? 1 : 0).animation(.easeIn(duration: 0.6).delay(0.9), value: on)
         }
         .frame(height: 150)
-        .onAppear { on = true; Haptic.big() }
+        .onAppear {
+            if instant { var t = Transaction(); t.disablesAnimations = true; withTransaction(t) { on = true } }
+            else { on = true; Haptic.big() }
+        }
     }
 }
 
@@ -1143,5 +1202,229 @@ private struct Starburst: View {
         }
         .ignoresSafeArea()
         .onAppear { start = Date() }
+    }
+}
+
+
+/// The gold moon running circles round the planet: Mercury the messenger, always on an errand.
+struct MessengerMoon: View {
+    let radius: CGFloat
+    var body: some View {
+        TimelineView(.animation) { ctx in
+            let a = ctx.date.timeIntervalSinceReferenceDate * 1.6
+            Circle().fill(Color(red: 1, green: 0.82, blue: 0.4)).frame(width: 11, height: 11)
+                .shadow(color: Color(red: 1, green: 0.8, blue: 0.3).opacity(0.8), radius: 6)
+                .offset(x: cos(a) * radius, y: sin(a) * radius * 0.42)
+        }
+        .frame(width: radius * 2 + 12, height: radius + 12)
+        .allowsHitTesting(false)
+    }
+}
+
+/// How Mercury works, told as the messenger: you hand it the job, it runs it, it comes back before anything
+/// goes out. Then, honestly, what it can't carry yet. Each part arrives in turn.
+private struct HowIWork: View {
+    let onDone: () -> Void
+    @State private var shown = 0
+    private var beats: [(String, String, String)] {
+        let key = ShortcutCenter.shared.label(.assist)
+        return [
+            ("tray.and.arrow.down", "You hand me the job.", "Type it, or press \(key) wherever you are. Turn on the eye and I'll look at your screen too."),
+            ("figure.run", "I run it.", "I find answers, open apps and websites, show pictures and videos, tidy your words and draft your emails and messages."),
+            ("arrow.uturn.backward.circle", "I come back before anything goes out.", "Anything that saves, sends or changes something waits for your OK. I never press send for you."),
+        ]
+    }
+
+    var body: some View {
+        VStack(alignment: .leading, spacing: 12) {
+            ForEach(Array(beats.enumerated()), id: \.offset) { i, b in
+                if i < shown {
+                    HStack(alignment: .top, spacing: 14) {
+                        Image(systemName: b.0).font(.system(size: 18, weight: .semibold)).foregroundStyle(.white)
+                            .frame(width: 42, height: 42).background(Circle().fill(Theme.brand))
+                        VStack(alignment: .leading, spacing: 3) {
+                            Text(b.1).font(.system(size: 16, weight: .semibold)).foregroundStyle(.white)
+                            Text(b.2).font(.system(size: 13.5)).foregroundStyle(.white.opacity(0.7)).fixedSize(horizontal: false, vertical: true)
+                        }
+                    }
+                    .padding(14).frame(maxWidth: .infinity, alignment: .leading)
+                    .background(RoundedRectangle(cornerRadius: 18, style: .continuous).fill(.white.opacity(0.07)))
+                    .transition(.move(edge: .bottom).combined(with: .opacity))
+                }
+            }
+            if shown > beats.count {
+                VStack(alignment: .leading, spacing: 4) {
+                    Text("What I can't carry yet").font(.system(size: 13, weight: .semibold)).foregroundStyle(.white.opacity(0.75))
+                    Text("I can't sign in to websites or pay for things for you, like booking a flight. When that happens, I'll tell you the quickest way to do it yourself.")
+                        .font(.system(size: 13)).foregroundStyle(.white.opacity(0.6)).fixedSize(horizontal: false, vertical: true)
+                }
+                .padding(.horizontal, 14)
+                .transition(.opacity)
+                ReplyChips([("Got it", true)]) { _ in onDone() }.padding(.top, 6)
+            }
+        }
+        .onAppear {
+            Task { @MainActor in
+                for k in 1...(beats.count + 1) {
+                    try? await Task.sleep(for: .milliseconds(k == 1 ? 150 : 650))
+                    withAnimation(.spring(duration: 0.45, bounce: 0.25)) { shown = k }
+                    Sounds.tourMessage(k)
+                    Haptic.soft()
+                }
+            }
+        }
+    }
+}
+
+
+/// The arrival: a big shooting star streaks in and hits the ground, the screen shakes, sparks swirl slowly
+/// while the tension builds, and Mercury emerges from them. About four seconds; a click skips it.
+private struct OrbCenterKey: PreferenceKey {
+    static var defaultValue: CGPoint? = nil
+    static func reduce(value: inout CGPoint?, nextValue: () -> CGPoint?) { value = nextValue() ?? value }
+}
+
+struct ArrivalIntro: View {
+    @Binding var shake: CGSize
+    /// The small planet's centre at the top of the welcome. Once formed, Mercury glides up and
+    /// shrinks into it, then hands over without a jump.
+    var target: CGPoint? = nil
+    let onDone: () -> Void
+    @State private var start = Date()
+    @State private var finished = false
+    private let impactAt = 0.55, swirlUntil = 3.1, revealAt = 3.1, endAt = 4.3, glide = 1.0
+    private let debris: [(Double, Double, CGFloat)] = (0..<90).map { _ in (Double.random(in: 0...(2 * .pi)), Double.random(in: 120...520), CGFloat.random(in: 2...5)) }
+    private let swirl: [(Double, Double, CGFloat, Double)] = (0..<110).map { _ in
+        (Double.random(in: 0...(2 * .pi)), Double.random(in: 90...330), CGFloat.random(in: 2.5...5.5), Double.random(in: 0.6...1.4))
+    }
+
+    var body: some View {
+        TimelineView(.animation) { ctx in
+            let t = ctx.date.timeIntervalSince(start)
+            GeometryReader { geo in
+                let size = geo.size
+                let ground = CGPoint(x: size.width / 2, y: size.height * 0.5)
+                ZStack {
+                    Canvas { g, _ in draw(g, t: t, size: size, ground: ground) }
+                    // Mercury emerging from the sparks.
+                    if t > revealAt { planet(t: t, ground: ground) }
+                    // The flash of the impact.
+                    if t > impactAt && t < impactAt + 0.5 {
+                        Color.white.opacity(0.85 * (1 - (t - impactAt) / 0.5)).allowsHitTesting(false)
+                    }
+                }
+            }
+        }
+        .contentShape(Rectangle())
+        .onTapGesture { finish() }
+        .onAppear { begin() }
+    }
+
+    /// Mercury emerging, then rising to its place at the top and shrinking to the welcome's size (88 of 120).
+    private func planet(t: Double, ground: CGPoint) -> some View {
+        let k: Double = min(1, (t - revealAt) / 0.9)
+        let m: Double = target == nil ? 0 : min(1, max(0, (t - endAt) / glide))
+        let e: Double = m < 0.5 ? 4 * m * m * m : 1 - pow(-2 * m + 2, 3) / 2
+        let to: CGPoint = target ?? ground
+        let grow: Double = 0.2 + 0.8 * (1 - pow(1 - k, 3))
+        let shrink: Double = 1 - e * (1 - 88.0 / 120.0)
+        let x: CGFloat = ground.x + (to.x - ground.x) * CGFloat(e)
+        let y: CGFloat = ground.y + (to.y - ground.y) * CGFloat(e)
+        let glow: CGFloat = CGFloat(40 * k * (1 - 0.4 * e))
+        let moon: Double = k > 0.6 ? (k - 0.6) / 0.4 : 0
+        return Avatar(emoji: "", size: 120)
+            .scaleEffect(CGFloat(grow * shrink))
+            .opacity(k)
+            .blur(radius: CGFloat((1 - k) * 12))
+            .shadow(color: Theme.accent.opacity(0.8), radius: glow)
+            .overlay { MessengerMoon(radius: 86).opacity(moon) }
+            .position(x: x, y: y)
+    }
+
+    private func draw(_ g: GraphicsContext, t: Double, size: CGSize, ground: CGPoint) {
+        let gold = Color(red: 1, green: 0.84, blue: 0.45), blue = Theme.accent
+        if t < impactAt {
+            // The shooting star: a blazing head with a long tail, getting bigger as it closes in.
+            let k = t / impactAt, e = k * k
+            let from = CGPoint(x: -size.width * 0.15, y: -size.height * 0.2)
+            let head = CGPoint(x: from.x + (ground.x - from.x) * e, y: from.y + (ground.y - from.y) * e)
+            let tail = CGPoint(x: head.x - (ground.x - from.x) * 0.28, y: head.y - (ground.y - from.y) * 0.28)
+            var p = Path(); p.move(to: tail); p.addLine(to: head)
+            g.stroke(p, with: .linearGradient(Gradient(colors: [.clear, gold.opacity(0.9), .white]), startPoint: tail, endPoint: head),
+                     style: StrokeStyle(lineWidth: 12 + 30 * e, lineCap: .round))
+            let r = 22 + 46 * e
+            g.fill(Path(ellipseIn: CGRect(x: head.x - r, y: head.y - r, width: r * 2, height: r * 2)), with: .color(.white))
+            g.fill(Path(ellipseIn: CGRect(x: head.x - r * 2.2, y: head.y - r * 2.2, width: r * 4.4, height: r * 4.4)), with: .color(gold.opacity(0.35)))
+            return
+        }
+        let s = t - impactAt
+        // Shockwave rings rolling out from the ground.
+        for (i, d) in [0.0, 0.18].enumerated() where s > d {
+            let k = min(1, (s - d) / 1.1), r = 30 + Double(size.width) * 0.62 * (1 - pow(1 - k, 2))
+            g.stroke(Path(ellipseIn: CGRect(x: ground.x - r, y: ground.y - r * 0.36, width: r * 2, height: r * 0.72)),
+                     with: .color((i == 0 ? Color.white : gold).opacity(0.6 * (1 - k))), lineWidth: 4 * (1 - k) + 1)
+        }
+        // Debris thrown up and falling back.
+        if s < 1.6 {
+            let fade = 1 - s / 1.6
+            for d in debris {
+                let v = d.1, x = ground.x + cos(d.0) * v * s, y = ground.y - abs(sin(d.0)) * v * s * 0.9 + 420 * s * s
+                g.fill(Path(ellipseIn: CGRect(x: x, y: y, width: d.2, height: d.2)), with: .color((Int(v) % 3 == 0 ? gold : .white).opacity(fade)))
+            }
+        }
+        // Sparks swirling slowly in towards the centre: the tension before Mercury appears.
+        if t > impactAt + 0.25 && t < endAt {
+            let k = min(1, (t - impactAt - 0.25) / (swirlUntil - impactAt - 0.25))
+            let gather = t > revealAt ? min(1, (t - revealAt) / 0.7) : 0
+            for sp in swirl {
+                let a = sp.0 + t * 0.55 * sp.3
+                let r = sp.1 * (1 - 0.55 * k) * (1 - gather)
+                let x = ground.x + cos(a) * r, y = ground.y + sin(a) * r * 0.55
+                let glow = (0.45 + 0.55 * k) * (1 - gather * 0.8)
+                let col = sp.3 > 1 ? blue : gold, h = sp.2 * 3.2
+                g.fill(Path(ellipseIn: CGRect(x: x - h / 2 + sp.2 / 2, y: y - h / 2 + sp.2 / 2, width: h, height: h)), with: .color(col.opacity(glow * 0.22)))
+                g.fill(Path(ellipseIn: CGRect(x: x, y: y, width: sp.2, height: sp.2)), with: .color(col.opacity(glow)))
+            }
+        }
+        // The glowing crater.
+        let c = max(0, 1 - s / 2.5)
+        let crater = CGRect(x: ground.x - 170, y: ground.y - 30, width: 340, height: 60)
+        g.fill(Path(ellipseIn: crater), with: .radialGradient(Gradient(colors: [Color(red: 1, green: 0.62, blue: 0.25).opacity(0.75 * c), Color(red: 1, green: 0.45, blue: 0.15).opacity(0.25 * c), .clear]),
+                                                               center: ground, startRadius: 0, endRadius: 170))
+    }
+
+    private func begin() {
+        start = Date()
+        Sounds.tour(.incoming)
+        DispatchQueue.main.asyncAfter(deadline: .now() + impactAt) {
+            guard !finished else { return }
+            Sounds.tour(.impact)
+            if !CommandLine.arguments.contains("--arrivalshot") { Haptic.quake() }
+            shakeScreen()
+            DispatchQueue.main.asyncAfter(deadline: .now() + 0.35) { if !finished { Sounds.tour(.rumble) } }
+        }
+        DispatchQueue.main.asyncAfter(deadline: .now() + revealAt - 0.95) { if !finished { Sounds.tour(.reveal) } }
+        DispatchQueue.main.asyncAfter(deadline: .now() + revealAt + 0.1) { if !finished { Haptic.big() } }
+        DispatchQueue.main.asyncAfter(deadline: .now() + endAt + (target == nil ? 0 : glide)) { finish() }
+    }
+
+    /// The whole window jolts, then settles, like the ground taking the hit.
+    private func shakeScreen() {
+        let began = Date()
+        Timer.scheduledTimer(withTimeInterval: 1.0 / 60, repeats: true) { timer in
+            let s = Date().timeIntervalSince(began)
+            MainActor.assumeIsolated {
+                guard s < 0.75, !finished else { shake = .zero; timer.invalidate(); return }
+                let amp = 16 * exp(-s / 0.22)
+                shake = CGSize(width: Double.random(in: -amp...amp), height: Double.random(in: -amp...amp) * 0.7)
+            }
+        }
+    }
+
+    private func finish() {
+        guard !finished else { return }
+        finished = true
+        shake = .zero
+        onDone()
     }
 }

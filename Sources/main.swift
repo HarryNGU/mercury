@@ -89,6 +89,14 @@ final class AppDelegate: NSObject, NSApplicationDelegate, NSMenuDelegate, NSWind
         let args = CommandLine.arguments
         if StudioTests.run(args) { return }
         renamedToMercury()
+        // The welcome opens by itself only on the very first launch. If it was seen before (even
+        // if closed partway), go straight to the app. Settings > Welcome tour plays it again.
+        // Except straight after macOS asked to reopen Mercury for Screen Recording: then the tour carries on.
+        let resuming = Date().timeIntervalSince1970 < Settings.tourResumeUntil
+        if Settings.tourShown && !Settings.onboarded && !resuming && !args.contains("--onboard") {
+            Settings.onboarded = true
+            Settings.onboardScene = 0
+        }
         // Only one Mercury at a time: a second copy hands over to the first and quits.
         // (Test runs pass "--" options and are allowed alongside.)
         if !args.contains(where: { $0.hasPrefix("--") }),

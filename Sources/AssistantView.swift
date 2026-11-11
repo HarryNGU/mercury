@@ -687,8 +687,12 @@ struct AssistantView: View {
     /// Claude wants to do something that changes things: you decide.
     private func approvalCard(_ a: ClaudeCodeSession.Approval) -> some View {
         VStack(alignment: .leading, spacing: 10) {
-            Label("Claude wants to: \(a.appName)", systemImage: "hand.raised.fill").font(.system(size: 13, weight: .semibold))
-                .foregroundStyle(.yellow)
+            // The messenger, back before anything goes out.
+            VStack(alignment: .leading, spacing: 2) {
+                Label("Back with this. OK to go ahead?", systemImage: "arrow.uturn.backward.circle.fill").font(.system(size: 13, weight: .semibold))
+                    .foregroundStyle(.yellow)
+                Text(a.appName).font(.system(size: 11.5)).foregroundStyle(.white.opacity(0.6))
+            }
             if !a.summary.isEmpty {
                 Text(a.summary).font(.system(size: 12, design: .monospaced)).foregroundStyle(.white.opacity(0.85))
                     .lineLimit(8).textSelection(.enabled)
@@ -711,7 +715,53 @@ struct AssistantView: View {
         .overlay(RoundedRectangle(cornerRadius: 12).stroke(.yellow.opacity(0.35)))
     }
 
-    private var chipRow: some View {
+    /// The very first chat: three errands to send Mercury on, one of which shows it coming back for your OK.
+    @AppStorage("firstErrandDone") private var firstErrandDone = false
+    private let errands: [(String, String)] = [
+        ("Tutor me through my screen", "Look at my screen and tutor me through what's on it, step by step, like a friendly teacher. Use a picture or a short video if it helps me understand."),
+        ("Write my first Mercury message", "Help me write a short, warm message to a friend saying I've started using a new assistant called Mercury. Open the right app with it ready to go, and come back for my OK before anything is sent."),
+        ("Teach me with pictures", "Teach me how black holes work in a few short messages, with pictures and one short video."),
+    ]
+    @AppStorage(Settings.showInCapturesKey) private var visibleInCaptures = true
+
+    @ViewBuilder private var chipRow: some View {
+        if !firstErrandDone {
+            VStack(alignment: .leading, spacing: 8) {
+                Text("Where shall I run first?").font(.system(size: 13, weight: .semibold)).foregroundStyle(.white)
+                HStack(spacing: 6) {
+                    ForEach(errands, id: \.0) { c in
+                        Button { firstErrandDone = true; model.ask(c.1) } label: {
+                            Text(c.0).font(.system(size: 12, weight: .medium)).foregroundStyle(.white.opacity(0.95))
+                                .padding(.horizontal, 10).frame(height: 26)
+                                .background(Capsule().fill(Theme.accent.opacity(0.45)))
+                        }
+                        .buttonStyle(.plain).disabled(model.thinking)
+                    }
+                }
+                Text("Or try a trick").font(.system(size: 12, weight: .semibold)).foregroundStyle(.white.opacity(0.8)).padding(.top, 2)
+                HStack(spacing: 6) {
+                    trick("Record with my face in a bubble") { firstErrandDone = true; (NSApp.delegate as? AppDelegate)?.startPicker() }
+                    trick(visibleInCaptures ? "Hide me from screen shares" : "Hidden from screen shares ✓") { visibleInCaptures = false }
+                }
+                Text("Watch how I come back for your OK before anything goes out.").font(.system(size: 11.5)).foregroundStyle(.white.opacity(0.6))
+            }
+            .padding(.horizontal, 14).padding(.top, 12)
+        } else {
+            everydayChips
+        }
+    }
+
+    private func trick(_ title: String, _ action: @escaping () -> Void) -> some View {
+        Button(action: action) {
+            Text(title).font(.system(size: 12, weight: .medium)).foregroundStyle(.white.opacity(0.95))
+                .padding(.horizontal, 10).frame(height: 26)
+                .background(Capsule().fill(.white.opacity(0.12)))
+                .overlay(Capsule().stroke(.white.opacity(0.2)))
+        }
+        .buttonStyle(.plain)
+    }
+
+    private var everydayChips: some View {
         ScrollView(.horizontal, showsIndicators: false) {
             HStack(spacing: 6) {
                 ForEach(chips, id: \.0) { c in
@@ -756,7 +806,7 @@ struct AssistantView: View {
             ChatTextView(text: $model.input,
                          placeholder: model.talking ? "Listening… say what you want" : (model.approval != nil ? "Say or type yes / no…" : "Ask, or press \(keys.label(.assistVoice)) and say it…"),
                          font: .systemFont(ofSize: 13.5), textColor: .white, placeholderColor: NSColor.white.withAlphaComponent(0.45),
-                         maxLines: 6, focusRequest: model.focusRequest, height: $inputHeight, onSubmit: { model.ask() })
+                         maxLines: 6, focusRequest: model.focusRequest, height: $inputHeight, onSubmit: { firstErrandDone = true; model.ask() })
                 .frame(height: inputHeight)
             if model.thinking {
                 Button(action: model.stopAnswer) {
@@ -765,7 +815,7 @@ struct AssistantView: View {
                 }
                 .buttonStyle(.plain).help("Stop").accessibilityLabel("Stop answering")
             } else {
-                Button { model.ask() } label: {
+                Button { firstErrandDone = true; model.ask() } label: {
                     Image(systemName: "arrow.up").font(.system(size: 12, weight: .bold)).foregroundStyle(.black)
                         .frame(width: 26, height: 26).background(Circle().fill(.white))
                 }

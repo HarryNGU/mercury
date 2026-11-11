@@ -30,7 +30,7 @@ enum Sounds {
     /// The welcome tour, which plays out like a chat. Across the tour the sounds make a low, wandering
     /// melody that rises and falls, and each step ends with its own sound, so it never just climbs.
     enum Tour: String, CaseIterable {
-        case hello, m0, m1, m2, m3, step0, step1, step2, step3, step4, step5, on, off, granted, granted2, ready, finish
+        case hello, m0, m1, m2, m3, step0, step1, step2, step3, step4, step5, on, off, granted, granted2, ready, finish, incoming, impact, rumble, reveal
         fileprivate var volume: Float {
             switch self {
             case .hello: 0.5
@@ -41,6 +41,10 @@ enum Sounds {
             case .granted, .granted2: 0.5
             case .ready: 0.55
             case .finish: 0.6
+            case .incoming: 0.7
+            case .impact: 1.0
+            case .rumble: 0.75
+            case .reveal: 0.85
             }
         }
     }
@@ -73,6 +77,10 @@ enum Sounds {
         case .granted2: return mallets([a4, f4], gap: 0.09, length: 0.7, decay: 0.18)
         case .ready: return mallets([c4, g4, e4, a4, g4, c5], gap: 0.14, length: 2.2, decay: 0.5)         // wanders up and down, lands home
         case .finish: return chime([g4, c4])
+        case .incoming: return whoosh(0.6, from: 400, to: 5000, peakAt: 0.92)
+        case .impact: return explosion()
+        case .rumble: return rumble(2.4)
+        case .reveal: return reveal()
         }
     }
 
@@ -232,6 +240,104 @@ enum Sounds {
         let tail = Int(rate * 0.12)
         for i in out.indices { out[i] *= 0.8 / peak * min(1, Double(n - i) / Double(tail)) }
         return out.map(Float.init)
+    }
+
+    // MARK: The arrival: a shooting star landing
+
+    private static func noise(_ n: Int, seed: UInt64) -> [Double] {
+        var x = seed &* 6364136223846793005 &+ 1442695040888963407
+        return (0..<n).map { _ in x = x &* 6364136223846793005 &+ 1442695040888963407; return Double(Int64(bitPattern: x >> 1) % 2_000_001) / 1_000_000 - 1 }
+    }
+
+    /// Hard limiting that keeps a big sound loud without crackling on laptop speakers.
+    private static func limit(_ x: [Double], drive: Double = 1.8, peak: Double = 0.95) -> [Float] {
+        var y = x.map { tanh($0 * drive) / tanh(drive) }
+        let m = y.map(abs).max() ?? 1
+        if m > 0 { y = y.map { $0 * peak / m } }
+        let tail = min(y.count, Int(rate * 0.08))
+        for i in 0..<tail { y[y.count - 1 - i] *= Double(i) / Double(tail) }
+        return y.map(Float.init)
+    }
+
+    /// Air rushing in: noise through a filter that opens up, rising to a peak.
+    private static func whoosh(_ length: Double, from f0: Double, to f1: Double, peakAt: Double) -> [Float] {
+        let n = Int(rate * length), w = noise(n, seed: 7)
+        var y = [Double](repeating: 0, count: n), lp = 0.0
+        for i in 0..<n {
+            let t = Double(i) / Double(n)
+            let fc = f0 * pow(f1 / f0, t)
+            let a = 1 - exp(-2 * .pi * fc / rate)
+            lp += a * (w[i] - lp)
+            let env = t < peakAt ? pow(t / peakAt, 2.2) : max(0, 1 - (t - peakAt) / (1 - peakAt))
+            y[i] = lp * env
+        }
+        return limit(y, drive: 1.2, peak: 0.8)
+    }
+
+    /// The impact: a sharp crack, a gritty body of noise and a bass thump laptop speakers can carry
+    /// (80 to 160 Hz, with its overtone), then a short echo, all behind a limiter.
+    private static func explosion() -> [Float] {
+        let n = Int(rate * 2.4), w = noise(n, seed: 42), grit = noise(n, seed: 99)
+        var y = [Double](repeating: 0, count: n)
+        var brown = 0.0, hp = 0.0, prev = 0.0, lp = 0.0
+        var phase = 0.0
+        for i in 0..<n {
+            let t = Double(i) / rate
+            // Crack: a very short burst of bright noise.
+            let crack = (w[i] - prev) * exp(-t / 0.012) * 1.6
+            prev = w[i]
+            // Body: rumbling noise that dies away, with crackle scattered through it.
+            brown = brown * 0.985 + w[i] * 0.15
+            hp = 0.995 * (hp + brown - (i > 0 ? y[i - 1] * 0 : 0)) // gentle DC block
+            lp += 0.08 * (brown - lp)
+            let crackle = abs(grit[i]) > 0.985 ? grit[i] * 2.2 * exp(-t / 0.7) : 0
+            let body = (lp * 2.4 + crackle) * exp(-t / 0.55) * min(1, t / 0.004)
+            // Thump: a pitch drop from 160 to 70 Hz, plus its overtone so small speakers still punch.
+            let f = 70 + 90 * exp(-t / 0.09)
+            phase += 2 * .pi * f / rate
+            let thump = (sin(phase) + 0.45 * sin(2 * phase)) * exp(-t / 0.42) * min(1, t / 0.003)
+            y[i] = crack + body * 0.9 + thump * 1.1
+        }
+        var wet = y
+        for (ms, g) in [(63.0, 0.35), (118.0, 0.25), (187.0, 0.16), (271.0, 0.1)] {
+            let d = Int(rate * ms / 1000)
+            for i in d..<n { wet[i] += y[i - d] * g }
+        }
+        return limit(wet, drive: 2.2)
+    }
+
+    /// The low roll of sparks swirling: deep filtered noise that swells and breathes.
+    private static func rumble(_ length: Double) -> [Float] {
+        let n = Int(rate * length), w = noise(n, seed: 5)
+        var y = [Double](repeating: 0, count: n), lp1 = 0.0, lp2 = 0.0
+        for i in 0..<n {
+            let t = Double(i) / rate
+            lp1 += 0.012 * (w[i] - lp1); lp2 += 0.012 * (lp1 - lp2)
+            let breathe = 0.65 + 0.35 * sin(2 * .pi * 0.9 * t)
+            let env = min(1, t / 0.5) * min(1, (length - t) / 0.6)
+            y[i] = lp2 * breathe * env * (1 + 0.3 * sin(2 * .pi * 110 * t) * lp2)
+        }
+        return limit(y, drive: 1.5, peak: 0.7)
+    }
+
+    /// The reveal: air rising to a deep hit, with a low open chord blooming underneath. No bells.
+    private static func reveal() -> [Float] {
+        let n = Int(rate * 2.6)
+        let rise = whoosh(1.1, from: 250, to: 7000, peakAt: 0.98).map(Double.init)
+        var y = [Double](repeating: 0, count: n)
+        for i in 0..<min(n, rise.count) { y[i] += rise[i] * 0.55 }
+        let hit = Int(rate * 1.05)
+        var p1 = 0.0, p2 = 0.0, p3 = 0.0, lp = 0.0
+        for i in hit..<n {
+            let t = Double(i - hit) / rate
+            p1 += 2 * .pi * 55 / rate; p2 += 2 * .pi * 82.4 / rate; p3 += 2 * .pi * 110 / rate
+            let boom = (sin(p1) + 0.5 * sin(2 * p1)) * exp(-t / 0.5)
+            // A soft, slightly buzzy fifth that swells and hangs, like a film score holding a breath.
+            let pad = (sin(p2) + 0.3 * sin(3 * p2) + 0.6 * sin(p3) + 0.2 * sin(3 * p3)) * min(1, t / 0.35) * exp(-t / 1.4)
+            lp += 0.25 * (pad - lp)
+            y[i] += boom * 1.0 + lp * 0.55
+        }
+        return limit(y, drive: 1.6, peak: 0.9)
     }
 
     /// A short, soft wooden tick.

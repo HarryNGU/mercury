@@ -184,6 +184,9 @@ final class Recorder: NSObject, SCStreamOutput, SCStreamDelegate, @unchecked Sen
         fmt.dateFormat = "yyyy-MM-dd 'at' HH.mm.ss"
         let url = Settings.folder.appendingPathComponent("Mercury \(fmt.string(from: Date())).mp4")
         let writer = try AVAssetWriter(outputURL: url, fileType: .mp4)
+        // Written in 10 second pieces, so if finishing ever fails (a long pause, a crash, the Mac losing power)
+        // everything up to the last piece is still a playable video instead of a lost one.
+        writer.movieFragmentInterval = CMTime(seconds: 10, preferredTimescale: 600)
         let bitrate = max(3_000_000, Int(Double(width * height) * 60 * 0.04))
         let videoIn = AVAssetWriterInput(mediaType: .video, outputSettings: [
             AVVideoCodecKey: AVVideoCodecType.h264,
@@ -431,11 +434,20 @@ final class Recorder: NSObject, SCStreamOutput, SCStreamDelegate, @unchecked Sen
                 let ok = writer.status == .completed
                 log("writer finished: status \(writer.status.rawValue) \(writer.error.map { "\($0)" } ?? "")")
                 self.reset()
-                if discarding || !ok {
+                if discarding {
                     try? FileManager.default.removeItem(at: url)
+                    DispatchQueue.main.async { self.onFinish?(nil) }
+                    done()
+                } else if !ok {
+                    // Never delete a recording that failed to finish: keep what was written, clearly named.
+                    let kept = url.deletingPathExtension().appendingPathExtension("unfinished.mp4")
+                    let saved = (try? FileManager.default.moveItem(at: url, to: kept)) != nil ? kept : url
+                    let exists = FileManager.default.fileExists(atPath: saved.path)
+                    log("writer failed; kept \(exists ? saved.lastPathComponent : "nothing (no file was written)")")
                     DispatchQueue.main.async {
-                        if !ok && !discarding { self.onError?(writer.error ?? RecordError(message: "The video could not be saved.")) }
-                        else { self.onFinish?(nil) }
+                        self.onError?(RecordError(message: exists
+                            ? "The recording didn't finish properly, but everything up to the last few seconds is saved as \"\(saved.lastPathComponent)\" in your recordings folder."
+                            : "The video could not be saved. \(writer.error?.localizedDescription ?? "")"))
                     }
                     done()
                 } else if hadSystemAudio {
