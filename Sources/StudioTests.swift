@@ -449,6 +449,41 @@ enum StudioTests {
             NSApp.terminate(nil)
             return true
         }
+        if args.contains("--freesendtest") {
+            // One live free AI question (uses one free message) to check it writes a ```send block when asked to
+            // message someone. Touches no chats or settings.
+            Task { @MainActor in
+                var reply = ""
+                do {
+                    try await FreeAI.ask("message the person I'm chatting with on Messenger: em đang nhắn bằng mercury nè", history: [], screenshot: nil, transcript: "") { reply += $0 }
+                    let blocks = RichAnswer.blocks(reply)
+                    let sends = blocks.compactMap { if case .send(let m) = $0 { return m } else { return nil } }
+                    log("freesendtest: send blocks \(sends), reply \"\(reply.replacingOccurrences(of: "\n", with: " ⏎ ").prefix(300))\"")
+                } catch { log("freesendtest: failed: \(error.localizedDescription)") }
+                NSApp.terminate(nil)
+            }
+            return true
+        }
+        if let i = args.firstIndex(of: "--sendshot"), i + 1 < args.count {
+            // A reply with a message to send, as the free AI or your own key would write it. Made up messages only.
+            let model = AssistantModel(forTesting: true)
+            model.seeScreen = false
+            model.exchanges = [AssistantModel.Exchange(question: "message the one I'm chatting with \"em đang nhắn bằng mercury nè\"",
+                answer: "Here it is, ready to go.\n\n```send\nem đang nhắn bằng mercury nè\n```\n\nClick the Aa box in Messenger, then press Send.", withScreen: false, activity: nil)]
+            let host = NSHostingView(rootView: AssistantView(model: model, onClose: {}).frame(width: 700, height: 560, alignment: .top))
+            let w = NSWindow(contentRect: NSRect(x: -30000, y: -30000, width: 700, height: 560), styleMask: [.borderless], backing: .buffered, defer: false)
+            w.appearance = NSAppearance(named: .darkAqua); w.backgroundColor = NSColor(white: 0.25, alpha: 1)
+            w.contentView = host; w.orderBack(nil)
+            DispatchQueue.main.asyncAfter(deadline: .now() + 1) {
+                host.layoutSubtreeIfNeeded()
+                if let rep = host.bitmapImageRepForCachingDisplay(in: host.bounds) {
+                    host.cacheDisplay(in: host.bounds, to: rep)
+                    try? rep.representation(using: .png, properties: [:])?.write(to: URL(fileURLWithPath: args[i + 1]))
+                }
+                NSApp.terminate(nil)
+            }
+            return true
+        }
         if let i = args.firstIndex(of: "--chatshot"), i + 1 < args.count {
             // The chat with a reply being written, a quoted reply, and a picture open in the viewer. Uses made up
             // messages and a drawn picture, and never reads or writes saved chats. Writes OUT.png and OUT-zoom.png.

@@ -26,6 +26,8 @@ struct RichAnswer: View {
         case localVideo(URL)
         case imageSearch(String)
         case molecule(String)
+        /// A message for you to send: shown with Type it in and Send buttons.
+        case send(String)
     }
 
     var body: some View {
@@ -61,6 +63,8 @@ struct RichAnswer: View {
                     VideoBlock(url: url, thumb: thumb)
                 case .localVideo(let url):
                     ChatVideo(url: url)
+                case .send(let message):
+                    SendCard(message: message)
                 }
             }
         }
@@ -79,7 +83,7 @@ struct RichAnswer: View {
         for raw in s.components(separatedBy: "\n") {
             let line = raw.trimmingCharacters(in: .whitespaces)
             if line.hasPrefix("```") {
-                if let c = code { out.append(.code(lang: lang, body: c.joined(separator: "\n"))); code = nil }
+                if let c = code { out.append(Self.codeBlock(lang, c)); code = nil }
                 else { flush(); lang = String(line.dropFirst(3)).trimmingCharacters(in: .whitespaces); code = [] }
                 continue
             }
@@ -108,9 +112,16 @@ struct RichAnswer: View {
                 flush(); out.append(.localVideo(v))
             }
         }
-        if let c = code { out.append(.code(lang: lang, body: c.joined(separator: "\n"))) }
+        if let c = code { out.append(Self.codeBlock(lang, c)) }
         flush()
         return out
+    }
+
+    /// A fenced block: a ```send block is a message to type for you, anything else is code.
+    private static func codeBlock(_ lang: String, _ lines: [String]) -> Block {
+        let body = lines.joined(separator: "\n")
+        if lang.lowercased() == "send" { return .send(body.trimmingCharacters(in: .whitespacesAndNewlines)) }
+        return .code(lang: lang, body: body)
     }
 
     /// A line that is only a picture: a markdown image, [[picture: …]], or a bare picture address or file path.

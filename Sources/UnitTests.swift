@@ -123,6 +123,11 @@ enum UnitTests {
     private static func answerBlocks() {
         typealias B = RichAnswer.Block
         let b = RichAnswer.blocks
+        check("send block becomes a send card", b("Here it is:\n\n```send\nem đang nhắn bằng mercury nè\n```\n\nClick the box first."),
+              [B.prose("Here it is:"), B.send("em đang nhắn bằng mercury nè"), B.prose("Click the box first.")])
+        check("other code stays code", b("```swift\nlet a = 1\n```"), [B.code(lang: "swift", body: "let a = 1")])
+        check("send block stays in one chat bubble", AssistantView.messages("Sure.\n\n```send\nhi there\n\nsee you\n```").count, 2)
+        check("typed note", TypeItIn.note(.noBox("Google Chrome")).contains("Click the message box in Google Chrome"), true)
         let file = { (p: String) in URL(fileURLWithPath: p) }
         check("bare video path", b("/Users/me/Desktop/a b.mp4"), [B.localVideo(file("/Users/me/Desktop/a b.mp4"))])
         check("video tag with ~", b("[[video: ~/Movies/x.mov]]"), [B.localVideo(file(NSHomeDirectory() + "/Movies/x.mov"))])

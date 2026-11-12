@@ -89,7 +89,7 @@ enum FreeAI {
         req.setValue("Bearer \(t)", forHTTPHeaderField: "authorization")
         req.httpBody = try JSONSerialization.data(withJSONObject: [
             "platform": "mac", "client": "mac",
-            "system": String(AssistantClient.system.prefix(12_000)),   // Mercury's own voice, the same as with a key
+            "system": String(AssistantClient.answerOnlySystem.prefix(12_000)),   // Mercury's own voice, the same as with a key
             "messages": messages,
         ])
         let bytes: URLSession.AsyncBytes, resp: URLResponse
@@ -121,6 +121,21 @@ enum FreeAI {
     }
 }
 
+extension AssistantClient {
+    /// For the brains that can't act on the Mac (the free AI and your own key). It comes first so the free
+    /// AI's length cap never cuts it off.
+    static var answerOnlySystem: String { typingNote + "\n\n" + system }
+
+    static let typingNote = """
+    You can't click, open or send things yourself. But Mercury can type a message for the user: when they want a \
+    message written, replied, sent or typed somewhere, put the exact words to send in a fenced block that starts \
+    with ```send on its own line and ends with ```, with nothing else inside it. Mercury shows it as a card with \
+    Type it in and Send buttons. The user clicks the message box in their app, then presses one, and Mercury types \
+    it there. Never say you can't send it; tell them to click the message box and press Send. Write the message in \
+    the language they asked for, with no quote marks around it. Only ever use one send block per reply.
+    """
+}
+
 enum OpenAIClient {
     /// Set only by the --openaitest hook, so tests never read or write the Keychain.
     nonisolated(unsafe) static var keyOverride: String?
@@ -149,7 +164,7 @@ enum OpenAIClient {
             throw LiveListener.Failure("Add your OpenAI key in Mercury, Settings, Assistant to start asking.")
         }
         guard let url = endpoint else { throw LiveListener.Failure("That service address doesn't look right. Check it in Settings, Assistant.") }
-        var messages: [[String: Any]] = [["role": "system", "content": AssistantClient.system]]
+        var messages: [[String: Any]] = [["role": "system", "content": AssistantClient.answerOnlySystem]]
         for t in history.suffix(8) where !t.answer.isEmpty {
             messages.append(["role": "user", "content": t.question])
             messages.append(["role": "assistant", "content": t.answer])
@@ -252,7 +267,7 @@ enum GeminiClient {
         if let s = screenshot { parts.append(["inline_data": ["mime_type": "image/jpeg", "data": s.base64EncodedString()]]) }
         contents.append(["role": "user", "parts": parts])
         let body = try JSONSerialization.data(withJSONObject: [
-            "systemInstruction": ["parts": [["text": AssistantClient.system]]],
+            "systemInstruction": ["parts": [["text": AssistantClient.answerOnlySystem]]],
             "contents": contents,
         ])
 

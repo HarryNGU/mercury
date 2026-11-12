@@ -114,7 +114,7 @@ enum AssistantClient {
             "model": model.modelID,
             "max_tokens": 4096,
             "stream": true,
-            "system": system,
+            "system": answerOnlySystem,   // this key can't act on the Mac, but Mercury can type for it
             "messages": messages,
             // Web search runs on Anthropic's side; results come back as links Claude can cite and show.
             "tools": [["type": model == .fast ? "web_search_20250305" : "web_search_20260209", "name": "web_search", "max_uses": 3]],
