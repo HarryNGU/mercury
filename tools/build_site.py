@@ -19,15 +19,16 @@ GLYPH = {
 }
 
 NAV = [("index.html#features", "Features"), ("get-started.html", "Get started"), ("security.html", "Safety"), ("faq.html", "FAQ")]
-V = "21"  # bump to refresh cached CSS and JS
+V = "22"  # bump to refresh cached CSS and JS
 
 # Mercury for Windows. The installer is attached to a GitHub release of its own,
 # tagged windows-vX.Y.Z and marked as a pre release so the Mac "latest" link never changes.
-WIN_VERSION = "0.2.0"
+WIN_VERSION = "0.3.0"
 WIN_FILE = f"Mercury-Setup-{WIN_VERSION}.exe"
 WIN_URL = f"{REPO}/releases/download/windows-v{WIN_VERSION}/{WIN_FILE}"
-WIN_SIZE = "118 MB"
-WIN_SHA = "06bd8f823ff45502047d876bfaf65f7680edb7073cb2c2f22ed6254f5f4c396e"
+WIN_SIZE = "124 MB"
+WIN_BYTES = 130427959
+WIN_SHA = "66c266209520a96fc724a513421fa30aeb1826105471227c1ee3cf431765d492"
 
 ICON = {
     "lock": '<svg viewBox="0 0 24 24" fill="none" stroke="#fff" stroke-width="1.9" stroke-linecap="round" stroke-linejoin="round"><rect x="4.5" y="10.5" width="15" height="10" rx="3"/><path d="M8 10.5V7.5a4 4 0 0 1 8 0v3"/></svg>',
@@ -407,7 +408,12 @@ WINDOWS = f"""
 <li>Jobs on your PC with your OK: open apps and websites, prepare emails and messages, save notes, set timers and run simple commands. This works with every AI you can pick, not only Mercury free.</li>
 <li>Screen recording with your camera in a bubble, your microphone and your PC's sound, hidden from screen shares if you like.</li>
 </ul>
-<p>Still on the way for Windows: talking instead of typing, the reel editor and automatic updates.</p>
+<ul>
+<li>Voice typing into any app, Talk instead of typing, and Listen during calls, with speech turned into text on your PC.</li>
+<li>Draw on the screen while recording, record part of the screen, and turn a recording into a reel with pause cuts and captions.</li>
+<li>Saved chats, the drill timer, your own rules and what Mercury knows about you, and automatic updates.</li>
+</ul>
+<p>Still on the way for Windows: blurring private text in recordings.</p>
 <p>Something not working, or confusing? Tell the person who sent you here, or <a href="{REPO}/issues">report it on GitHub</a>. A screenshot helps a lot.</p>
 
 <details class="note" style="margin-top:28px"><summary style="cursor:pointer;font-weight:600;color:var(--ink)">Want to check your download is genuine?</summary>
@@ -692,4 +698,7 @@ if __name__ == "__main__":
     doc("notices.html", "Open source notices", "The projects and services Mercury works with.", NOTICES)
     page("404.html", "Not found · Mercury", "Page not found.", NOT_FOUND)
     (DOCS / ".nojekyll").write_text("")
+    # What Mercury for Windows checks once a day to offer an update (src/updates.js in the Windows app).
+    import json as _json
+    (DOCS / "windows-release.json").write_text(_json.dumps({"version": WIN_VERSION, "url": WIN_URL, "sha256": WIN_SHA, "size": WIN_BYTES, "available": True}) + "\n")
     print("Built", len(list(DOCS.glob("*.html"))), "pages in", DOCS)
