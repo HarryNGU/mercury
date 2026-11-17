@@ -19,15 +19,15 @@ GLYPH = {
 }
 
 NAV = [("index.html#features", "Features"), ("get-started.html", "Get started"), ("security.html", "Safety"), ("faq.html", "FAQ")]
-V = "20"  # bump to refresh cached CSS and JS
+V = "21"  # bump to refresh cached CSS and JS
 
-# Mercury for Windows (early test). The installer is attached to a GitHub release of its own,
+# Mercury for Windows. The installer is attached to a GitHub release of its own,
 # tagged windows-vX.Y.Z and marked as a pre release so the Mac "latest" link never changes.
-WIN_VERSION = "0.1.3"
+WIN_VERSION = "0.2.0"
 WIN_FILE = f"Mercury-Setup-{WIN_VERSION}.exe"
 WIN_URL = f"{REPO}/releases/download/windows-v{WIN_VERSION}/{WIN_FILE}"
 WIN_SIZE = "118 MB"
-WIN_SHA = "78b704cef052be37c1bae86dd9964c2408e71a80fd88a56a83c4454f68f4e000"
+WIN_SHA = "06bd8f823ff45502047d876bfaf65f7680edb7073cb2c2f22ed6254f5f4c396e"
 
 ICON = {
     "lock": '<svg viewBox="0 0 24 24" fill="none" stroke="#fff" stroke-width="1.9" stroke-linecap="round" stroke-linejoin="round"><rect x="4.5" y="10.5" width="15" height="10" rx="3"/><path d="M8 10.5V7.5a4 4 0 0 1 8 0v3"/></svg>',
@@ -237,7 +237,7 @@ WIN_STEPS = f"""<dialog class="wsteps" id="winSteps" aria-labelledby="winStepsTi
 <li><strong>Open <code>{WIN_FILE}</code></strong><span>Click it in your browser's downloads, or find it in your Downloads folder.</span></li>
 <li><strong>Windows shows a blue box. Click More info, then Run anyway.</strong><span>Windows does this for any app it hasn't seen many times before.</span>{WIN_DEMO}</li>
 </ol>
-<p class="ws-done">Mercury then installs itself in seconds and opens. Pick the free AI and you're done. No account, no password.</p>
+<p class="ws-done">Mercury then installs itself in seconds and opens. Pick Mercury free, or connect the AI you already use, and you're done. No Mercury account, no password.</p>
 <div class="ws-foot"><a href="{WIN_URL}">Download didn't start? Try again</a><button class="btn primary small" data-close>Got it</button></div>
 </dialog>"""
 
@@ -270,7 +270,7 @@ HOME = f"""
 <h1>The personal assistant <br>that lives on {ring("your desktop")}{DOT}</h1>
 <p class="lede">In the old stories, Mercury carried messages for the gods. Now it runs errands on your Mac or Windows PC, and checks with you before anything goes out.</p>
 <div class="actions dl2">{MAC_BTN}{WIN_BTN}</div>
-<p class="meta">Free and open source. For macOS 15 or later, and Windows 10 and 11 (early test).</p>
+<p class="meta">Free and open source. For macOS 15 or later, and Windows 10 and 11.</p>
 </div>
 <div class="meet" aria-hidden="true"><span class="kicker">{ORBIT}Meet Mercury</span><p>Small enough to stay out of your way.<br>Clever enough to help with anything on your screen.</p></div>
 <div class="laptop" aria-hidden="true"><div class="bezel"><i class="notch"></i></div><div class="base"><i></i></div></div>
@@ -329,7 +329,7 @@ HOME = f"""
 <details><summary>Is Mercury really free?</summary><p>Yes. It's open source, with no paid version and no ads. The assistant uses an AI you bring yourself (your Claude plan or your own API key).</p></details>
 <details><summary>Can Mercury do anything without me knowing?</summary><p>No. It only looks, listens or does something when you ask. A red dot shows while it's listening, and anything that sends or changes something waits for you to press Allow.</p></details>
 <details><summary>I use ChatGPT. Does Mercury know what it knows about me?</summary><p>You can bring it over. Mercury gives you a short prompt to paste into ChatGPT, and you paste the answer back. It's saved on your Mac and you can delete it any time. Mercury's answers themselves come from Claude.</p></details>
-<details><summary>Which Macs does it work on?</summary><p>Any Mac on macOS 15 Sequoia or later, with Apple silicon or Intel. There's also an <a href=\"windows.html\">early test version for Windows 10 and 11</a>, and no phone version yet.</p></details>
+<details><summary>Which Macs does it work on?</summary><p>Any Mac on macOS 15 Sequoia or later, with Apple silicon or Intel. Mercury also runs on <a href=\"windows.html\">Windows 10 and 11</a>. There's no phone version yet.</p></details>
 <details><summary>Is this the Mercury bank?</summary><p>No. This Mercury is a free, open source assistant app for Mac and Windows, made by one person. It has nothing to do with any bank or company of the same name.</p></details>
 </div>
 <p class="more reveal"><a href="faq.html">More questions and answers</a></p>
@@ -349,7 +349,7 @@ HOME = f"""
 <p>Free, for Mac and Windows. Pick your computer.</p>
 <div class="dl2">
 <div class="dlcard" data-first="mac"><b>{ICON['apple']}Mac</b><a class="btn primary" data-release="url" data-mac-download href="{REPO}/releases/latest">Download for Mac</a><p class="fine">macOS 15 or later · Version <span data-release="version">1.4.3</span> · <span data-release="size">13.4 MB</span> · <a href="get-started.html">Install guide</a></p></div>
-<div class="dlcard" data-first="windows"><b>{ICON['windows']}Windows</b><a class="btn primary" href="{WIN_URL}" data-win-download>Download for Windows</a><p class="fine">Windows 10 and 11 · Early test, version {WIN_VERSION} · {WIN_SIZE} · <a href="windows.html">Install guide</a></p></div>
+<div class="dlcard" data-first="windows"><b>{ICON['windows']}Windows</b><a class="btn primary" href="{WIN_URL}" data-win-download>Download for Windows</a><p class="fine">Windows 10 and 11 · Version {WIN_VERSION} · {WIN_SIZE} · <a href="windows.html">Install guide</a></p></div>
 </div>
 </div>
 <div data-os="ios android" class="elsewhere" hidden><p>Mercury runs on a Mac or a Windows PC, not on phones. Open this page on your computer to download it.</p></div>
@@ -381,7 +381,7 @@ WINDOWS = f"""
 <p>Windows then shows a blue box saying <strong>Windows protected your PC</strong>. It shows this for any app it hasn't seen many times before.</p>
 {WIN_DEMO}
 <p>You don't need an admin password. Mercury installs in a few seconds and opens by itself.</p></li>
-<li><strong>Choose how Mercury thinks</strong><p>On the welcome screen, keep <strong>Use Mercury's free AI</strong> selected and click <strong>Start using Mercury</strong>. There's no account to make. You get 40 messages a day. If you have an Anthropic API key, you can use that instead.</p></li>
+<li><strong>Choose how Mercury thinks</strong><p>The welcome asks where Mercury should find its answers. <strong>Mercury free</strong> is already picked, with 40 messages a day and nothing to sign up for. If you already use Claude, ChatGPT, Gemini, Grok, OpenRouter or Ollama, pick its tile instead: Mercury opens the page where you get a key, you paste it in one box and press Connect. It works the same way on the Mac.</p></li>
 <li><strong>Find Mercury any time</strong><p>The chat opens in the bottom right corner. When you hide it, Mercury keeps running by the clock in the taskbar. To bring it back:</p>
 <ul>
 <li>Press <kbd>Alt</kbd><kbd>\\</kbd> (the backslash key, usually just above Enter).</li>
@@ -401,14 +401,13 @@ WINDOWS = f"""
 </table>
 <p>If another app already uses <kbd>Alt</kbd><kbd>\\</kbd>, Mercury uses <kbd>Ctrl</kbd><kbd>Alt</kbd><kbd>M</kbd> instead (and <kbd>Ctrl</kbd><kbd>Alt</kbd><kbd>R</kbd> to record). Right click the Mercury icon by the clock to see which keys it's using.</p>
 
-<h2 id="early">What's in this early version</h2>
-<p>The Windows version is new, so it does less than the Mac app for now.</p>
-<table>
-<tr><th>Works now</th><th>Coming later</th></tr>
-<tr><td>Chat about anything, with a look at your screen when you turn on the eye</td><td>Talking instead of typing (dictation)</td></tr>
-<tr><td>Small jobs on your PC: open apps and websites, set timers, save notes, prepare emails and messages, run simple commands</td><td>The reel editor and drawing on recordings</td></tr>
-<tr><td>Screen recording with your camera in a bubble, your microphone and your PC's sound</td><td>Automatic updates</td></tr>
-</table>
+<h2 id="early">What Mercury does on Windows</h2>
+<ul>
+<li>Chat about anything, with a look at your screen when you turn on the eye. Reply to one message or several at once.</li>
+<li>Jobs on your PC with your OK: open apps and websites, prepare emails and messages, save notes, set timers and run simple commands. This works with every AI you can pick, not only Mercury free.</li>
+<li>Screen recording with your camera in a bubble, your microphone and your PC's sound, hidden from screen shares if you like.</li>
+</ul>
+<p>Still on the way for Windows: talking instead of typing, the reel editor and automatic updates.</p>
 <p>Something not working, or confusing? Tell the person who sent you here, or <a href="{REPO}/issues">report it on GitHub</a>. A screenshot helps a lot.</p>
 
 <details class="note" style="margin-top:28px"><summary style="cursor:pointer;font-weight:600;color:var(--ink)">Want to check your download is genuine?</summary>
@@ -501,13 +500,13 @@ def q(question, answer):
 
 FAQ = head("FAQ", "Questions people ask", "If yours isn't here, ask on GitHub and I'll help.") + '<div class="wrap narrow doc faq">' + "".join([
     q("Is Mercury really free?", "<p>Yes. It's open source under the MIT licence, with no paid version and no ads. Ask Mercury uses an AI you bring yourself (your Claude plan or your own API key), and that provider may charge you for it.</p>"),
-    q("Which devices does it work on?", "<p>Macs running macOS 15 Sequoia or later, with Apple silicon or Intel. There's no Windows, Linux, iPhone or Android version.</p>"),
+    q("Which devices does it work on?", "<p>Macs running macOS 15 Sequoia or later, with Apple silicon or Intel, and PCs running <a href=\"windows.html\">Windows 10 or 11</a>. There's no Linux, iPhone or Android version yet.</p>"),
     q("Is it safe to download?", "<p>Mercury is open source, so anyone can read exactly what it does, and every release lists a SHA256 fingerprint so you can confirm the file hasn't been changed (see the <a href=\"get-started.html#install\">install guide</a>). Only download Mercury from this site or its GitHub page.</p>"),
     q("What does Mercury collect about me?", "<p>Nothing. There's no account, no analytics and no tracking. The only time anything leaves your Mac is when you use a feature that needs the internet, like asking Ask Mercury a question, and the <a href=\"privacy.html\">privacy policy</a> lists exactly what is sent and to whom.</p>"),
     q("Does Mercury record me all the time?", "<p>No. It records only when you start a recording, hears your voice only while you dictate or talk to it, hears your Mac's sound only while Listen is on (a red dot shows), and takes a screenshot only when you ask it something.</p>"),
     q("What does Listen hear?", "<p>Only the sound playing on your Mac: the other people on a call or meeting, or a video you're watching. It doesn't use your microphone. To talk to Mercury yourself, use Talk (⌥⇧\\) or dictation.</p>"),
     q("Can Ask Mercury send messages or emails for me?", "<p>It can prepare them, but it never sends anything on its own. Emails need you to approve them. For Messenger, Instagram, WhatsApp and Messages it opens the chat and types the message, and you press Enter.</p>"),
-    q("Can I use it with ChatGPT or another AI?", "<p>Yes. With no AI account at all, Mercury's free AI gives you 40 messages a day. You can also use your own OpenAI key, or another service that works the same way, like Gemini, Grok, DeepSeek, OpenRouter or Ollama on your own computer. A ChatGPT Plus plan isn't a key: get one at platform.openai.com. With Claude Code on your Mac, Mercury can also do things for you, like drafting emails and saving files, always with your OK. Recording and dictation don't need any AI.</p>"),
+    q("Can I use it with ChatGPT or another AI?", "<p>Yes. With no AI account at all, Mercury's free AI gives you 40 messages a day. You can also use your own OpenAI key, or another service that works the same way, like Gemini, Grok, DeepSeek, OpenRouter or Ollama on your own computer. A ChatGPT Plus plan isn't a key: get one at platform.openai.com. With Claude Code on your Mac, Mercury can also do things for you, like drafting emails and saving files, always with your OK. Recording and dictation don't need any AI.</p><p>On Windows it's the same picker: Mercury free, Claude, ChatGPT, Gemini, Grok, OpenRouter, Ollama or another service, and every one of them can do things on your PC with your OK.</p>"),
     q("Does it know my previous Claude chats?", "<p>Through Claude Code it knows your Claude Code memory notes and connected apps. It can't read your chat history from the Claude app or website, because Claude doesn't let other apps do that.</p>"),
     q("Can people tell I'm using Ask Mercury on a call?", "<p>By default, yes: if you share your screen, Mercury's chat shows up in the share and in recordings like any other window. If your chat is private, one switch hides it from every recording and screen share, Mercury's own and Zoom, Meet or Teams alike. Please don't use that to cheat in exams or interviews, and don't record people without telling them.</p>"),
     q("Where are my recordings?", "<p>In <code>Mercury Recordings</code> on your Desktop, and in Mercury's library. Reels are saved in its <code>Reels</code> folder. Nothing is uploaded.</p>"),
@@ -521,7 +520,7 @@ PRIVACY = f"""
 <p>Mercury is a free, open source Mac app that I make. This policy explains what happens to your information when you use the app and this website. In short, I don't collect anything, and Mercury only sends information to other services when you use a feature that needs them.</p>
 
 <h2>Who makes Mercury</h2>
-<p>Mercury is an independent open source project published at <a href="{REPO}">github.com/HarryNGU/mercury</a>. There are no Mercury accounts. The Mac app uses no Mercury servers. The early Windows version can use one for its optional free AI (see <a href="#windows">below</a>). You can reach me through <a href="{REPO}/issues">GitHub issues</a>.</p>
+<p>Mercury is an independent open source project published at <a href="{REPO}">github.com/HarryNGU/mercury</a>. There are no Mercury accounts. Mercury uses its own small server only for the optional Mercury free AI, on Mac and Windows (see <a href="#windows">below</a>). You can reach me through <a href="{REPO}/issues">GitHub issues</a>.</p>
 
 <h2>What I collect</h2>
 <p>Nothing. Mercury has no accounts, analytics, crash reporting, advertising or tracking. I don't receive your recordings, voice, screenshots, messages, contacts or settings, and I couldn't see them even if I wanted to.</p>
@@ -551,9 +550,9 @@ PRIVACY = f"""
 </table>
 <p>Those services handle the information under their own privacy policies, including <a href="https://www.anthropic.com/legal/privacy">Anthropic's</a>. Mercury never sells your information or shares it with anyone else.</p>
 
-<h2 id="windows">Mercury for Windows and its free AI</h2>
-<p>The early Windows version offers a free AI, so you can try it without an account or an API key. If you choose it, your question (and a screenshot, if you turn the eye on) goes through a small Mercury server on Cloudflare to Anthropic for the answer, then the answer comes straight back. The server doesn't store your messages, screenshots or anything else you send.</p>
-<p>To keep the free AI fair and within its daily budget, the server keeps only daily counts: how many questions this PC has asked today (linked to a random ID made on your PC, not your name), and how many came from your internet address, which is scrambled (hashed) first so the real address is never saved. Cloudflare, like any host, may log requests for security (see <a href="https://www.cloudflare.com/privacypolicy/">Cloudflare's privacy policy</a>).</p>
+<h2 id="windows">Mercury free, the free AI</h2>
+<p>Mercury offers a free AI on Mac and Windows, so you can try it without an account or an API key. If you choose it, your question (and a screenshot, if you turn the eye on) goes through a small Mercury server on Cloudflare to Anthropic for the answer, then the answer comes straight back. The server doesn't store your messages, screenshots or anything else you send.</p>
+<p>To keep the free AI fair and within its daily budget, the server keeps only daily counts: how many questions this computer has asked today (linked to a random ID made on your computer, not your name), and how many came from your internet address, which is scrambled (hashed) first so the real address is never saved. Cloudflare, like any host, may log requests for security (see <a href="https://www.cloudflare.com/privacypolicy/">Cloudflare's privacy policy</a>).</p>
 <p>If you'd rather nothing passes through Mercury's server, choose "Use my own Anthropic API key" in the welcome screen or in Settings. Mercury then talks to Anthropic directly. On Windows, settings live in <code>%APPDATA%\\Mercury</code>, and your key is encrypted with Windows' own protection.</p>
 
 <h2>Other people's information</h2>
@@ -685,7 +684,7 @@ if __name__ == "__main__":
     page("get-started.html", "Get started · Mercury", "Install Mercury, set up permissions, connect your AI and learn the shortcuts.",
          head("Get started", "Set up Mercury in about two minutes", "Install it, say hello, and Mercury walks you through the rest. Everything after installing is optional.") + STARTED)
     page("windows.html", "Mercury for Windows · Mercury", "Download Mercury for Windows 10 and 11 and set it up in about a minute. Free, with no account.",
-         head("Windows", "Mercury for Windows", "An early test version for Windows 10 and 11. Setting it up takes about a minute, with no account and no admin password.") + WINDOWS)
+         head("Windows", "Mercury for Windows", "For Windows 10 and 11. Setting it up takes about a minute, with no account and no admin password.") + WINDOWS)
     page("faq.html", "FAQ · Mercury", "Answers to common questions about Mercury.", FAQ)
     doc("privacy.html", "Privacy policy", "What Mercury does with your information: nothing is collected.", PRIVACY)
     doc("terms.html", "Terms of use", "The terms for using Mercury, including acceptable use.", TERMS)
