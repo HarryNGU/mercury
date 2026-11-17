@@ -637,7 +637,14 @@ struct AssistantView: View {
             ChatRow(mine: true, style: style, reactions: bubbleReacts, onReply: { model.reply(to: ex.question, exchange: ex.id, part: nil) }) {
                 VStack(alignment: .trailing, spacing: 3) {
                     if let r = ex.replyTo { ReplyQuote(reply: r, name: r.mine ? "You" : name) { jumpBack(to: r) } }
-                    Text(ex.question).textSelection(.enabled)
+                    ForEach(Array(ex.replies.enumerated()), id: \.offset) { _, r in
+                        VStack(alignment: .trailing, spacing: 2) {
+                            ReplyQuote(reply: r, name: r.mine ? "You" : name) { jumpBack(to: r) }
+                            if let a = r.ask, !a.isEmpty { Text(a).textSelection(.enabled) }
+                        }
+                        .padding(.bottom, 3)
+                    }
+                    if !ex.question.isEmpty { Text(ex.question).textSelection(.enabled) }
                     if ex.withScreen {
                         Label("saw your screen", systemImage: "eye").font(.system(size: 10.5)).opacity(0.7)
                     }
@@ -690,29 +697,30 @@ struct AssistantView: View {
             // The messenger, back before anything goes out.
             VStack(alignment: .leading, spacing: 2) {
                 Label("Back with this. OK to go ahead?", systemImage: "arrow.uturn.backward.circle.fill").font(.system(size: 13, weight: .semibold))
-                    .foregroundStyle(.yellow)
-                Text(a.appName).font(.system(size: 11.5)).foregroundStyle(.white.opacity(0.6))
+                    .foregroundStyle(Color(red: 1, green: 0.84, blue: 0.3))
+                Text(a.appName).font(.system(size: 12, weight: .medium)).foregroundStyle(.white.opacity(0.75))
             }
             if !a.summary.isEmpty {
-                Text(a.summary).font(.system(size: 12, design: .monospaced)).foregroundStyle(.white.opacity(0.85))
+                Text(a.summary).font(.system(size: 12, design: .monospaced)).foregroundStyle(.white.opacity(0.92))
                     .lineLimit(8).textSelection(.enabled)
                     .frame(maxWidth: .infinity, alignment: .leading)
-                    .padding(10).background(RoundedRectangle(cornerRadius: 8).fill(.black.opacity(0.4)))
+                    .padding(10).background(RoundedRectangle(cornerRadius: 8).fill(.white.opacity(0.07)))
             }
             HStack(spacing: 8) {
                 Button("Deny") { model.decide(allow: false) }.buttonStyle(.plain)
-                    .padding(.horizontal, 12).frame(height: 28).background(Capsule().fill(.white.opacity(0.12)))
+                    .foregroundStyle(.white).padding(.horizontal, 12).frame(height: 28).background(Capsule().fill(.white.opacity(0.14)))
                 Spacer()
                 Button("Always allow") { model.decide(allow: true, always: true) }.buttonStyle(.plain)
-                    .font(.system(size: 12)).foregroundStyle(.white.opacity(0.6)).help("Don't ask again for \(a.appName)")
+                    .font(.system(size: 12)).foregroundStyle(.white.opacity(0.75)).help("Don't ask again for \(a.appName)")
                 Button("Allow once") { model.decide(allow: true) }.buttonStyle(.plain)
                     .foregroundStyle(.black).padding(.horizontal, 14).frame(height: 28).background(Capsule().fill(.white))
             }
             .font(.system(size: 12.5, weight: .medium))
         }
         .padding(12)
-        .background(RoundedRectangle(cornerRadius: 12).fill(.yellow.opacity(0.08)))
-        .overlay(RoundedRectangle(cornerRadius: 12).stroke(.yellow.opacity(0.35)))
+        // Solid, not see through: on a light page behind the panel the old tint washed every word out.
+        .background(RoundedRectangle(cornerRadius: 12).fill(Color(white: 0.11)))
+        .overlay(RoundedRectangle(cornerRadius: 12).stroke(Color(red: 1, green: 0.84, blue: 0.3).opacity(0.55)))
     }
 
     /// The very first chat: three errands to send Mercury on, one of which shows it coming back for your OK.
@@ -794,17 +802,53 @@ struct AssistantView: View {
         }
     }
 
+    /// Several messages you're replying to, each with a line for its own question.
+    private var multiReplyStrip: some View {
+        VStack(alignment: .leading, spacing: 7) {
+            HStack {
+                Text("Replying to \(model.replies.count) messages").font(.system(size: 11.5, weight: .semibold))
+                Spacer()
+                Button("Clear all") { model.replies = [] }.buttonStyle(.plain).font(.system(size: 11.5, weight: .semibold)).foregroundStyle(.white.opacity(0.75))
+            }
+            ForEach(Array(model.replies.enumerated()), id: \.element.key) { i, r in
+                HStack(alignment: .top, spacing: 8) {
+                    Text("\(i + 1)").font(.system(size: 10.5, weight: .bold)).foregroundStyle(Theme.onBrand)
+                        .frame(width: 18, height: 18).background(Circle().fill(Theme.brand)).padding(.top, 1)
+                    VStack(alignment: .leading, spacing: 3) {
+                        Text(ReplyQuote.preview(r.text)).font(.system(size: 12)).foregroundStyle(.white.opacity(0.65)).lineLimit(1)
+                        TextField("", text: askBinding(r), prompt: Text("Your question about this (optional)").foregroundColor(.white.opacity(0.35)))
+                            .textFieldStyle(.plain).font(.system(size: 13)).foregroundStyle(.white)
+                            .onSubmit { firstErrandDone = true; model.ask() }
+                    }
+                    Button { model.removeReply(r) } label: {
+                        Image(systemName: "xmark").font(.system(size: 9, weight: .bold)).foregroundStyle(.white.opacity(0.8))
+                            .frame(width: 20, height: 20).background(Circle().fill(.white.opacity(0.12)))
+                    }
+                    .buttonStyle(.plain).accessibilityLabel("Remove this message")
+                }
+                .padding(.vertical, 6).padding(.horizontal, 8)
+                .background(RoundedRectangle(cornerRadius: 8, style: .continuous).fill(.white.opacity(0.06)))
+            }
+        }
+    }
+
+    private func askBinding(_ r: ChatReply) -> Binding<String> {
+        Binding(get: { model.replies.first { $0.exchange == r.exchange && $0.part == r.part }?.ask ?? "" },
+                set: { v in if let i = model.replies.firstIndex(where: { $0.exchange == r.exchange && $0.part == r.part }) { model.replies[i].ask = v } })
+    }
+
     private var inputBar: some View {
         VStack(alignment: .leading, spacing: 7) {
             DrillStrip(timer: model.drill)
-            if let r = model.replyingTo { replyStrip(r) }
+            if model.replies.count == 1, let r = model.replies.first { replyStrip(r) }
+            if model.replies.count > 1 { multiReplyStrip }
             HStack(spacing: 8) {
             ChatToolsButton(timer: model.drill, onKeysChanged: { (NSApp.delegate as? AppDelegate)?.assistant.refreshKeys() })
             if model.talking {
                 Image(systemName: "mic.fill").foregroundStyle(.red).symbolEffect(.pulse)
             }
             ChatTextView(text: $model.input,
-                         placeholder: model.talking ? "Listening… say what you want" : (model.approval != nil ? "Say or type yes / no…" : "Ask, or press \(keys.label(.assistVoice)) and say it…"),
+                         placeholder: model.talking ? "Listening… say what you want" : (model.approval != nil ? "Say or type yes / no…" : model.replies.count > 1 ? "Anything else? Or just press Send" : "Ask, or press \(keys.label(.assistVoice)) and say it…"),
                          font: .systemFont(ofSize: 13.5), textColor: .white, placeholderColor: NSColor.white.withAlphaComponent(0.45),
                          maxLines: 6, focusRequest: model.focusRequest, height: $inputHeight, onSubmit: { firstErrandDone = true; model.ask() })
                 .frame(height: inputHeight)
@@ -820,7 +864,7 @@ struct AssistantView: View {
                         .frame(width: 26, height: 26).background(Circle().fill(.white))
                 }
                 .buttonStyle(.plain).help("Send").accessibilityLabel("Send")
-                .disabled(model.input.trimmingCharacters(in: .whitespaces).isEmpty)
+                .disabled(model.input.trimmingCharacters(in: .whitespaces).isEmpty && model.replies.count < 2)
             }
             }
         }

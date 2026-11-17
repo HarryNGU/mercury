@@ -15,7 +15,7 @@ extension Settings {
     /// and a pasted ".../chat/completions" trimmed back to the base. Nil when it still isn't a web address.
     static func openAIEndpoint(_ raw: String) -> URL? {
         var base = raw.trimmingCharacters(in: .whitespacesAndNewlines)
-        if base.isEmpty { base = "https://api.openai.com/v1" }
+        if base.isEmpty || looksLikeKey(base) { base = "https://api.openai.com/v1" }   // a key pasted in the wrong box
         if !base.lowercased().hasPrefix("http://") && !base.lowercased().hasPrefix("https://") {
             let local = base.hasPrefix("localhost") || base.hasPrefix("127.0.0.1")
             base = (local ? "http://" : "https://") + base
@@ -23,8 +23,16 @@ extension Settings {
         while base.hasSuffix("/") { base.removeLast() }
         if base.lowercased().hasSuffix("/chat/completions") { base.removeLast("/chat/completions".count) }
         guard let url = URL(string: base + "/chat/completions"), let host = url.host, !host.isEmpty,
-              url.scheme == "http" || url.scheme == "https" else { return nil }
+              url.scheme == "http" || url.scheme == "https",
+              host.contains(".") || host == "localhost" || host.hasPrefix("[") else { return nil }
         return url
+    }
+    /// True for text that is a key rather than an address: people paste their key into the address box.
+    static func looksLikeKey(_ raw: String) -> Bool {
+        let t = raw.trimmingCharacters(in: .whitespacesAndNewlines)
+        if t.contains("://") || t.contains("/") || t.hasPrefix("localhost") { return false }
+        let prefixes = ["sk-", "AIza", "AQ.", "xai-", "gsk_", "sk_"]
+        return prefixes.contains { t.hasPrefix($0) } || (t.count >= 30 && !t.contains("."))
     }
     /// The model to ask. It needs vision to read screenshots.
     static var openAIModel: String {
@@ -124,7 +132,7 @@ enum FreeAI {
 extension AssistantClient {
     /// For the brains that can't act on the Mac (the free AI and your own key). It comes first so the free
     /// AI's length cap never cuts it off.
-    static var answerOnlySystem: String { typingNote + "\n\n" + system }
+    static var answerOnlySystem: String { body(extra: typingNote) }
 
     static let typingNote = """
     You can't click, open or send things yourself. But Mercury can type a message for the user: when they want a \
@@ -154,7 +162,8 @@ enum OpenAIClient {
                     onText: @escaping @MainActor (String) -> Void) async throws {
         let endpoint = Settings.openAIEndpoint(Settings.openAIBaseURL)
         let base = endpoint?.absoluteString ?? ""
-        let key = keyOverride ?? Keychain.key(account: Keychain.openAIAccount) ?? ""
+        let account = Settings.aiService.keyAccount
+        let key = keyOverride ?? account.flatMap { Keychain.key(account: $0) } ?? ""
         if GeminiClient.isGemini(key: key, base: Settings.openAIBaseURL) {
             try await GeminiClient.ask(question, key: key, history: history, screenshot: screenshot, transcript: transcript, onText: onText)
             return

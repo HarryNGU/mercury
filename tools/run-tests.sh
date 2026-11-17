@@ -10,7 +10,7 @@ set -uo pipefail
 cd "$(dirname "$0")/.."
 
 LOG=~/Library/Logs/Bubble.log
-if [[ -f $LOG ]] && grep -a "start requested\|writer finished" $LOG | tail -1 | grep -q "start requested"; then
+if [[ -f $LOG ]] && grep -a "start requested\|writer finished\|failed:\|finished:" $LOG | tail -1 | grep -q "start requested"; then
   echo "Mercury is recording right now. Run the tests when it has finished."; exit 2
 fi
 if [[ ${1:-} != --no-build ]]; then

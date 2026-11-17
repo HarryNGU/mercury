@@ -68,7 +68,13 @@ enum AboutMe {
 enum AssistantClient {
     struct Turn { var question: String; var answer: String }
 
-    static var system: String { systemText + AboutMe.forPrompt }
+    /// The safety floor first, so a length cap never cuts it, then Mercury's voice and the user's own choices.
+    static var system: String { body(extra: "") }
+    static func body(extra: String) -> String {
+        let core: String = systemText + AboutMe.forPrompt
+        let parts: [String] = [SafetyFloor.text, extra, core, ClaudeMemory.forPrompt, Behaviour.personal]
+        return parts.filter { !$0.isEmpty }.joined(separator: "\n\n")
+    }
     private static let systemText = """
     You are Mercury's on-screen assistant on the user's Mac. The panel looks like a chat with a friend: reply as \
     a few short messages separated by blank lines, each one thought, most useful first, keeping all the detail. Each message can include a screenshot of their \

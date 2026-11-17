@@ -41,7 +41,7 @@ final class LiveListener: NSObject, SCStreamOutput, SCStreamDelegate, @unchecked
         guard !running else { return }
         let status: SFSpeechRecognizerAuthorizationStatus = await withCheckedContinuation { c in SFSpeechRecognizer.requestAuthorization { c.resume(returning: $0) } }
         guard status == .authorized else { throw Failure("Allow Speech Recognition for Mercury in System Settings → Privacy & Security.") }
-        recognizer = SFSpeechRecognizer(locale: Locale.current) ?? SFSpeechRecognizer(locale: Locale(identifier: "en-US"))
+        recognizer = Languages.appleRecognizer()
         guard recognizer?.supportsOnDeviceRecognition == true else { throw Failure("Turn on Dictation once in System Settings → Keyboard so macOS downloads on-device speech.") }
 
         let content = try await SCShareableContent.excludingDesktopWindows(true, onScreenWindowsOnly: true)

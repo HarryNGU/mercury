@@ -18,6 +18,10 @@ struct ChatReply: Codable, Equatable {
     var exchange: Int
     /// Which of Mercury's bubbles in that reply; nil means your own message.
     var part: Int?
+    /// Your question about this message, when you replied to several at once.
+    var ask: String? = nil
+    /// Which message this is, for telling replies apart.
+    var key: String { "\(exchange)-\(part ?? -1)" }
 }
 
 struct ChatRecord: Codable, Identifiable, Equatable {
@@ -29,6 +33,8 @@ struct ChatRecord: Codable, Identifiable, Equatable {
         var reactions: [Int: [String]] = [:]
         /// The message this one answers, when you replied to something specific.
         var replyTo: ChatReply? = nil
+        /// The messages this one answers, when you replied to several at once (each with its own question).
+        var replies: [ChatReply]? = nil
     }
 
     var id = UUID()

@@ -177,20 +177,8 @@ struct OnboardingView: View {
             return ["To help, I need your OK in macOS for a few things.",
                    "I'll explain each one. Skip anything you're unsure about, and I'll only ask again when you use that feature."]
         case .brain:
-            var l = ["Where should I find my answers? I think with Claude, the AI made by Anthropic."]
-            switch brainState {
-            case .checking: break
-            case .signedIn:
-                l += ["Good news: Claude Code is on this Mac and you're signed in.",
-                      "If I use it, I'll know your notes and the apps you've connected to it, like Gmail or Calendar, from day one. Anything I do for you still needs your OK."]
-            case .signedOut:
-                l += ["Claude is on this Mac, but it isn't signed in yet.",
-                      "Click Sign in with Claude. Your browser opens, you sign in with your Claude Pro or Max account, and I'll notice by myself."]
-            case .missing:
-                l += ["I couldn't find Claude on this Mac, and that's fine.",
-                      "I can use Mercury's free AI: \(40) messages a day, no account needed. Or use your own OpenAI or Anthropic key."]
-            }
-            return l
+            return ["Which AI do you already use? Pick it and I'll connect to it with you.",
+                    "Use Claude and I can also do things on your Mac for you, always with your OK."]
         case .promises:
             return ["Last thing: my promises to you."]
         case .ready:
@@ -378,103 +366,7 @@ struct OnboardingView: View {
     // MARK: Connecting an AI
 
     @ViewBuilder private var brainStep: some View {
-        VStack(alignment: .leading, spacing: 14) {
-            if showKeyField {
-                VStack(alignment: .leading, spacing: 12) {
-                    SwiftUI.Picker("", selection: $keyKind) {
-                        Text("OpenAI").tag(AssistantBrain.openai)
-                        Text("Anthropic").tag(AssistantBrain.api)
-                    }
-                    .pickerStyle(.segmented).labelsHidden().frame(width: 240)
-                    if keySaved {
-                        Label("Your key is saved in the macOS Keychain.", systemImage: "checkmark.circle.fill").foregroundStyle(.green).font(.system(size: 14))
-                    } else {
-                        HStack(spacing: 10) {
-                            SecureField("", text: $apiKey, prompt: Text(keyKind == .openai ? "sk-…" : "sk-ant-…").foregroundColor(.white.opacity(0.35)))
-                                .textFieldStyle(.plain).font(.system(size: 15, design: .monospaced)).foregroundStyle(.white)
-                                .padding(.horizontal, 14).frame(width: 320, height: 42).background(glass(12))
-                            Chip(title: "Save", primary: true) {
-                                if keyKind == .openai { Keychain.setKey(clean(apiKey), account: Keychain.openAIAccount) } else { Keychain.setAPIKey(clean(apiKey)) }
-                                apiKey = ""; refreshKeys()
-                            }
-                            .disabled(clean(apiKey).isEmpty).opacity(clean(apiKey).isEmpty ? 0.4 : 1)
-                        }
-                    }
-                    Text(keyKind == .openai
-                         ? "Get one at platform.openai.com, under API keys. It's separate from a ChatGPT Plus plan and needs credit on your OpenAI account. A free Gemini key from aistudio.google.com works here too."
-                         : "Get one at console.anthropic.com. Use is billed to your Anthropic account.")
-                        .font(.system(size: 12.5)).foregroundStyle(.white.opacity(0.55)).fixedSize(horizontal: false, vertical: true)
-                    Text("Your key stays in your Keychain. With a key, I answer and look at your screen, but I can't do things on your Mac; that needs Claude Code.")
-                        .font(.system(size: 12.5)).foregroundStyle(.white.opacity(0.45)).fixedSize(horizontal: false, vertical: true)
-                }
-                .padding(18).background(glass(18))
-                ReplyChips(keySaved ? [("Use my key", true), ("Back", false)] : [("Back", false)]) { i in
-                    if keySaved && i == 0 { brain = keyKind; say("Use my key") { go(.promises) } } else { withAnimation { showKeyField = false } }
-                }
-            } else {
-                switch brainState {
-                case .checking:
-                    EmptyView()
-                case .signedIn:
-                    ReplyChips([("Use my Claude Code", true), ("Use the free AI", false), ("Use my own key", false)]) { pickBrain($0) }
-                case .signedOut:
-                    ReplyChips([("Sign in with Claude", true), ("Use the free AI", false), ("Use my own key", false)]) { pickBrain($0) }
-                case .missing:
-                    ReplyChips([("Use the free AI", true), ("Use my own key", false)]) { i in
-                        if i == 0 { brain = .free; say("Use the free AI") { go(.promises) } }
-                        else { withAnimation(.spring(duration: 0.4)) { showKeyField = true } }
-                    }
-                    Button { withAnimation { showInstall.toggle() } } label: {
-                        Text(showInstall ? "Hide the Claude Code steps" : "Have Claude Pro or Max? Use Claude Code instead")
-                            .font(.system(size: 12.5, weight: .medium)).foregroundStyle(Theme.accent)
-                    }
-                    .buttonStyle(.plain)
-                    if showInstall {
-                        VStack(alignment: .leading, spacing: 10) {
-                            HStack(spacing: 10) {
-                                Text("curl -fsSL https://claude.ai/install.sh | bash").font(.system(size: 13, design: .monospaced)).foregroundStyle(.white)
-                                    .textSelection(.enabled).padding(.horizontal, 14).frame(height: 40).background(glass(12))
-                                Chip(title: "Copy", primary: false) { copy("curl -fsSL https://claude.ai/install.sh | bash") }
-                            }
-                            Text("Paste that into Terminal, press Return, then type claude and sign in with your Claude Pro or Max account.")
-                                .font(.system(size: 12.5)).foregroundStyle(.white.opacity(0.6)).fixedSize(horizontal: false, vertical: true)
-                            Chip(title: "I've installed it, check again", primary: false) { checkBrain(replay: true) }
-                        }
-                    }
-                }
-            }
-        }
-        .onAppear { refreshKeys() }
-        .onChange(of: keyKind) { refreshKeys() }
-    }
-
-    private var keySaved: Bool { keyKind == .openai ? hasOpenAIKey : hasKey }
-
-    private func refreshKeys() {
-        hasKey = Keychain.hasKey
-        hasOpenAIKey = Keychain.hasKey(account: Keychain.openAIAccount)
-    }
-
-    private func pickBrain(_ i: Int) {
-        switch i {
-        case 0:
-            switch brainState {
-            case .signedIn: brain = .claudeCode; say("Use my Claude Code") { go(.promises) }
-            case .signedOut:
-                ClaudeCodeSession.openSignIn()
-                // Watch for the sign in finishing, for up to five minutes.
-                Task { @MainActor in
-                    for _ in 0..<150 {
-                        try? await Task.sleep(for: .seconds(2))
-                        if scene != .brain { return }
-                        if await Self.claudeSignedIn() { Haptic.big(); Sounds.tour(.granted); checkBrain(replay: true); return }
-                    }
-                }
-            default: checkBrain(replay: true)
-            }
-        case 1: brain = .free; say("Use the free AI") { go(.promises) }
-        default: withAnimation(.spring(duration: 0.4)) { showKeyField = true }
-        }
+        BrainSetup(dark: true) { brain = Settings.assistantBrain; say("Continue") { go(.promises) } }
     }
 
     private func checkBrain(replay: Bool) {
@@ -635,7 +527,6 @@ struct OnboardingView: View {
         reply = nil
         showKeyField = false
         alreadyAllowed = asks.allSatisfy(\.granted)
-        if scene == .brain && brainState == .checking && animated { checkBrain(replay: true); revealed = 0; return }
         guard animated && !reduceMotion else { revealed = lines.count; typing = false; return }
         revealed = 0
         Task { @MainActor in

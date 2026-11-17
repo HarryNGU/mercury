@@ -876,27 +876,13 @@ struct AssistantPage: View {
     @AppStorage("chatAvatar") private var chatAvatar = ""
     @AppStorage("drillTimerOn") private var drillOn = false
     @AppStorage("drillTarget") private var drillTarget = 0
-    @State private var brain = Settings.assistantBrain
-    @State private var hasOpenAIKey = Keychain.hasKey(account: Keychain.openAIAccount)
-    @State private var openAIKey = ""
-    @State private var openAIBase = Settings.openAIBaseURL
-    @State private var openAIModel = Settings.openAIModel
-
-    private var brainFooter: String {
-        switch brain {
-        case .claudeCode: return "Uses the Claude Code on this Mac: your memory notes and connected apps, on your Claude subscription. It can do things for you, always with your OK."
-        case .free: return "Mercury's free AI answers through Mercury's own small server, which passes your message and any screenshot on to Claude and doesn't store them. It answers and looks at your screen, but can't do things on your Mac."
-        case .openai: return "Uses your own key with OpenAI or a service that works the same way. It answers and looks at your screen, but can't do things on your Mac; that needs Claude Code."
-        case .api: return "Uses Claude directly with your Anthropic key. Faster to start, but it doesn't know your memory or connected apps and can't take actions."
-        }
-    }
+    @AppStorage("assistantBrain") private var brainRaw = ""
+    private var brain: AssistantBrain { Settings.assistantBrain }
     @State private var move = Settings.assistantMove
     @State private var choice = Settings.assistantModel
     @State private var hasKey = Keychain.hasKey
     @State private var apiKey = ""
     @State private var keepDays = Settings.chatKeepDays
-    @State private var aboutMe = AboutMe.load()
-    @State private var aboutSaved = false
     @ObservedObject private var keys = ShortcutCenter.shared
 
     var body: some View {
@@ -904,57 +890,8 @@ struct AssistantPage: View {
             PageHeader(title: "Assistant", subtitle: "Press \(keys.label(.assist)) anywhere. Mercury sees your screen, can hear your call, and Claude helps as it happens.") {
                 PrimaryButton(title: "Open", icon: "sparkles") { model.onAssist?() }
             }
-            SettingsGroup(title: "Brain", footer: brainFooter) {
-                SettingRow(title: "Answer with", divider: brain == .claudeCode || brain == .openai || brain == .free) {
-                    SwiftUI.Picker("", selection: $brain) { ForEach(AssistantBrain.allCases) { Text($0.title).tag($0) } }
-                        .labelsHidden().frame(width: 230)
-                        .onChange(of: brain) { Settings.assistantBrain = brain }
-                }
-                if brain == .free {
-                    SettingRow(title: "Free messages", subtitle: "40 a day on this Mac, reset at midnight UTC. No account needed.", divider: false) {
-                        Text(FreeAI.remaining.map { "\($0) left today" } ?? "").foregroundStyle(.secondary)
-                    }
-                }
-                if brain == .openai {
-                    SettingRow(title: "Key", subtitle: hasOpenAIKey ? "Saved in your Keychain." : "From platform.openai.com (needs credit), or a free Gemini key from aistudio.google.com. A ChatGPT Plus plan isn't a key.") {
-                        if hasOpenAIKey {
-                            SecondaryButton(title: "Remove") { Keychain.setKey(nil, account: Keychain.openAIAccount); hasOpenAIKey = false }
-                        } else {
-                            HStack(spacing: 8) {
-                                SecureField("sk-…", text: $openAIKey).textFieldStyle(.roundedBorder).frame(width: 200)
-                                PrimaryButton(title: "Save") {
-                                    Keychain.setKey(openAIKey.trimmingCharacters(in: .whitespacesAndNewlines), account: Keychain.openAIAccount)
-                                    openAIKey = ""; hasOpenAIKey = Keychain.hasKey(account: Keychain.openAIAccount)
-                                }
-                                .disabled(openAIKey.trimmingCharacters(in: .whitespaces).isEmpty)
-                            }
-                        }
-                    }
-                    SettingRow(title: "Service address", subtitle: "Leave empty for OpenAI. Gemini keys are set up on their own. Or use another that works like OpenAI, like Grok, DeepSeek, OpenRouter, or Ollama on this Mac.") {
-                        TextField("https://api.openai.com/v1", text: $openAIBase).textFieldStyle(.roundedBorder).frame(width: 240)
-                            .onSubmit { Settings.openAIBaseURL = openAIBase }.onChange(of: openAIBase) { Settings.openAIBaseURL = openAIBase }
-                    }
-                    SettingRow(title: "Model", subtitle: "Pick one that can see pictures, so it can read your screen. Leave empty for a good default.", divider: false) {
-                        TextField("gpt-5-mini", text: $openAIModel).textFieldStyle(.roundedBorder).frame(width: 240)
-                            .onChange(of: openAIModel) { Settings.openAIModel = openAIModel }
-                    }
-                }
-                if brain == .claudeCode {
-                    if ClaudeCodeSession.binary == nil {
-                        SettingRow(title: "Claude Code isn't installed", subtitle: "Install it from claude.com/claude-code.", divider: false) {
-                            SecondaryButton(title: "Open", icon: "arrow.up.right") { NSWorkspace.shared.open(URL(string: "https://claude.com/claude-code")!) }
-                        }
-                    } else {
-                        SettingRow(title: "Sign in once", subtitle: "In Terminal run claude, type /login and sign in with your Claude account. Mercury then uses that sign-in.", divider: false) {
-                            HStack(spacing: 8) {
-                                SecondaryButton(title: "Copy command", icon: "doc.on.doc") { copy("claude") }
-                                SecondaryButton(title: "Terminal", icon: "terminal") {
-                                    NSWorkspace.shared.open(URL(fileURLWithPath: "/System/Applications/Utilities/Terminal.app"))
-                                }
-                            }
-                        }
-                    }
-                }
+            SettingsGroup(title: "Brain", footer: "Which AI Mercury answers with. Only Claude, through Claude Code, can do things on your Mac; the others answer and look at your screen.") {
+                BrainSetup().padding(16)
             }
             SettingsGroup(title: "Claude", footer: brain == .claudeCode ? "The API key is only needed for the reel editor chat, AI polish, and the API-key-only brain." : "One API key for everything in Mercury (assistant, reel editor, AI polish). It stays in your Mac's Keychain. Usage is billed to your Anthropic account, separately from a Claude.ai subscription.") {
                 SettingRow(title: "Model", subtitle: choice.detail + (choice == .fast ? ", quickest replies" : choice == .smart ? ", best for hard problems" : ", quick and capable")) {
@@ -1020,6 +957,7 @@ struct AssistantPage: View {
                     }
                 }
             }
+            BehaviourSettings()
             SettingsGroup(title: "Keys", footer: "Move and ask keys only work while the panel is open. Esc hides it, and you can drag the bar too. Click a shortcut to change it.") {
                 SettingRow(title: "Show or hide") { ShortcutField(.assist) }
                 SettingRow(title: "Talk to it", subtitle: "Opens it and listens. Stop talking and it asks. Say yes or no to approve.") { ShortcutField(.assistVoice) }
@@ -1106,32 +1044,6 @@ struct AssistantPage: View {
                         if a.runModal() == .alertFirstButtonReturn { ChatStore.deleteAll() }
                     }
                 }
-            }
-            SettingsGroup(title: "What Mercury knows about you", footer: "Using ChatGPT or another assistant? Copy the prompt, paste it there, then paste its answer here. It's saved only on this Mac (readable by your account alone) and sent with your questions so Mercury already knows you. With Claude Code, Mercury also uses your Claude memory.") {
-                SettingRow(title: "1. Ask your other assistant", subtitle: "Copies a short prompt to paste into ChatGPT, Gemini or similar.") {
-                    SecondaryButton(title: "Copy prompt", icon: "doc.on.doc") { copy(AboutMe.exportPrompt) }
-                }
-                VStack(alignment: .leading, spacing: 8) {
-                    Text("2. Paste its answer").font(.system(size: 13, weight: .medium))
-                    ZStack(alignment: .topLeading) {
-                        TextEditor(text: $aboutMe).font(.system(size: 13)).scrollContentBackground(.hidden).padding(6)
-                            .frame(minHeight: 110, maxHeight: 220)
-                            .background(RoundedRectangle(cornerRadius: 8).fill(Palette.canvas))
-                            .overlay(RoundedRectangle(cornerRadius: 8).stroke(Palette.border))
-                        if aboutMe.isEmpty {
-                            Text("• My name is…\n• I study… / I work as…").font(.system(size: 13)).foregroundStyle(Palette.subtle)
-                                .padding(.horizontal, 11).padding(.vertical, 8).allowsHitTesting(false)
-                        }
-                    }
-                    HStack {
-                        if aboutSaved { Label("Saved on this Mac", systemImage: "checkmark.circle.fill").font(.system(size: 12)).foregroundStyle(.green) }
-                        Spacer()
-                        Button("Forget it") { aboutMe = ""; AboutMe.save(""); aboutSaved = false }.buttonStyle(.plain)
-                            .font(.system(size: 12.5)).foregroundStyle(Palette.subtle).disabled(aboutMe.isEmpty)
-                        PrimaryButton(title: "Save") { AboutMe.save(aboutMe); aboutSaved = true }
-                    }
-                }
-                .padding(.horizontal, 16).padding(.vertical, 12)
             }
             SettingsGroup(title: "Listening", footer: "Only when you turn on Listen in the panel, and a red dot shows while it's on. Sound is transcribed on this Mac and never uploaded; only the recent text goes to Claude when you ask.") {
                 SettingRow(title: "Listen hears your Mac's sound", subtitle: "The other people on a call or meeting, or a video you're watching. Not your microphone.") { Image(systemName: "speaker.wave.2").foregroundStyle(Palette.subtle) }

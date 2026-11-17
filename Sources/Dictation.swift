@@ -112,7 +112,7 @@ final class SpeechSession: NSObject, AVCaptureAudioDataOutputSampleBufferDelegat
     }
 
     private static func recognizer() -> SFSpeechRecognizer? {
-        SFSpeechRecognizer(locale: Locale.current) ?? SFSpeechRecognizer(locale: Locale(identifier: "en-US"))
+        Languages.appleRecognizer()
     }
 
     func start(hints: [String]) throws {

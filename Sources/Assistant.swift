@@ -103,6 +103,14 @@ final class AssistantModel: ObservableObject {
         var reactionsTold = false
         var at = Date()
         var replyTo: ChatReply? = nil
+        /// Several messages replied to at once, each with its own question.
+        var replies: [ChatReply] = []
+        /// What you asked, including the questions under each message, for the brains that need history as text.
+        @MainActor var fullQuestion: String {
+            guard !replies.isEmpty else { return question }
+            let asks = replies.enumerated().map { "\($0.offset + 1). About \"\(ReplyQuote.preview($0.element.text).prefix(80))\": \($0.element.ask ?? "tell me more")" }
+            return (asks + (question.isEmpty ? [] : [question])).joined(separator: "\n")
+        }
     }
 
     @Published var exchanges: [Exchange] = []
@@ -123,7 +131,12 @@ final class AssistantModel: ObservableObject {
     @Published var controllingMac = false
     var onControllingChange: (Bool) -> Void = { _ in }
     /// The message your next text will reply to.
-    @Published var replyingTo: ChatReply?
+    /// The messages you're replying to. One works like a normal reply; several each get a question of their own.
+    @Published var replies: [ChatReply] = []
+    var replyingTo: ChatReply? {
+        get { replies.first }
+        set { replies = newValue.map { [$0] } ?? [] }
+    }
     /// The size you've made the panel. Nil means it grows to fit the conversation.
     @Published var panelSize: CGSize?
     @Published var panelFull = false
@@ -173,7 +186,7 @@ final class AssistantModel: ObservableObject {
         replyingTo = nil
         exchanges = c.turns.map {
             Exchange(question: $0.question, answer: $0.answer, withScreen: $0.withScreen, activity: nil,
-                     reactions: $0.reactions, reactionsTold: true, at: $0.at, replyTo: $0.replyTo)
+                     reactions: $0.reactions, reactionsTold: true, at: $0.at, replyTo: $0.replyTo, replies: $0.replies ?? [])
         }
         session.switchTo(c.claudeSession)
     }
@@ -181,7 +194,8 @@ final class AssistantModel: ObservableObject {
     /// Saves the chat on screen (only finished answers).
     func persist() {
         let turns = exchanges.filter { !$0.answer.isEmpty }.map {
-            ChatRecord.Turn(question: $0.question, answer: $0.answer, withScreen: $0.withScreen, at: $0.at, reactions: $0.reactions, replyTo: $0.replyTo)
+            ChatRecord.Turn(question: $0.question, answer: $0.answer, withScreen: $0.withScreen, at: $0.at, reactions: $0.reactions, replyTo: $0.replyTo,
+                            replies: $0.replies.isEmpty ? nil : $0.replies)
         }
         guard !turns.isEmpty else { return }
         chat.turns = turns
@@ -267,19 +281,23 @@ final class AssistantModel: ObservableObject {
             spokenOrTyped(q)
             return
         }
-        guard !q.isEmpty, !thinking else { return }
+        // Several replied to messages can go on their own: their questions are the message.
+        guard !q.isEmpty || replies.count > 1, !thinking else { return }
         if preset == nil { input = "" }
         // The drill timer's laps go on the end of what you typed; untouched if it never started.
         if preset == nil, let laps = drill.takeSummary() { q += "\n\n" + laps }
         error = nil
         thinking = true
-        let reply = replyingTo
-        replyingTo = nil
+        let picked = replies
+        replies = []
+        let reply = picked.count == 1 ? picked.first : nil
         // Mercury is told which message you mean; only the quote shows in the chat.
-        let replyNote = reply.map { "(I'm replying to \($0.mine ? "something I said earlier" : "this message of yours"): \"\($0.text.prefix(1500))\")\n\n" } ?? ""
+        var replyNote = reply.map { "(I'm replying to \($0.mine ? "something I said earlier" : "this message of yours"): \"\($0.text.prefix(1500))\")\n\n" } ?? ""
+        if picked.count > 1 { replyNote = Self.multiReplyNote(picked, more: q) }
         let note = contextNote() + replyNote
-        let history = exchanges.map { AssistantClient.Turn(question: $0.question, answer: $0.answer) }
-        exchanges.append(Exchange(question: q, answer: "", withScreen: seeScreen, activity: seeScreen ? "Looking at your screen…" : "Thinking…", replyTo: reply))
+        let history = exchanges.map { AssistantClient.Turn(question: $0.fullQuestion, answer: $0.answer) }
+        exchanges.append(Exchange(question: q, answer: "", withScreen: seeScreen, activity: seeScreen ? "Looking at your screen…" : "Thinking…",
+                                  replyTo: reply, replies: picked.count > 1 ? picked : []))
         let index = exchanges.count - 1
         let transcript = listener.recent()
         let screen = seeScreen
@@ -330,12 +348,35 @@ final class AssistantModel: ObservableObject {
         return (about.isEmpty ? "" : about.trimmingCharacters(in: .newlines) + "\n\n") + (notes.isEmpty ? "" : "(" + notes.joined(separator: " ") + ")\n\n")
     }
 
-    /// Starts a reply to one message. The next thing you send is tied to it.
+    /// Adds a message to what you're replying to. The first works like a normal reply; swiping more stacks them,
+    /// each with a line for its own question, and one Send asks about all of them.
     func reply(to text: String, exchange id: UUID, part: Int?) {
         guard let n = exchanges.firstIndex(where: { $0.id == id }) else { return }
-        replyingTo = ChatReply(text: text, mine: part == nil, exchange: n, part: part)
         cardOpen = true
-        focusInput()
+        defer { focusInput() }
+        if replies.contains(where: { $0.exchange == n && $0.part == part }) { return }
+        // Going from one to two: what you'd typed was about the first message, so it moves under it.
+        if replies.count == 1, (replies[0].ask ?? "").isEmpty {
+            let typed = input.trimmingCharacters(in: .whitespacesAndNewlines)
+            if !typed.isEmpty { replies[0].ask = typed; input = "" }
+        }
+        replies.append(ChatReply(text: text, mine: part == nil, exchange: n, part: part))
+        if replies.count > 6 { replies.removeFirst() }
+    }
+
+    func removeReply(_ r: ChatReply) {
+        replies.removeAll { $0.exchange == r.exchange && $0.part == r.part }
+    }
+
+    /// What Mercury is told when you reply to several messages at once.
+    static func multiReplyNote(_ picked: [ChatReply], more: String) -> String {
+        var lines = ["(I'm replying to \(picked.count) messages from above at once. Answer each one in order, starting each answer with a short bold label saying which message it's about. Where I didn't write a question, go deeper on that message.)"]
+        for (i, r) in picked.enumerated() {
+            let ask = (r.ask ?? "").trimmingCharacters(in: .whitespacesAndNewlines)
+            lines.append("\(i + 1). \(r.mine ? "Something I said" : "Your message"): \"\(r.text.prefix(800))\"" + (ask.isEmpty ? "" : "\n   My question: \(ask)"))
+        }
+        if !more.isEmpty { lines.append("Then, after those:") }
+        return lines.joined(separator: "\n") + "\n\n"
     }
 
     func toggleReaction(_ emoji: String, exchange id: UUID, part: Int) {

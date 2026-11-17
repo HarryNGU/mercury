@@ -38,6 +38,8 @@ private struct SampleHandoff: @unchecked Sendable { let buffer: CMSampleBuffer }
 
 struct RecordError: LocalizedError {
     let message: String
+    /// The window or tab couldn't be seen, so the message offers to record the whole screen instead.
+    var offerScreen = false
     var errorDescription: String? { message }
 }
 
@@ -68,6 +70,9 @@ final class Recorder: NSObject, SCStreamOutput, SCStreamDelegate, @unchecked Sen
         set { mic.onLevel = newValue }
     }
     var onError: ((Error) -> Void)?
+    /// A window or tab recording has had no picture for a few seconds (the window is on a Space you aren't
+    /// looking at, such as a full screen Chrome you swiped away from). Called on the main thread.
+    var onNoPicture: ((RecordError) -> Void)?
 
     /// The region being recorded in AppKit screen coordinates (used to place the camera bubble).
     private(set) var recordedRect: NSRect?
@@ -78,10 +83,21 @@ final class Recorder: NSObject, SCStreamOutput, SCStreamDelegate, @unchecked Sen
     /// Blurs passwords, emails, card numbers and the like as they're recorded (Settings → Recording).
     private var redactor: Redactor?
     private var overlays: [Int] = []
+    /// Frames ScreenCaptureKit sent, by status (writer queue). Logged at the end so a recording that came out
+    /// empty says why: no frames at all, or only idle, blank or suspended ones.
+    private var frameCounts: [String: Int] = [:]
+    /// Window or tab recordings only: the settings in use, the top inset, and whether the stream has switched to
+    /// capturing the window by itself (which loses the camera bubble but works even when the window is covered).
+    private var windowConfig: (cfg: SCStreamConfiguration, inset: CGFloat)?
+    private var capturingWindowDirectly = false
+    /// Writer queue copy of "this is a window or tab recording", for the message when nothing was captured.
+    private var recordsWindow = false
 
     @MainActor func start(source: CaptureSource, excluding: [Int], bubble: [Int], mic useMic: Bool,
-               noiseSuppression: Bool, systemAudio: Bool) async throws {
+               noiseSuppression: Bool, systemAudio: Bool, folder: URL = Settings.folder) async throws {
         windowTarget = nil
+        windowConfig = nil
+        capturingWindowDirectly = false
         overlays = []
         let content = try await SCShareableContent.excludingDesktopWindows(false, onScreenWindowsOnly: true)
         let windowsByNumber = { (ns: [Int]) in content.windows.filter { ns.contains(Int($0.windowID)) } }
@@ -182,7 +198,7 @@ final class Recorder: NSObject, SCStreamOutput, SCStreamDelegate, @unchecked Sen
         // Writer
         let fmt = DateFormatter()
         fmt.dateFormat = "yyyy-MM-dd 'at' HH.mm.ss"
-        let url = Settings.folder.appendingPathComponent("Mercury \(fmt.string(from: Date())).mp4")
+        let url = folder.appendingPathComponent("Mercury \(fmt.string(from: Date())).mp4")
         let writer = try AVAssetWriter(outputURL: url, fileType: .mp4)
         // Written in 10 second pieces, so if finishing ever fails (a long pause, a crash, the Mac losing power)
         // everything up to the last piece is still a playable video instead of a lost one.
@@ -217,7 +233,9 @@ final class Recorder: NSObject, SCStreamOutput, SCStreamDelegate, @unchecked Sen
         let sysIn = systemAudio ? audioInput(channels: 2) : nil
         guard writer.startWriting() else { throw writer.error ?? RecordError(message: "Could not create the video file.") }
 
+        let recordsWindow = windowTarget != nil
         queue.sync {
+            self.recordsWindow = recordsWindow
             self.writer = writer
             self.videoIn = videoIn
             self.micIn = micIn
@@ -228,6 +246,7 @@ final class Recorder: NSObject, SCStreamOutput, SCStreamDelegate, @unchecked Sen
             self.micNext = .invalid
             self.lastRaw = nil
             self.lastVideoPTS = .invalid
+            self.frameCounts = [:]
             self.redactor = Settings.blurPrivate ? Redactor(queue: queue) : nil
             self.redactor?.onNewFinds = { [weak self] in self?.rewriteStill() }
         }
@@ -254,14 +273,63 @@ final class Recorder: NSObject, SCStreamOutput, SCStreamDelegate, @unchecked Sen
         self.stream = stream
 
         log("recording \(source.label) at \(width)×\(height), \(bitrate / 1000) kbps → \(url.lastPathComponent)")
+        if let t = windowTarget {
+            var inset: CGFloat = 0
+            if case .croppedWindow(_, let i, _) = source { inset = i }
+            windowConfig = (cfg, inset)
+            log("window \(t.window.windowID) at \(Int(t.window.frame.width))×\(Int(t.window.frame.height)) pt, on the screen you're looking at: \(Self.isOnScreen(t.window.windowID))")
+            DispatchQueue.main.asyncAfter(deadline: .now() + 3) { [weak self] in self?.checkPicture(stream, attempt: 1) }
+        }
     }
+
+    /// Whether a window is on the Space you're looking at. A window on another Space (a full screen app you
+    /// swiped away from, another desktop) gives ScreenCaptureKit nothing to record: no frames and no error.
+    static func isOnScreen(_ id: CGWindowID) -> Bool {
+        let info = CGWindowListCopyWindowInfo([.optionIncludingWindow], id) as? [[String: Any]]
+        return info?.first?[kCGWindowIsOnscreen as String] as? Bool ?? false
+    }
+
+    /// A few seconds into a window or tab recording, make sure pictures are arriving. If the window is on the
+    /// screen but nothing came, capture the window by itself instead; if it isn't on the screen, or that didn't
+    /// help either, say so now rather than at the end with an empty video.
+    @MainActor private func checkPicture(_ started: SCStream, attempt: Int) {
+        guard let stream, stream === started, let t = windowTarget else { return }
+        let (gotPicture, counts) = queue.sync { (sessionStarted, frameCounts) }
+        guard !gotPicture else { return }
+        let id = t.window.windowID
+        let onScreen = Self.isOnScreen(id)
+        log("no picture \(attempt * 3) s into the window recording: window \(id) on screen \(onScreen), frames so far \(counts)")
+        if onScreen, attempt == 1, let wc = windowConfig {
+            capturingWindowDirectly = true
+            let f = t.window.frame
+            var r = CGRect(origin: .zero, size: f.size)
+            if wc.inset < f.height - 50 { r.origin.y = wc.inset; r.size.height -= wc.inset }
+            wc.cfg.sourceRect = r
+            Task { @MainActor in
+                do {
+                    try await stream.updateConfiguration(wc.cfg)
+                    try await stream.updateContentFilter(SCContentFilter(desktopIndependentWindow: t.window))
+                    log("now capturing window \(id) by itself")
+                } catch { log("couldn't capture the window by itself: \(error)") }
+                DispatchQueue.main.asyncAfter(deadline: .now() + 3) { [weak self] in self?.checkPicture(started, attempt: 2) }
+            }
+            return
+        }
+        onNoPicture?(Self.cantSeeWindow)
+    }
+
+    static let cantSeeWindow = RecordError(message: """
+        Nothing was recorded. This happens when the window is on a different Space \
+        from the one on screen, for example a full screen Chrome window you swiped away from, or one that \
+        moved to its own Space. Recording the whole screen always works, wherever you go.
+        """, offerScreen: true)
 
     private var micRestarting = false
 
     /// Adds Mercury's own panels (Ask Mercury) to a window or tab recording, or takes them out again.
     /// Screen, area and app recordings follow each window's own sharing setting instead.
     @MainActor func setOverlays(_ numbers: [Int]) {
-        guard let stream, let t = windowTarget, numbers != overlays else { return }
+        guard let stream, let t = windowTarget, !capturingWindowDirectly, numbers != overlays else { return }
         overlays = numbers
         Task {
             let content = try? await SCShareableContent.excludingDesktopWindows(false, onScreenWindowsOnly: true)
@@ -283,6 +351,8 @@ final class Recorder: NSObject, SCStreamOutput, SCStreamDelegate, @unchecked Sen
     }
 
     func stallMicForTesting() { mic.stallForTesting() }
+    /// Test only: act as if no picture ever arrives, the way a window on another Space behaves. Set before start.
+    var dropsFramesForTesting = false
 
     @MainActor func stop(discarding: Bool) async {
         if let r = queue.sync(execute: { redactor }) { log("blur: \(r.spotted) private detail\(r.spotted == 1 ? "" : "s") blurred") }
@@ -385,8 +455,10 @@ final class Recorder: NSObject, SCStreamOutput, SCStreamDelegate, @unchecked Sen
         guard sb.isValid, let writer, writer.status == .writing else { return }
         switch type {
         case .screen:
-            guard let info = CMSampleBufferGetSampleAttachmentsArray(sb, createIfNecessary: false) as? [[SCStreamFrameInfo: Any]],
-                  let raw = info.first?[.status] as? Int, SCFrameStatus(rawValue: raw) == .complete else { return }
+            let info = CMSampleBufferGetSampleAttachmentsArray(sb, createIfNecessary: false) as? [[SCStreamFrameInfo: Any]]
+            let status = (info?.first?[.status] as? Int).flatMap(SCFrameStatus.init(rawValue:))
+            frameCounts[status.map(Self.name) ?? "unknown", default: 0] += 1
+            guard status == .complete, !dropsFramesForTesting else { return }
             if !sessionStarted {
                 let pts = CMSampleBufferGetPresentationTimeStamp(sb)
                 writer.startSession(atSourceTime: pts)
@@ -412,8 +484,22 @@ final class Recorder: NSObject, SCStreamOutput, SCStreamDelegate, @unchecked Sen
         }
     }
 
+    private static func name(_ s: SCFrameStatus) -> String {
+        switch s {
+        case .complete: return "complete"
+        case .idle: return "idle"
+        case .blank: return "blank"
+        case .suspended: return "suspended"
+        case .started: return "started"
+        case .stopped: return "stopped"
+        @unknown default: return "other"
+        }
+    }
+
     private func finishWriting(discarding: Bool, then done: @escaping () -> Void) {
         guard let writer else { done(); return }
+        let recordsWindow = self.recordsWindow
+        log("frames received: \(frameCounts.isEmpty ? "none" : frameCounts.sorted { $0.key < $1.key }.map { "\($0.value) \($0.key)" }.joined(separator: ", "))")
         let url = writer.outputURL
         let hadSystemAudio = sysIn != nil && micIn != nil
         if sessionStarted, writer.status == .writing {
@@ -463,7 +549,7 @@ final class Recorder: NSObject, SCStreamOutput, SCStreamDelegate, @unchecked Sen
             try? FileManager.default.removeItem(at: url)
             DispatchQueue.main.async {
                 if discarding { self.onFinish?(nil) }
-                else { self.onError?(RecordError(message: "Nothing was captured. Is the window visible on screen?")) }
+                else { self.onError?(recordsWindow ? Self.cantSeeWindow : RecordError(message: "Nothing was captured. Try recording again.")) }
             }
             done()
         }

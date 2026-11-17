@@ -379,8 +379,8 @@ final class WhisperServer: @unchecked Sendable {
     func warmUp() {
         guard available, process?.isRunning != true, let bin = serverBinary else { return }
         port = Int.random(in: 52_000...59_000)
-        // Short bursts of speech are too little to detect a language from, so "work it out" means the Mac's.
-        let lang = Settings.speechLanguage == "auto" ? (Locale.current.language.languageCode?.identifier ?? "en") : Settings.speechLanguage
+        // The languages you speak (Settings, Assistant); see Languages.whisperCode.
+        let lang = Languages.whisperCode
         let args = [bin.path, "-m", Whisper.modelURL.path, "--host", "127.0.0.1", "--port", "\(port)", "--request-path", "/\(secret)",
                     "-t", "\(max(4, ProcessInfo.processInfo.activeProcessorCount - 2))", "-l", lang, "-nt"]
         // The server holds about 600 MB, so it must never outlive Mercury, even if Mercury crashes or is

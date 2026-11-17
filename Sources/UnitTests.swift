@@ -29,6 +29,7 @@ enum UnitTests {
         reportFolder()
         openAIAddress()
         snippets()
+        actionPrompt()
         for f in failures { log("unittests: FAIL \(f)") }
         log("unittests: \(passed) passed, \(failures.count) failed")
         print("unittests: \(passed) passed, \(failures.count) failed")
@@ -38,6 +39,39 @@ enum UnitTests {
 
     private static func check<T: Equatable>(_ name: String, _ got: T, _ want: T) {
         if got == want { passed += 1 } else { failures.append("\(name): got \(got), want \(want)") }
+    }
+
+    // MARK: Claude Code's rules
+
+    private static func actionPrompt() {
+        let p = ClaudeCodeSession.overlayPrompt
+        check("safety floor comes first", p.hasPrefix("Mercury's safety rules."), true)
+        check("prepare_message is the default", p.contains("prepare_message tool is the default"), true)
+        check("fallback only on a clear send", p.contains("Only when the user clearly says to send it for them"), true)
+        if HandsOn.current == .balanced {
+            let messaging = p.range(of: "Messaging:")?.lowerBound, finding = p.range(of: "Finding a way:")?.lowerBound
+            check("finding a way comes after messaging", messaging != nil && finding != nil && messaging! < finding!, true)
+        }
+        check("no stray backslashes", p.contains("\\"), false)
+        check("free AI gets the floor first", AssistantClient.answerOnlySystem.hasPrefix("Mercury's safety rules."), true)
+        check("free AI floor survives its length cap", String(AssistantClient.answerOnlySystem.prefix(12_000)).contains("say so in one short line."), true)
+        check("suggest only never sends", HandsOn.suggest.prompt.contains("never send it yourself"), true)
+        check("go for it keeps finding a way", HandsOn.goForIt.prompt.hasPrefix("Finding a way:"), true)
+        check("balanced is finding a way", HandsOn.balanced.prompt, HandsOn.findingAWay)
+        // Languages
+        let w = Languages.whisperCode
+        _ = w
+        check("only English", Languages.whisperCode(spoken: ["en"], fallback: "auto", mac: "en"), "en")
+        check("English and Vietnamese listens for both", Languages.whisperCode(spoken: ["en", "vi"], fallback: "auto", mac: "en"), "auto")
+        check("only Vietnamese", Languages.whisperCode(spoken: ["vi"], fallback: "auto", mac: "en"), "vi")
+        check("two others", Languages.whisperCode(spoken: ["vi", "zh"], fallback: "auto", mac: "en"), "auto")
+        check("not set uses the Mac", Languages.whisperCode(spoken: [], fallback: "auto", mac: "fr"), "fr")
+        check("not set keeps the old choice", Languages.whisperCode(spoken: [], fallback: "vi", mac: "en"), "vi")
+        check("language names", Languages.name("vi"), "Vietnamese")
+        typealias B = RichAnswer.Block
+        check("remember line becomes a chip", RichAnswer.blocks("Nice.\n\n[[remember: I teach Year 9 science]]"), [B.prose("Nice."), B.remember("I teach Year 9 science")])
+        check("every brain is asked to offer remembering", AssistantClient.answerOnlySystem.contains("[[remember:"), true)
+        check("Claude Code is asked too", ClaudeCodeSession.overlayPrompt.contains("[[remember:"), true)
     }
 
     // MARK: Snippets
@@ -71,6 +105,18 @@ enum UnitTests {
         check("OpenRouter", e("https://openrouter.ai/api/v1"), "https://openrouter.ai/api/v1/chat/completions")
         check("Ollama without http", e("localhost:11434/v1"), "http://localhost:11434/v1/chat/completions")
         check("not an address", e("https://"), "nil")
+        check("OpenAI key in the address box means OpenAI", e("sk-proj-AbC123xyz"), openai)
+        check("Gemini key in the address box means OpenAI", e("AQ.Ab8RN6Kexample"), openai)
+        check("address without a dot refused", e("https://nothing/v1"), "nil")
+        check("key spotted", Settings.looksLikeKey("sk-proj-Example1"), true)
+        check("address isn't a key", Settings.looksLikeKey("https://openrouter.ai/api/v1"), false)
+        check("local address isn't a key", Settings.looksLikeKey("localhost:11434/v1"), false)
+        check("OpenAI key belongs to ChatGPT", AIService.spot(key: "sk-proj-abc"), .chatgpt)
+        check("Claude key spotted", AIService.spot(key: "sk-ant-api03-abc"), .claude)
+        check("Gemini key spotted by service", AIService.spot(key: "AQ.Ab8"), .gemini)
+        check("OpenRouter key spotted", AIService.spot(key: "sk-or-v1-abc"), .openrouter)
+        check("Grok key spotted", AIService.spot(key: "xai-abc"), .grok)
+        check("ChatGPT keeps the old Keychain place", AIService.chatgpt.keyAccount, Keychain.openAIAccount)
         check("new Gemini key spotted", GeminiClient.isGemini(key: "AQ.example", base: ""), true)
         check("old Gemini key spotted", GeminiClient.isGemini(key: "AIzaTest", base: ""), true)
         check("OpenAI key isn't Gemini", GeminiClient.isGemini(key: "sk-proj-test", base: "https://api.openai.com/v1"), false)

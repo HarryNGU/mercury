@@ -157,6 +157,18 @@ enum StudioTests {
             NSApp.terminate(nil)
             return true
         }
+        if args.contains("--notabtest") {
+            // The recorder's check for a window or tab recording that gets no picture, on Mercury's own window only.
+            Task { @MainActor in await CaptureProbe.noPictureTest(); NSApp.terminate(nil) }
+            return true
+        }
+        if args.contains("--capturetest") {
+            // Checks how screen capture behaves for a window that is visible, off every display, or hidden part
+            // way through, with the two kinds of filter the recorder can use. Uses only its own nearly invisible
+            // windows, never anything of yours, and keeps no pictures: it only counts the frames.
+            Task { @MainActor in await CaptureProbe.run(); NSApp.terminate(nil) }
+            return true
+        }
         if args.contains("--redacttest") {
             // Made up 1440x900 frames, the second half showing a fake email address, fed through the blur
             // at 60 frames a second the way the recorder does. Checks no frame waits for the text reading
@@ -398,6 +410,17 @@ enum StudioTests {
             }
             return true
         }
+        if args.contains("--speechcheck") {
+            // Which recogniser live speech would use with your language choices, and whether it runs on device.
+            // Reads settings only; listens to nothing.
+            let r = Languages.appleRecognizer()
+            log("speechcheck: spoken \(Languages.spoken), apple \(r?.locale.identifier ?? "none"), on device \(r?.supportsOnDeviceRecognition ?? false), whisper \(Languages.whisperCode)")
+            Task { @MainActor in
+                log("speechcheck: dictation says \(await SpeechSession.checkAvailability() ?? "ready")")
+                NSApp.terminate(nil)
+            }
+            return true
+        }
         if args.contains("--openaitest") {
             // Asks the OpenAI brain through whatever -openAIBaseURL is passed (a fake local server in tests).
             // Launch arguments don't save, so this touches no settings or chats.
@@ -449,6 +472,25 @@ enum StudioTests {
             NSApp.terminate(nil)
             return true
         }
+        if let i = args.firstIndex(of: "--behaviourshot"), i + 1 < args.count {
+            // The How Mercury behaves, About you and Languages settings, offscreen. Pass made up choices as
+            // -handsOn, -spokenLanguages and -replyLanguage so the real settings are never changed.
+            let view = ScrollView { VStack(alignment: .leading, spacing: 28) { BehaviourSettings() }.padding(28) }
+                .frame(width: 860, height: 1240).background(Palette.canvas)
+            let host = NSHostingView(rootView: view)
+            let w = NSWindow(contentRect: NSRect(x: -30000, y: -30000, width: 860, height: 1240), styleMask: [.borderless], backing: .buffered, defer: false)
+            w.appearance = NSAppearance(named: (Settings.d.string(forKey: "windowTheme") ?? "dark") == "light" ? .aqua : .darkAqua)
+            w.contentView = host; w.orderBack(nil)
+            DispatchQueue.main.asyncAfter(deadline: .now() + 1) {
+                host.layoutSubtreeIfNeeded()
+                if let rep = host.bitmapImageRepForCachingDisplay(in: host.bounds) {
+                    host.cacheDisplay(in: host.bounds, to: rep)
+                    try? rep.representation(using: .png, properties: [:])?.write(to: URL(fileURLWithPath: args[i + 1]))
+                }
+                NSApp.terminate(nil)
+            }
+            return true
+        }
         if args.contains("--freesendtest") {
             // One live free AI question (uses one free message) to check it writes a ```send block when asked to
             // message someone. Touches no chats or settings.
@@ -470,6 +512,10 @@ enum StudioTests {
             model.seeScreen = false
             model.exchanges = [AssistantModel.Exchange(question: "message the one I'm chatting with \"em đang nhắn bằng mercury nè\"",
                 answer: "Here it is, ready to go.\n\n```send\nem đang nhắn bằng mercury nè\n```\n\nClick the Aa box in Messenger, then press Send.", withScreen: false, activity: nil)]
+            if args.contains("-withApproval") {
+                model.approval = ClaudeCodeSession.Approval(id: "test", tool: "mcp__gmail__create_label",
+                                                            input: ["displayName": "Startup", "colorPreset": "LABEL_COLOR_PRESET_TEAL"])
+            }
             let host = NSHostingView(rootView: AssistantView(model: model, onClose: {}).frame(width: 700, height: 560, alignment: .top))
             let w = NSWindow(contentRect: NSRect(x: -30000, y: -30000, width: 700, height: 560), styleMask: [.borderless], backing: .buffered, defer: false)
             w.appearance = NSAppearance(named: .darkAqua); w.backgroundColor = NSColor(white: 0.25, alpha: 1)
@@ -495,6 +541,17 @@ enum StudioTests {
                                             replyTo: ChatReply(text: "That comes from the **power rule**: bring the 2 down and drop the power by one.", mine: false, exchange: 0, part: 1))
             model.exchanges = [a, b]
             model.replyingTo = ChatReply(text: "Because of how the limit expands.", mine: false, exchange: 1, part: 0)
+            if args.contains("-multiReply") {
+                // Several messages replied to at once: one already sent, and three stacked up with questions.
+                var sent = AssistantModel.Exchange(question: "", answer: "**The power rule.** Bring the power down.\n\n**The limit.** Expand and cancel.", withScreen: false, activity: nil)
+                sent.replies = [ChatReply(text: "It's 2x.", mine: false, exchange: 0, part: 0, ask: "show me with x cubed"),
+                                ChatReply(text: "Because of how the limit expands.", mine: false, exchange: 1, part: 0, ask: "what limit exactly?")]
+                sent.reactionsTold = true
+                model.exchanges.append(sent)
+                model.replies = [ChatReply(text: "It's 2x.", mine: false, exchange: 0, part: 0, ask: "and for x to the 5?"),
+                                 ChatReply(text: "That comes from the power rule: bring the 2 down and drop the power by one.", mine: false, exchange: 0, part: 1),
+                                 ChatReply(text: "Because of how the limit expands.", mine: false, exchange: 1, part: 0, ask: "show the working")]
+            }
             let host = NSHostingView(rootView: AssistantView(model: model, onClose: {}).frame(width: 700, height: 680, alignment: .top))
             let w = NSWindow(contentRect: NSRect(x: -30000, y: -30000, width: 700, height: 680), styleMask: [.borderless], backing: .buffered, defer: false)
             w.appearance = NSAppearance(named: .darkAqua); w.backgroundColor = NSColor(white: 0.25, alpha: 1)

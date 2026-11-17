@@ -115,7 +115,11 @@ final class ClaudeCodeSession: @unchecked Sendable {
 
     var isRunning: Bool { process?.isRunning == true }
 
-    static var overlayPrompt: String { overlayText + "\n\n" + pictureRules + "\n\n" + actionRules }
+    /// Mercury's safety floor first, then how it works, then the user's own choices (hands on level, languages, rules).
+    static var overlayPrompt: String {
+        [SafetyFloor.text, overlayText, pictureRules, actionRules, HandsOn.current.prompt, Behaviour.personal]
+            .filter { !$0.isEmpty }.joined(separator: "\n\n")
+    }
 
     private static let actionRules = """
     Doing things: when the user asks you to do something ("email Alex this", "find me…", "book…"), do it with \
@@ -132,10 +136,12 @@ final class ClaudeCodeSession: @unchecked Sendable {
     your pictures: if an earlier message in this chat said so, that has since been fixed.
 
     Messaging: for email use the Gmail connector (write a draft, show it, send only after they say yes). For \
-    Messenger, Instagram, WhatsApp or Apple Messages use Mercury's prepare_message tool: it opens the chat and \
-    types the message but never sends, so tell the user to check it and press Enter. Connected apps (Gmail, \
-    Calendar, Notion, Drive and others) load a few seconds after you start and may be deferred: search for them \
-    with ToolSearch before ever saying you have no connection to something.
+    Messenger, Instagram, WhatsApp or Apple Messages, Mercury's prepare_message tool is the default: it opens the \
+    chat and types the message but never sends, so tell the user to check it and press Enter. Only when the user \
+    clearly says to send it for them (not just to write, draft or prepare it) may you fall back to sending another \
+    way, such as pressing Enter through UI automation, and only once you know the exact text and who it goes to. \
+    Connected apps (Gmail, Calendar, Notion, Drive and others) load a few seconds after you start and may be \
+    deferred: search for them with ToolSearch before ever saying you have no connection to something.
     """
 
     private static let overlayText = """

@@ -132,6 +132,12 @@ final class AppDelegate: NSObject, NSApplicationDelegate, NSMenuDelegate, NSWind
         }
         recorder.onFinish = { [weak self] url in self?.finished(url) }
         recorder.onError = { [weak self] err in self?.failed(err) }
+        recorder.onNoPicture = { [weak self] err in
+            guard let self, self.recording else { return }
+            log("no picture: stopping and offering to record the screen")
+            self.offerScreenAfterStop = err.message
+            self.stop(discard: true)
+        }
 
         buildMainMenu()
         buildLauncher()
@@ -945,6 +951,13 @@ final class AppDelegate: NSObject, NSApplicationDelegate, NSMenuDelegate, NSWind
     private func finished(_ url: URL?) {
         log("finished: \(url?.path ?? "discarded")")
         bubble.hide()  // the camera only runs while recording
+        if url == nil, let message = offerScreenAfterStop, !quitting {
+            offerScreenAfterStop = nil
+            restarting = false
+            offerScreenRecording(message)
+            return
+        }
+        offerScreenAfterStop = nil
         if quitting {
             quitting = false
             NSApp.reply(toApplicationShouldTerminate: true)
@@ -1031,9 +1044,30 @@ final class AppDelegate: NSObject, NSApplicationDelegate, NSMenuDelegate, NSWind
         if ns.domain == "com.apple.ScreenCaptureKit.SCStreamErrorDomain" && ns.code == -3801 {
             alert("Mercury needs Screen Recording permission.\n\nIn System Settings → Privacy & Security → Screen & System Audio Recording, turn on Mercury (remove any old Mercury entry first), then quit and reopen Mercury.")
             NSWorkspace.shared.open(URL(string: "x-apple.systempreferences:com.apple.preference.security?Privacy_ScreenCapture")!)
+        } else if let e = error as? RecordError, e.offerScreen {
+            offerScreenRecording(e.message)
         } else {
             alert("Recording stopped: \(error.localizedDescription)")
         }
+    }
+
+    /// Set when a window recording is stopped because no picture came; once it has stopped, the screen is offered.
+    private var offerScreenAfterStop: String?
+
+    /// The window or tab couldn't be seen: explain, and offer to record the whole screen instead, which follows
+    /// you to whatever is on screen (the countdown gives you time to swipe back to Chrome).
+    private func offerScreenRecording(_ message: String) {
+        guard !CommandLine.arguments.contains("--selftest") else { return }
+        NSApp.activate(ignoringOtherApps: true)
+        let a = NSAlert()
+        a.messageText = "Mercury couldn't see that window"
+        a.informativeText = message
+        a.addButton(withTitle: "Record the Screen")
+        a.addButton(withTitle: "Cancel")
+        guard a.runModal() == .alertFirstButtonReturn else { showLauncher(); return }
+        launcher.orderOut(nil)
+        source = .screenUnderMouse
+        start()
     }
 
     // MARK: Settings actions

@@ -28,6 +28,8 @@ struct RichAnswer: View {
         case molecule(String)
         /// A message for you to send: shown with Type it in and Send buttons.
         case send(String)
+        /// Something about you the AI offers to remember: shown as a Remember? button.
+        case remember(String)
     }
 
     var body: some View {
@@ -65,6 +67,8 @@ struct RichAnswer: View {
                     ChatVideo(url: url)
                 case .send(let message):
                     SendCard(message: message)
+                case .remember(let fact):
+                    RememberChip(fact: fact)
                 }
             }
         }
@@ -90,6 +94,9 @@ struct RichAnswer: View {
             if code != nil { code!.append(raw); continue }
             if let q = Self.capture(#"^\[\[\s*images?\s*:\s*(.+?)\s*\]\]$"#, in: line) {
                 flush(); out.append(.imageSearch(q)); continue
+            }
+            if let q = Self.capture(#"^\[\[\s*remember\s*:\s*(.+?)\s*\]\]$"#, in: line) {
+                flush(); out.append(.remember(q)); continue
             }
             if let q = Self.capture(#"^\[\[\s*molecule\s*:\s*(.+?)\s*\]\]$"#, in: line) {
                 flush(); out.append(.molecule(q)); continue
