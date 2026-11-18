@@ -19,16 +19,16 @@ GLYPH = {
 }
 
 NAV = [("index.html#features", "Features"), ("get-started.html", "Get started"), ("security.html", "Safety"), ("faq.html", "FAQ")]
-V = "22"  # bump to refresh cached CSS and JS
+V = "23"  # bump to refresh cached CSS and JS
 
 # Mercury for Windows. The installer is attached to a GitHub release of its own,
 # tagged windows-vX.Y.Z and marked as a pre release so the Mac "latest" link never changes.
-WIN_VERSION = "0.3.0"
+WIN_VERSION = "0.3.1"
 WIN_FILE = f"Mercury-Setup-{WIN_VERSION}.exe"
 WIN_URL = f"{REPO}/releases/download/windows-v{WIN_VERSION}/{WIN_FILE}"
 WIN_SIZE = "124 MB"
-WIN_BYTES = 130427959
-WIN_SHA = "66c266209520a96fc724a513421fa30aeb1826105471227c1ee3cf431765d492"
+WIN_BYTES = 130433558
+WIN_SHA = "8179edde4229698a0d1b1bab095dbe5864a3b812f882f0b3ef36f593ddf61d64"
 
 ICON = {
     "lock": '<svg viewBox="0 0 24 24" fill="none" stroke="#fff" stroke-width="1.9" stroke-linecap="round" stroke-linejoin="round"><rect x="4.5" y="10.5" width="15" height="10" rx="3"/><path d="M8 10.5V7.5a4 4 0 0 1 8 0v3"/></svg>',
@@ -512,7 +512,7 @@ FAQ = head("FAQ", "Questions people ask", "If yours isn't here, ask on GitHub an
     q("Does Mercury record me all the time?", "<p>No. It records only when you start a recording, hears your voice only while you dictate or talk to it, hears your Mac's sound only while Listen is on (a red dot shows), and takes a screenshot only when you ask it something.</p>"),
     q("What does Listen hear?", "<p>Only the sound playing on your Mac: the other people on a call or meeting, or a video you're watching. It doesn't use your microphone. To talk to Mercury yourself, use Talk (⌥⇧\\) or dictation.</p>"),
     q("Can Ask Mercury send messages or emails for me?", "<p>It can prepare them, but it never sends anything on its own. Emails need you to approve them. For Messenger, Instagram, WhatsApp and Messages it opens the chat and types the message, and you press Enter.</p>"),
-    q("Can I use it with ChatGPT or another AI?", "<p>Yes. With no AI account at all, Mercury's free AI gives you 40 messages a day. You can also use your own OpenAI key, or another service that works the same way, like Gemini, Grok, DeepSeek, OpenRouter or Ollama on your own computer. A ChatGPT Plus plan isn't a key: get one at platform.openai.com. With Claude Code on your Mac, Mercury can also do things for you, like drafting emails and saving files, always with your OK. Recording and dictation don't need any AI.</p><p>On Windows it's the same picker: Mercury free, Claude, ChatGPT, Gemini, Grok, OpenRouter, Ollama or another service, and every one of them can do things on your PC with your OK.</p>"),
+    q("Can I use it with ChatGPT or another AI?", "<p>Yes. With no AI account at all, Mercury's free AI gives you 40 messages a day. You can also use your own OpenAI key, or another service that works the same way, like Gemini, Grok, DeepSeek, OpenRouter or Ollama on your own computer. A ChatGPT Plus plan isn't a key: get one at platform.openai.com. With Claude Code on your Mac, Mercury can also do things for you, like drafting emails and saving files, always with your OK. Recording and dictation don't need any AI.</p><p>On Windows it's the same picker: Mercury free, Claude, ChatGPT, Gemini, Grok, OpenRouter, Ollama or another service. You can also use the plan you already pay for instead of a key: your ChatGPT Plus or Pro plan, your Google account, or your Claude Pro or Max plan. With Mercury free or a key, Mercury can do things on your PC with your OK; with a plan, it answers and writes things for you.</p>"),
     q("Does it know my previous Claude chats?", "<p>Through Claude Code it knows your Claude Code memory notes and connected apps. It can't read your chat history from the Claude app or website, because Claude doesn't let other apps do that.</p>"),
     q("Can people tell I'm using Ask Mercury on a call?", "<p>By default, yes: if you share your screen, Mercury's chat shows up in the share and in recordings like any other window. If your chat is private, one switch hides it from every recording and screen share, Mercury's own and Zoom, Meet or Teams alike. Please don't use that to cheat in exams or interviews, and don't record people without telling them.</p>"),
     q("Where are my recordings?", "<p>In <code>Mercury Recordings</code> on your Desktop, and in Mercury's library. Reels are saved in its <code>Reels</code> folder. Nothing is uploaded.</p>"),
